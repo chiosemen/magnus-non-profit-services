@@ -92,13 +92,13 @@ export class SessionManager {
       roles: input.roles,
       permissions: input.permissions,
       clientId: input.clientId,
-      ipAddress: input.ipAddress,
-      userAgent: input.userAgent,
+      ...(input.ipAddress !== undefined ? { ipAddress: input.ipAddress } : {}),
+      ...(input.userAgent !== undefined ? { userAgent: input.userAgent } : {}),
       createdAt: now,
       expiresAt: new Date(now.getTime() + this.ttlSeconds * 1000),
       lastActivityAt: now,
       isActive: true,
-      metadata: input.metadata,
+      ...(input.metadata !== undefined ? { metadata: input.metadata } : {}),
     };
     await this.store.set(this.key(session.id), JSON.stringify(session), this.ttlSeconds);
     await this.addToUserIndex(input.userId, session.id);

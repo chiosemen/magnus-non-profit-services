@@ -5,7 +5,7 @@
 
 import { z } from 'zod';
 import FinancialService from '../../services/FinancialService';
-import { formatCurrency, formatPercentage } from '../../utils/formatters';
+import { formatCurrency } from '../../utils/formatters';
 
 export const getRevenueBreakdownSchema = z.object({
   ein: z.string().min(9).describe('EIN of the nonprofit'),

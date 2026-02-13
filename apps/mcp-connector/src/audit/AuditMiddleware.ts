@@ -13,6 +13,8 @@ export function auditMiddleware(req: Request, res: Response, next: NextFunction)
   const toolName = req.body?.method ?? req.path.split('/').pop() ?? 'unknown';
   const userId = (req as Request & { userId?: string }).userId ?? 'anonymous';
   const orgId = (req as Request & { orgId?: string }).orgId ?? 'unknown';
+  const ipAddress = req.ip;
+  const userAgent = req.headers['user-agent'];
 
   // Log the inbound tool call
   logger.logToolCall({
@@ -22,8 +24,8 @@ export function auditMiddleware(req: Request, res: Response, next: NextFunction)
     params: req.body?.params ?? {},
     timestamp: new Date(),
     requestId: req.headers['x-request-id'] as string ?? `req_${Date.now()}`,
-    ipAddress: req.ip,
-    userAgent: req.headers['user-agent'],
+    ...(ipAddress !== undefined ? { ipAddress } : {}),
+    ...(userAgent !== undefined ? { userAgent } : {}),
   }).catch(console.error);
 
   // Intercept response to log result

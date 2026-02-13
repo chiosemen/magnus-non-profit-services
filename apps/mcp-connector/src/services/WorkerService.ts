@@ -4,9 +4,8 @@
  * Called by: get-multi-org-profile, get-income-summary, get-tax-estimates
  */
 
-import { NotFoundError, DatabaseError } from '../utils/errors';
-import { formatCurrency, formatEIN } from '../utils/formatters';
-import { calculateGrowthRate, calculateCAGR } from '../utils/calculators';
+import { NotFoundError } from '../utils/errors';
+import { formatCurrency } from '../utils/formatters';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -202,6 +201,7 @@ export class WorkerService {
   }
 
   private getSeedOrgs(userId: string): OrgProfile[] {
+    void userId;
     return [
       {
         ein: '12-3456789',

@@ -6,7 +6,8 @@
 // ─── Base Error ───────────────────────────────────────────────────────────────
 
 export class MagnusError extends Error {
-  public readonly code: string;
+  // Not readonly because subclasses specialize error codes (e.g. REQUIRED_FIELD).
+  public code: string;
   public readonly statusCode: number;
   public readonly isOperational: boolean;
   public readonly context?: Record<string, unknown>;
@@ -23,7 +24,7 @@ export class MagnusError extends Error {
     this.code = code;
     this.statusCode = statusCode;
     this.isOperational = isOperational;
-    this.context = context;
+    if (context !== undefined) this.context = context;
     Error.captureStackTrace(this, this.constructor);
   }
 
@@ -92,8 +93,8 @@ export class ValidationError extends MagnusError {
     context?: Record<string, unknown>
   ) {
     super(message, 'VALIDATION_ERROR', 400, true, context);
-    this.field = field;
-    this.value = value;
+    if (field !== undefined) this.field = field;
+    if (value !== undefined) this.value = value;
   }
 }
 
@@ -154,7 +155,7 @@ export class ExternalAPIError extends MagnusError {
       context
     );
     this.service = service;
-    this.originalError = originalError;
+    if (originalError !== undefined) this.originalError = originalError;
   }
 }
 
@@ -309,8 +310,8 @@ export class ComplianceError extends MagnusError {
     context?: Record<string, unknown>
   ) {
     super(message, 'COMPLIANCE_ERROR', 422, true, context);
-    this.filingType = filingType;
-    this.ein = ein;
+    if (filingType !== undefined) this.filingType = filingType;
+    if (ein !== undefined) this.ein = ein;
   }
 }
 
@@ -333,7 +334,7 @@ export class GrantProposalError extends MagnusError {
 
   constructor(message: string, sectionType?: string, context?: Record<string, unknown>) {
     super(message, 'GRANT_PROPOSAL_ERROR', 422, true, context);
-    this.sectionType = sectionType;
+    if (sectionType !== undefined) this.sectionType = sectionType;
   }
 }
 
@@ -355,7 +356,7 @@ export class DatabaseError extends MagnusError {
 
   constructor(message: string, operation?: string, context?: Record<string, unknown>) {
     super(message, 'DATABASE_ERROR', 500, false, context);
-    this.operation = operation;
+    if (operation !== undefined) this.operation = operation;
   }
 }
 

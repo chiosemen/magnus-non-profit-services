@@ -3,8 +3,6 @@
  * Queryable audit reports: tool usage, user activity, anomaly detection
  */
 
-import { formatDateShort } from '../utils/formatters';
-
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface AuditQueryFilters {

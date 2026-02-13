@@ -7,11 +7,9 @@
 import axios, { AxiosInstance } from 'axios';
 import { PlaidAPIError } from '../utils/errors';
 import {
-  calculateGrowthRate,
   calculateVolatility,
   calculateConcentrationRisk,
 } from '../utils/calculators';
-import { formatCurrency, formatPercentage } from '../utils/formatters';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -231,6 +229,7 @@ export class FinancialService {
     const startDate = new Date();
     startDate.setMonth(startDate.getMonth() - months);
 
+    const burnRate = totalExpenses > totalRevenue ? (totalExpenses - totalRevenue) / months : undefined;
     const result: IncomeSummary = {
       ein,
       period: {
@@ -244,7 +243,7 @@ export class FinancialService {
       revenueVolatility: volatility,
       averageMonthlyRevenue: totalRevenue / months,
       averageMonthlyExpenses: totalExpenses / months,
-      burnRate: totalExpenses > totalRevenue ? (totalExpenses - totalRevenue) / months : undefined,
+      ...(burnRate !== undefined ? { burnRate } : {}),
       insights,
     };
 
@@ -255,6 +254,7 @@ export class FinancialService {
   // ─── Tax Estimates ────────────────────────────────────────────────────────────
 
   async getTaxEstimates(ein: string, taxYear?: number): Promise<TaxEstimate> {
+    void ein;
     const year = taxYear ?? new Date().getFullYear();
     const filingDue = new Date(year + 1, 4, 15); // May 15 following year
     const extensionDue = new Date(year + 1, 10, 15); // Nov 15 with extension
@@ -338,6 +338,7 @@ export class FinancialService {
   }
 
   private getEstimatedRevenueStreams(taxYear?: number): RevenueStream[] {
+    void taxYear;
     return [
       { category: 'Contributions & Grants', amount: 450000, percentage: 0, isRestricted: false, isRecurring: false },
       { category: 'Government Grants', amount: 200000, percentage: 0, isRestricted: true, isRecurring: true },

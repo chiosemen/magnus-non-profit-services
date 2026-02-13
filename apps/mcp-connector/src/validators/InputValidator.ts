@@ -4,7 +4,7 @@
  */
 
 import { z, ZodTypeAny, ZodError } from 'zod';
-import { ValidationError, RequiredFieldError, InvalidFormatError } from '../utils/errors';
+import { ValidationError, RequiredFieldError } from '../utils/errors';
 
 // ─── Shared Schemas ────────────────────────────────────────────────────────────
 
@@ -132,12 +132,6 @@ export class InputValidator {
 export function autoRegisterToolSchemas(): void {
   // Tool schemas are registered when their modules are imported
   // This function exists to trigger bulk import if needed
-  const toolNames = [
-    'get-990-data', 'get-filing-history', 'get-state-registrations', 'check-compliance-status',
-    'find-opportunities', 'check-eligibility', 'get-grant-history', 'get-funder-research',
-    'get-financial-ratios', 'get-revenue-breakdown', 'get-expense-allocation',
-    'get-income-summary', 'get-tax-estimates', 'get-multi-org-profile',
-  ];
   // Schemas are registered via registerSchema() in each tool's module
 }
 

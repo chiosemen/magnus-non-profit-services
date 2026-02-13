@@ -5,9 +5,9 @@
  */
 
 import axios, { AxiosInstance } from 'axios';
-import { CandidAPIError, NotFoundError, toMagnusError } from '../utils/errors';
+import { CandidAPIError } from '../utils/errors';
 import { calculateGrantMatchScore } from '../utils/calculators';
-import { formatCurrency, formatDeadline, formatGrantRange } from '../utils/formatters';
+import { formatCurrency } from '../utils/formatters';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -241,16 +241,20 @@ export class GrantService {
     try {
       const response = await this.candidClient.get(`/grants/received/${cleanEIN}`);
       const records: GrantHistoryRecord[] = (response.data?.grants ?? []).map(
-        (g: Record<string, unknown>): GrantHistoryRecord => ({
-          funderName: String(g['funder_name'] ?? ''),
-          funderEIN: g['funder_ein'] ? String(g['funder_ein']) : undefined,
-          programName: g['program_name'] ? String(g['program_name']) : undefined,
-          grantAmount: parseInt(String(g['amount'] ?? 0), 10),
-          grantYear: parseInt(String(g['year'] ?? 0), 10),
-          grantPurpose: String(g['purpose'] ?? ''),
-          isMultiYear: Boolean(g['multi_year']),
-          renewalEligible: Boolean(g['renewal_eligible']),
-        })
+        (g: Record<string, unknown>): GrantHistoryRecord => {
+          const funderEinRaw = g['funder_ein'];
+          const programNameRaw = g['program_name'];
+          return {
+            funderName: String(g['funder_name'] ?? ''),
+            ...(funderEinRaw ? { funderEIN: String(funderEinRaw) } : {}),
+            ...(programNameRaw ? { programName: String(programNameRaw) } : {}),
+            grantAmount: parseInt(String(g['amount'] ?? 0), 10),
+            grantYear: parseInt(String(g['year'] ?? 0), 10),
+            grantPurpose: String(g['purpose'] ?? ''),
+            isMultiYear: Boolean(g['multi_year']),
+            renewalEligible: Boolean(g['renewal_eligible']),
+          };
+        }
       );
       this.toCache(cacheKey, records);
       return records;
@@ -284,8 +288,8 @@ export class GrantService {
         hasLOIRequirement: Boolean(data['loi_required']),
         applicationCycle: 'rolling',
         deadlines: [],
-        websiteUrl: data['website'] ? String(data['website']) : undefined,
-        staffContact: data['contact_name'] ? String(data['contact_name']) : undefined,
+        ...(data['website'] ? { websiteUrl: String(data['website']) } : {}),
+        ...(data['contact_name'] ? { staffContact: String(data['contact_name']) } : {}),
         recentGrants: [],
         grantingHistory: [],
       };
@@ -299,10 +303,13 @@ export class GrantService {
   // ─── Private Helpers ────────────────────────────────────────────────────────
 
   private mapCandidGrant(g: Record<string, unknown>): GrantOpportunity {
+    const funderEinRaw = g['funder_ein'];
+    const deadlineRaw = g['deadline'];
+    const applyUrlRaw = g['apply_url'];
     return {
       id: String(g['id'] ?? Math.random().toString(36).slice(2)),
       funderName: String(g['funder_name'] ?? ''),
-      funderEIN: g['funder_ein'] ? String(g['funder_ein']) : undefined,
+      ...(funderEinRaw ? { funderEIN: String(funderEinRaw) } : {}),
       programName: String(g['program_name'] ?? ''),
       description: String(g['description'] ?? ''),
       focusAreas: Array.isArray(g['focus_areas']) ? g['focus_areas'].map(String) : [],
@@ -311,9 +318,9 @@ export class GrantService {
       minGrantAmount: parseInt(String(g['min_grant'] ?? 0), 10),
       maxGrantAmount: parseInt(String(g['max_grant'] ?? 0), 10),
       totalGiving: parseInt(String(g['total_giving'] ?? 0), 10),
-      applicationDeadline: g['deadline'] ? String(g['deadline']) : undefined,
+      ...(deadlineRaw ? { applicationDeadline: String(deadlineRaw) } : {}),
       isRollingDeadline: Boolean(g['rolling_deadline']),
-      applicationUrl: g['apply_url'] ? String(g['apply_url']) : undefined,
+      ...(applyUrlRaw ? { applicationUrl: String(applyUrlRaw) } : {}),
       requiresLetterOfInquiry: Boolean(g['loi_required']),
       averageGrantSize: parseInt(String(g['avg_grant'] ?? 0), 10),
       grantCount: parseInt(String(g['grant_count'] ?? 0), 10),
@@ -337,7 +344,7 @@ export class GrantService {
         maxGrantAmount: 50000,
         totalGiving: 2500000,
         isRollingDeadline: false,
-        applicationDeadline: new Date(Date.now() + 90 * 86400000).toISOString().split('T')[0],
+        applicationDeadline: new Date(Date.now() + 90 * 86400000).toISOString().split('T')[0]!,
         requiresLetterOfInquiry: true,
         averageGrantSize: 25000,
         grantCount: 40,

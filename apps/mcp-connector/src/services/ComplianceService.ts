@@ -7,11 +7,7 @@
 import axios, { AxiosInstance } from 'axios';
 import {
   IRSDataError,
-  NotFoundError,
   OrganizationNotFoundError,
-  FilingOverdueError,
-  ComplianceError,
-  toMagnusError,
 } from '../utils/errors';
 import {
   calculateProgramRatio,
@@ -20,7 +16,7 @@ import {
   calculateMonthsOfReserves,
   calculateFinancialHealthScore,
 } from '../utils/calculators';
-import { formatCurrency, formatEIN, formatDateShort } from '../utils/formatters';
+import { formatEIN } from '../utils/formatters';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -134,6 +130,7 @@ export class ComplianceService {
       baseURL: process.env['IRS_TEOS_BASE_URL'] ?? 'https://apps.irs.gov/pub/epostcard/data-download',
       timeout: 15000,
     });
+    void this.irsClient;
   }
 
   // ─── Public API ─────────────────────────────────────────────────────────────
@@ -186,18 +183,21 @@ export class ComplianceService {
           const year = parseInt(String(f['tax_prd_yr'] ?? 0), 10);
           return year >= cutoffYear;
         })
-        .map((f: Record<string, unknown>): FilingRecord => ({
-          taxYear: parseInt(String(f['tax_prd_yr'] ?? 0), 10),
-          formType: this.inferFormType(f),
-          filingDate: String(f['updated'] ?? ''),
-          taxPeriodBegin: String(f['tax_prd'] ?? '').slice(0, 4) + '-01-01',
-          taxPeriodEnd: String(f['tax_prd'] ?? ''),
-          totalRevenue: parseInt(String(f['totrevenue'] ?? 0), 10),
-          totalExpenses: parseInt(String(f['totfuncexpns'] ?? 0), 10),
-          netAssets: parseInt(String(f['totnetassetsend'] ?? 0), 10),
-          pdfUrl: f['pdf_url'] ? String(f['pdf_url']) : undefined,
-          isAmended: String(f['amended_return_ind'] ?? '') === 'X',
-        }))
+        .map((f: Record<string, unknown>): FilingRecord => {
+          const pdfUrlRaw = f['pdf_url'];
+          return {
+            taxYear: parseInt(String(f['tax_prd_yr'] ?? 0), 10),
+            formType: this.inferFormType(f),
+            filingDate: String(f['updated'] ?? ''),
+            taxPeriodBegin: String(f['tax_prd'] ?? '').slice(0, 4) + '-01-01',
+            taxPeriodEnd: String(f['tax_prd'] ?? ''),
+            totalRevenue: parseInt(String(f['totrevenue'] ?? 0), 10),
+            totalExpenses: parseInt(String(f['totfuncexpns'] ?? 0), 10),
+            netAssets: parseInt(String(f['totnetassetsend'] ?? 0), 10),
+            ...(pdfUrlRaw ? { pdfUrl: String(pdfUrlRaw) } : {}),
+            isAmended: String(f['amended_return_ind'] ?? '') === 'X',
+          };
+        })
         .sort((a: FilingRecord, b: FilingRecord) => b.taxYear - a.taxYear);
 
       this.toCache(cacheKey, history);
@@ -227,7 +227,7 @@ export class ComplianceService {
         severity: 'critical',
         code: 'FILING_OVERDUE',
         message: `Form 990 is ${Math.abs(daysUntilDue)} days overdue`,
-        dueDate: nextFilingDue.toISOString().split('T')[0],
+        dueDate: nextFilingDue.toISOString().split('T')[0]!,
         actionRequired: 'File Form 990 immediately or request extension via Form 8868',
       });
     } else if (daysUntilDue < 30) {
@@ -235,7 +235,7 @@ export class ComplianceService {
         severity: 'warning',
         code: 'FILING_DUE_SOON',
         message: `Form 990 due in ${daysUntilDue} days`,
-        dueDate: nextFilingDue.toISOString().split('T')[0],
+        dueDate: nextFilingDue.toISOString().split('T')[0]!,
         actionRequired: 'Begin 990 preparation or file Form 8868 extension',
       });
     }
@@ -314,6 +314,7 @@ export class ComplianceService {
   }
 
   private mapFiling(ein: string, org: Record<string, unknown>, f: Record<string, unknown>): Form990Data {
+    const pdfUrlRaw = f['pdf_url'];
     return {
       ein: formatEIN(ein),
       orgName: String(org['name'] ?? ''),
@@ -334,7 +335,7 @@ export class ComplianceService {
       nteeCode: String(org['ntee_code'] ?? ''),
       filingDate: String(f['updated'] ?? ''),
       taxPeriodEnd: String(f['tax_prd'] ?? ''),
-      pdfUrl: f['pdf_url'] ? String(f['pdf_url']) : undefined,
+      ...(pdfUrlRaw ? { pdfUrl: String(pdfUrlRaw) } : {}),
     };
   }
 
@@ -354,13 +355,14 @@ export class ComplianceService {
 
   private getMockStateRegistrations(ein: string): StateRegistration[] {
     // Production: integrate with Harbor Compliance, CT Corp, or state-by-state APIs
+    void ein;
     return [
       {
         state: 'California',
         stateCode: 'CA',
         status: 'active',
-        expirationDate: new Date(new Date().getFullYear() + 1, 0, 31).toISOString().split('T')[0],
-        renewalDueDate: new Date(new Date().getFullYear(), 10, 30).toISOString().split('T')[0],
+        expirationDate: new Date(new Date().getFullYear() + 1, 0, 31).toISOString().split('T')[0]!,
+        renewalDueDate: new Date(new Date().getFullYear(), 10, 30).toISOString().split('T')[0]!,
         annualReportRequired: true,
         charitableSolicitationRequired: true,
       },
@@ -368,7 +370,7 @@ export class ComplianceService {
         state: 'New York',
         stateCode: 'NY',
         status: 'active',
-        renewalDueDate: new Date(new Date().getFullYear(), 5, 1).toISOString().split('T')[0],
+        renewalDueDate: new Date(new Date().getFullYear(), 5, 1).toISOString().split('T')[0]!,
         annualReportRequired: true,
         charitableSolicitationRequired: true,
       },
