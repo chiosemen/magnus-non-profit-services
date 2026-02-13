@@ -5,9 +5,9 @@
  */
 
 import {
-  Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType,
+  Document, Packer, Paragraph, TextRun, Run, HeadingLevel, AlignmentType,
   BorderStyle, Table, TableRow, TableCell, WidthType, PageBreak,
-  NumberFormat, convertInchesToTwip, Header, Footer, PageNumber,
+  convertInchesToTwip, Header, Footer, PageNumber,
 } from 'docx';
 import { PDFDocument, StandardFonts, rgb, PageSizes } from 'pdf-lib';
 import { writeFile, mkdir } from 'fs/promises';
@@ -109,7 +109,7 @@ export class DocumentGenerator {
               new Paragraph({
                 children: [
                   new TextRun({ text: 'Page ', size: 18 }),
-                  new PageNumber(),
+                  new Run({ children: [PageNumber.CURRENT] }),
                   new TextRun({ text: ` | EIN: ${metadata.ein}`, size: 18, color: '666666' }),
                 ],
                 alignment: AlignmentType.CENTER,

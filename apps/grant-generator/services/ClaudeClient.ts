@@ -37,7 +37,6 @@ export class ClaudeClient {
   private readonly client: Anthropic;
   private readonly defaultModel: string;
   private readonly defaultMaxTokens: number;
-  private readonly defaultTemperature: number;
   private readonly maxRetries: number;
   private readonly retryDelay: number;
 
@@ -48,7 +47,6 @@ export class ClaudeClient {
     this.client = new Anthropic({ apiKey });
     this.defaultModel = process.env['ANTHROPIC_MODEL'] ?? 'claude-opus-4-5-20251101';
     this.defaultMaxTokens = parseInt(process.env['ANTHROPIC_MAX_TOKENS'] ?? '4096', 10);
-    this.defaultTemperature = parseFloat(process.env['ANTHROPIC_TEMPERATURE'] ?? '0.7');
     this.maxRetries = parseInt(process.env['MAX_RETRIES'] ?? '3', 10);
     this.retryDelay = parseInt(process.env['RETRY_DELAY_MS'] ?? '1000', 10);
   }

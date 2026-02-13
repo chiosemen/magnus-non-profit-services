@@ -1,5 +1,5 @@
 {
-  "name": "@magnus/grant-proposal-generator",
+  "name": "@magnus/grant-generator",
   "version": "1.0.0",
   "description": "Magnus Nonprofit OS — AI-powered grant proposal generator",
   "main": "dist/index.js",
@@ -12,14 +12,13 @@
     "test:coverage": "jest --coverage",
     "lint": "eslint src/**/*.ts --fix",
     "typecheck": "tsc --noEmit",
-    "db:migrate": "prisma migrate dev",
-    "db:generate": "prisma generate",
-    "db:studio": "prisma studio",
-    "db:seed": "ts-node prisma/seed.ts"
+    "db:migrate": "pnpm --filter @magnus/db prisma:migrate",
+    "db:generate": "pnpm --filter @magnus/db prisma:generate",
+    "db:studio": "pnpm --filter @magnus/db prisma:studio"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.28.0",
-    "@prisma/client": "^5.19.0",
+    "@magnus/db": "workspace:*",
     "docx": "^8.5.0",
     "pdf-lib": "^1.17.1",
     "express": "^4.19.2",
@@ -47,8 +46,7 @@
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
     "jest": "^29.7.0",
-    "ts-jest": "^29.2.5",
-    "prisma": "^5.19.0"
+    "ts-jest": "^29.2.5"
   },
   "engines": { "node": ">=20.0.0" },
   "author": "Magnus Chi <magnus@magnus-compliance.com>",

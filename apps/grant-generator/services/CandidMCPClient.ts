@@ -40,7 +40,7 @@ export class CandidMCPClient {
 
   async getFunderData(ein: string): Promise<CandidFunderData | null> {
     try {
-      const response = await this.client.beta.messages.create({
+      const response: any = await (this.client as any).beta.messages.create({
         model: 'claude-opus-4-5-20251101',
         max_tokens: 1024,
         mcp_servers: [{ type: 'url', url: this.mcpUrl, name: 'candid' }],
@@ -48,11 +48,11 @@ export class CandidMCPClient {
           role: 'user',
           content: `Use the Candid MCP tool to fetch funder data for EIN ${ein}. Return the result as JSON.`,
         }],
-      } as Parameters<typeof this.client.beta.messages.create>[0]);
+      });
 
       const text = response.content
-        .filter(b => b.type === 'text')
-        .map(b => (b as { type: 'text'; text: string }).text)
+        .filter((b: any) => b.type === 'text')
+        .map((b: any) => (b as { type: 'text'; text: string }).text)
         .join('');
 
       const match = text.match(/\{[\s\S]*\}/);
@@ -69,7 +69,7 @@ export class CandidMCPClient {
     budget: number;
   }): Promise<CandidGrantOpportunity[]> {
     try {
-      const response = await this.client.beta.messages.create({
+      const response: any = await (this.client as any).beta.messages.create({
         model: 'claude-opus-4-5-20251101',
         max_tokens: 2048,
         mcp_servers: [{ type: 'url', url: this.mcpUrl, name: 'candid' }],
@@ -81,11 +81,11 @@ export class CandidMCPClient {
 - Annual Budget: $${params.budget.toLocaleString()}
 Return top 10 results as JSON array.`,
         }],
-      } as Parameters<typeof this.client.beta.messages.create>[0]);
+      });
 
       const text = response.content
-        .filter(b => b.type === 'text')
-        .map(b => (b as { type: 'text'; text: string }).text)
+        .filter((b: any) => b.type === 'text')
+        .map((b: any) => (b as { type: 'text'; text: string }).text)
         .join('');
 
       const match = text.match(/\[[\s\S]*\]/);

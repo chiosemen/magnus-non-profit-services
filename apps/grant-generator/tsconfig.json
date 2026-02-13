@@ -5,7 +5,7 @@
     "moduleResolution": "node",
     "lib": ["ES2022"],
     "outDir": "./dist",
-    "rootDir": "./src",
+    "rootDir": ".",
     "strict": true,
     "strictNullChecks": true,
     "noImplicitAny": true,
@@ -18,13 +18,14 @@
     "declaration": true,
     "sourceMap": true,
     "skipLibCheck": true,
+    "types": ["node"],
     "paths": {
-      "@services/*": ["./src/services/*"],
-      "@utils/*": ["./src/utils/*"],
-      "@prompts/*": ["./src/prompts/*"],
-      "@types/*": ["./src/types/*"]
+      "@services/*": ["./services/*"],
+      "@utils/*": ["./utils/*"],
+      "@prompts/*": ["./prompts/*"],
+      "@types/*": ["./types/*"]
     }
   },
-  "include": ["src/**/*.ts", "prisma/**/*.ts"],
+  "include": ["services/**/*.ts", "prompts/**/*.ts", "prisma/**/*.ts", "utils/**/*.ts"],
   "exclude": ["node_modules", "dist", "**/*.test.ts"]
 }

@@ -3,7 +3,7 @@
  * Validates grant sections: word limits, completeness, quality scoring
  */
 
-import { WordLimitExceededError, ValidationError } from '../utils/errors';
+import { ValidationError } from '../utils/errors';
 import { countWords } from '../utils/formatters';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
