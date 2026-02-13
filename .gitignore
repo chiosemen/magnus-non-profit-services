@@ -1,0 +1,23 @@
+node_modules/
+dist/
+.turbo/
+.next/
+.env
+.env.*
+!.env.example
+
+# Prisma
+*.db
+*.db-journal
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS / Editor
+.DS_Store
+.idea/
+.vscode/
