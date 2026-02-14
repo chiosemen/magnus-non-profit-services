@@ -4,7 +4,10 @@ import { SubscriptionSyncService } from '../services/subscriptionSyncService';
 
 test('syncFromSubscription throws if tier metadata missing', async () => {
   const db: any = {
-    organization: { findFirst: async () => ({ id: 'o1', subscriptionTier: 'ENTERPRISE', subscriptionStatus: 'ACTIVE' }) },
+    organization: {
+      findUnique: async (_args: any) => ({ id: 'o1', subscriptionTier: 'ENTERPRISE', subscriptionStatus: 'ACTIVE' }),
+      findMany: async () => [{ id: 'o1' }],
+    },
     $transaction: async (fn: any) => fn(db),
   };
   const stripe: any = {

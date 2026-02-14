@@ -3,6 +3,12 @@ import { Prisma, type SubscriptionStatus, type SubscriptionTier } from '@magnus/
 import type { PrismaClient } from '@magnus/db/types';
 import { TierChangeService } from './tierChangeService';
 
+type OrgSyncTarget = {
+  id: string;
+  subscriptionTier: SubscriptionTier;
+  subscriptionStatus: SubscriptionStatus;
+};
+
 export class SubscriptionSyncService {
   private readonly db: PrismaClient;
   private readonly stripe: Stripe;
@@ -36,14 +42,17 @@ export class SubscriptionSyncService {
           where: { id: orgIdHint },
           select: { id: true, subscriptionTier: true, subscriptionStatus: true },
         })
-      : await this.db.organization.findFirst({
-          where: {
-            OR: [{ stripeSubscriptionId }, { stripeCustomerId }],
-          },
-          select: { id: true, subscriptionTier: true, subscriptionStatus: true },
+      : await this.requireOrgForStripeLink({
+          context: 'subscription',
+          stripeSubscriptionId,
+          stripeCustomerId,
         });
 
-    if (!org) throw new Error('ORG_NOT_FOUND_FOR_STRIPE_EVENT');
+    if (!org) {
+      // eslint-disable-next-line no-console
+      console.warn('[billing] orgIdHint lookup failed for Stripe event', { orgIdHint });
+      throw new Error('ORG_NOT_FOUND_FOR_STRIPE_EVENT');
+    }
 
     const newTier = tierFromSubscription(expanded);
     const newStatus = statusFromSubscription(expanded.status);
@@ -82,16 +91,11 @@ export class SubscriptionSyncService {
     const subscriptionId = typeof invoice.subscription === 'string' ? invoice.subscription : invoice.subscription?.id;
     if (!customerId && !subscriptionId) throw new Error('STRIPE_INVOICE_LINK_MISSING');
 
-    const org = await this.db.organization.findFirst({
-      where: {
-        OR: [
-          ...(subscriptionId ? [{ stripeSubscriptionId: subscriptionId }] : []),
-          ...(customerId ? [{ stripeCustomerId: customerId }] : []),
-        ],
-      },
-      select: { id: true, subscriptionTier: true, subscriptionStatus: true },
+    const org = await this.requireOrgForStripeLink({
+      context: 'invoice.payment_failed',
+      stripeSubscriptionId: subscriptionId ?? null,
+      stripeCustomerId: customerId ?? null,
     });
-    if (!org) throw new Error('ORG_NOT_FOUND_FOR_STRIPE_EVENT');
 
     await this.db.$transaction(async tx => {
       const prevTier = org.subscriptionTier;
@@ -119,11 +123,11 @@ export class SubscriptionSyncService {
     const stripeCustomerId = typeof subscription.customer === 'string' ? subscription.customer : subscription.customer.id;
     const stripeSubscriptionId = subscription.id;
 
-    const org = await this.db.organization.findFirst({
-      where: { OR: [{ stripeSubscriptionId }, { stripeCustomerId }] },
-      select: { id: true, subscriptionTier: true, subscriptionStatus: true },
+    const org = await this.requireOrgForStripeLink({
+      context: 'customer.subscription.deleted',
+      stripeSubscriptionId,
+      stripeCustomerId,
     });
-    if (!org) throw new Error('ORG_NOT_FOUND_FOR_STRIPE_EVENT');
 
     await this.db.$transaction(async tx => {
       const prevTier = org.subscriptionTier;
@@ -150,6 +154,80 @@ export class SubscriptionSyncService {
   private async expandIfNeeded(subscription: Stripe.Subscription): Promise<Stripe.Subscription> {
     if (hasTierMetadata(subscription)) return subscription;
     return await this.stripe.subscriptions.retrieve(subscription.id, { expand: ['items.data.price.product'] });
+  }
+
+  private async requireOrgForStripeLink(params: {
+    context: string;
+    stripeSubscriptionId?: string | null;
+    stripeCustomerId?: string | null;
+  }): Promise<OrgSyncTarget> {
+    // Do not fallback silently: if subscriptionId exists, it must map uniquely to an org.
+    if (params.stripeSubscriptionId) {
+      const org = await this.db.organization.findUnique({
+        where: { stripeSubscriptionId: params.stripeSubscriptionId },
+        select: { id: true, subscriptionTier: true, subscriptionStatus: true },
+      });
+      if (!org) {
+        // eslint-disable-next-line no-console
+        console.warn('[billing] ORG_NOT_FOUND_FOR_STRIPE_SUBSCRIPTION', {
+          context: params.context,
+          stripeSubscriptionId: params.stripeSubscriptionId,
+        });
+        throw new Error('ORG_NOT_FOUND_FOR_STRIPE_EVENT');
+      }
+
+      // Defensive: if the DB is missing unique constraints, detect duplicates and fail closed.
+      const dup = await this.db.organization.findMany({
+        where: { stripeSubscriptionId: params.stripeSubscriptionId },
+        select: { id: true },
+        take: 2,
+      });
+      if (dup.length > 1) {
+        // eslint-disable-next-line no-console
+        console.error('[billing] ORG_NOT_UNIQUE_FOR_STRIPE_SUBSCRIPTION', {
+          context: params.context,
+          stripeSubscriptionId: params.stripeSubscriptionId,
+          orgIds: dup.map(d => d.id),
+        });
+        throw new Error('ORG_NOT_UNIQUE_FOR_STRIPE_EVENT');
+      }
+      return org;
+    }
+
+    if (params.stripeCustomerId) {
+      const org = await this.db.organization.findUnique({
+        where: { stripeCustomerId: params.stripeCustomerId },
+        select: { id: true, subscriptionTier: true, subscriptionStatus: true },
+      });
+      if (!org) {
+        // eslint-disable-next-line no-console
+        console.warn('[billing] ORG_NOT_FOUND_FOR_STRIPE_CUSTOMER', {
+          context: params.context,
+          stripeCustomerId: params.stripeCustomerId,
+        });
+        throw new Error('ORG_NOT_FOUND_FOR_STRIPE_EVENT');
+      }
+
+      const dup = await this.db.organization.findMany({
+        where: { stripeCustomerId: params.stripeCustomerId },
+        select: { id: true },
+        take: 2,
+      });
+      if (dup.length > 1) {
+        // eslint-disable-next-line no-console
+        console.error('[billing] ORG_NOT_UNIQUE_FOR_STRIPE_CUSTOMER', {
+          context: params.context,
+          stripeCustomerId: params.stripeCustomerId,
+          orgIds: dup.map(d => d.id),
+        });
+        throw new Error('ORG_NOT_UNIQUE_FOR_STRIPE_EVENT');
+      }
+      return org;
+    }
+
+    // eslint-disable-next-line no-console
+    console.warn('[billing] STRIPE_EVENT_ORG_LOOKUP_MISSING', { context: params.context });
+    throw new Error('STRIPE_EVENT_ORG_LOOKUP_MISSING');
   }
 }
 
