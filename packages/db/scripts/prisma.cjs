@@ -1,4 +1,5 @@
 /* eslint-disable no-console */
+require('dotenv').config({ path: require('path').resolve(__dirname, '../../../.env') });
 const { spawnSync } = require('child_process');
 const path = require('path');
 
