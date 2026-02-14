@@ -2,11 +2,13 @@ import 'dotenv/config';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import { validateEnv } from '@magnus/config/envValidator';
 import { loadEnv } from './config/env';
 import { prisma } from './db';
 import { buildRoutes } from './api/routes';
 
 async function main(): Promise<void> {
+  validateEnv('worker-financial-layer');
   const env = loadEnv();
 
   // Fail-closed: DB must be reachable.
@@ -36,4 +38,3 @@ main().catch(err => {
   console.error(err instanceof Error ? err.message : String(err));
   process.exit(1);
 });
-

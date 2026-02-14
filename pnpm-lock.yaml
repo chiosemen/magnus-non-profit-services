@@ -10,6 +10,9 @@ importers:
 
   apps/agents:
     dependencies:
+      '@magnus/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       '@magnus/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -35,6 +38,9 @@ importers:
 
   apps/billing:
     dependencies:
+      '@magnus/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       '@magnus/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -72,6 +78,9 @@ importers:
       '@magnus/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@magnus/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       '@magnus/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -312,6 +321,9 @@ importers:
       '@magnus/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@magnus/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       '@magnus/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -349,6 +361,9 @@ importers:
       '@magnus/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@magnus/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       '@magnus/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -390,6 +405,19 @@ importers:
       '@types/jsonwebtoken':
         specifier: ^9.0.7
         version: 9.0.10
+      '@types/node':
+        specifier: ^22.5.0
+        version: 22.19.11
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+
+  packages/config:
+    dependencies:
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
       '@types/node':
         specifier: ^22.5.0
         version: 22.19.11

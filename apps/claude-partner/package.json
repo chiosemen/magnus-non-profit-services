@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@magnus/auth": "workspace:*",
+    "@magnus/config": "workspace:*",
     "@magnus/db": "workspace:*",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",

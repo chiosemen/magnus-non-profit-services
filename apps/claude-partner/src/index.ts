@@ -2,11 +2,13 @@ import 'dotenv/config';
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import { validateEnv } from '@magnus/config/envValidator';
 import { loadEnv } from './config/env';
 import { prisma } from './db';
 import { buildRoutes } from './api/routes';
 
 async function main(): Promise<void> {
+  validateEnv('claude-partner');
   const env = loadEnv();
 
   // Fail-closed: verify DB reachability at boot.

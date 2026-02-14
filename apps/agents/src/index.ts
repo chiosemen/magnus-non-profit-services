@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { validateEnv } from '@magnus/config/envValidator';
 import { loadEnv } from './config/env';
 import { DbAlertSink } from './sinks/DbAlertSink';
 import { ConsoleAlertSink } from './sinks/ConsoleAlertSink';
@@ -31,6 +32,7 @@ function parseAgentName(s: string): AgentName {
 }
 
 async function main(): Promise<void> {
+  validateEnv('agents');
   const env = loadEnv();
 
   try {

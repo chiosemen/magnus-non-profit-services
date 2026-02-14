@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import helmet from 'helmet';
+import { validateEnv } from '@magnus/config/envValidator';
 import { loadEnv } from './config/env';
 import { prisma } from './db';
 import { createStripeClient } from './stripe/stripeClient';
@@ -8,6 +9,7 @@ import { SubscriptionSyncService } from './services/subscriptionSyncService';
 import { createStripeWebhookHandler } from './webhooks/stripeWebhook';
 
 async function main(): Promise<void> {
+  validateEnv('billing');
   const env = loadEnv();
 
   // Fail-closed: DB must be reachable.
@@ -45,4 +47,3 @@ main().catch(err => {
   console.error(err instanceof Error ? err.message : String(err));
   process.exit(1);
 });
-

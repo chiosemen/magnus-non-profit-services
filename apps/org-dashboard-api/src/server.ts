@@ -3,7 +3,16 @@ import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import { createJwtAuthMiddleware } from '@magnus/auth/jwtAuth';
+import { validateEnv } from '@magnus/config/envValidator';
 import { getOrgComplianceCalendar, getOrgGrants, getOrgOverview } from './orgReadService';
+
+try {
+  validateEnv('org-dashboard-api');
+} catch (err) {
+  // eslint-disable-next-line no-console
+  console.error(err instanceof Error ? err.message : String(err));
+  process.exit(1);
+}
 
 const app = express();
 app.disable('x-powered-by');

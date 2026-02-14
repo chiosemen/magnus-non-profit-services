@@ -12,6 +12,7 @@
     "test": "pnpm build && node --test dist/tests"
   },
   "dependencies": {
+    "@magnus/config": "workspace:*",
     "@magnus/db": "workspace:*",
     "dotenv": "^16.4.5",
     "node-cron": "^3.0.3"
