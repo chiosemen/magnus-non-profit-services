@@ -1,5 +1,3 @@
-
-> @magnus/db@1.0.0 prisma /Users/chinyeosemene/Documents/magnus-non-profit-services/packages/db
-> node scripts/prisma.cjs migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --script
-
- ELIFECYCLE  Command failed with exit code 1.
+-- No-op migration.
+-- This file previously contained accidental CLI output (non-SQL) and has been sanitized.
+-- Intended Claude Partner changes were captured in later migrations.

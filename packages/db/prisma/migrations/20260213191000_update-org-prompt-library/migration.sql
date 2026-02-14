@@ -5,7 +5,8 @@ CREATE TYPE "PromptType" AS ENUM ('GRANT_DRAFT', 'BOARD_REPORT', 'DONOR_UPDATE',
 ALTER TABLE "OrgClaudeConfig" DROP CONSTRAINT "OrgClaudeConfig_activePromptLibraryId_fkey";
 
 -- AlterTable
-ALTER TABLE "OrgClaudeConfig" DROP COLUMN "activePromptLibraryId";
+-- Additive-only policy: keep legacy column (unused) for now.
+-- "activePromptLibraryId" can be removed in a future deprecation cycle.
 
 -- Preserve prior prompt library table for audit/history (no delete).
 ALTER TABLE "OrgPromptLibrary" RENAME TO "OrgPromptLibraryLegacy";
@@ -36,4 +37,3 @@ CREATE INDEX "OrgPromptLibrary_orgId_createdAt_idx" ON "OrgPromptLibrary"("orgId
 
 -- AddForeignKey
 ALTER TABLE "OrgPromptLibrary" ADD CONSTRAINT "OrgPromptLibrary_orgId_fkey" FOREIGN KEY ("orgId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-

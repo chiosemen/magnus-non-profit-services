@@ -26,9 +26,11 @@ jobs:
       - name: Install deps
         run: pnpm install --frozen-lockfile
 
+      - name: Validate migrations (additive-only)
+        run: node scripts/validate-migrations.js
+
       - name: Prisma generate (unified)
         run: pnpm prisma:generate
 
       - name: Build
         run: pnpm build
-
