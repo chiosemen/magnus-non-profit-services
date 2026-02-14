@@ -2,6 +2,9 @@
 CREATE TYPE "SubscriptionTier" AS ENUM ('STARTER', 'GROWTH', 'ENTERPRISE');
 
 -- CreateEnum
+CREATE TYPE "SubscriptionStatus" AS ENUM ('ACTIVE', 'PAST_DUE', 'CANCELED');
+
+-- CreateEnum
 CREATE TYPE "ComplianceDeadlineType" AS ENUM ('FORM_990', 'STATE_REGISTRATION', 'GRANT_REPORT');
 
 -- CreateEnum
@@ -9,6 +12,9 @@ CREATE TYPE "ComplianceStatus" AS ENUM ('PENDING', 'IN_PROGRESS', 'FILED');
 
 -- CreateEnum
 CREATE TYPE "WorkerRelationshipType" AS ENUM ('W2_EMPLOYEE', 'CONTRACTOR_1099', 'BOARD_MEMBER');
+
+-- CreateEnum
+CREATE TYPE "WorkerTier" AS ENUM ('FREE', 'PREMIUM');
 
 -- CreateEnum
 CREATE TYPE "IncomeType" AS ENUM ('SALARY', 'CONSULTING', 'SPEAKING', 'ROYALTY');
@@ -25,6 +31,12 @@ CREATE TYPE "AgentRunStatus" AS ENUM ('STARTED', 'SUCCESS', 'FAILED');
 -- CreateEnum
 CREATE TYPE "AlertSeverity" AS ENUM ('LOW', 'MED', 'HIGH', 'CRITICAL');
 
+-- CreateEnum
+CREATE TYPE "PromptType" AS ENUM ('GRANT_DRAFT', 'BOARD_REPORT', 'DONOR_UPDATE', 'INTERNAL_MEMO');
+
+-- CreateEnum
+CREATE TYPE "ClaudeStatus" AS ENUM ('NOT_ENABLED', 'CONFIGURING', 'ACTIVE', 'SUSPENDED');
+
 -- CreateTable
 CREATE TABLE "Organization" (
     "id" UUID NOT NULL,
@@ -33,8 +45,12 @@ CREATE TABLE "Organization" (
     "annualRevenue" DECIMAL(12,2),
     "fiscalYearEnd" TIMESTAMP(3),
     "subscriptionTier" "SubscriptionTier" NOT NULL,
+    "claudeStatus" "ClaudeStatus" NOT NULL DEFAULT 'NOT_ENABLED',
     "plaidAccessToken" TEXT,
     "stripeAccountId" TEXT,
+    "stripeCustomerId" TEXT,
+    "stripeSubscriptionId" TEXT,
+    "subscriptionStatus" "SubscriptionStatus" NOT NULL DEFAULT 'ACTIVE',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -74,6 +90,7 @@ CREATE TABLE "Worker" (
     "id" UUID NOT NULL,
     "email" TEXT NOT NULL,
     "name" TEXT,
+    "workerTier" "WorkerTier" NOT NULL DEFAULT 'FREE',
     "ssnEncrypted" TEXT,
     "plaidAccessToken" TEXT,
     "stripeCustomerId" TEXT,
@@ -166,8 +183,57 @@ CREATE TABLE "Alert" (
     CONSTRAINT "Alert_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "OrgClaudeConfig" (
+    "id" UUID NOT NULL,
+    "orgId" UUID NOT NULL,
+    "enabled" BOOLEAN NOT NULL DEFAULT false,
+    "defaultModel" TEXT NOT NULL,
+    "maxTokens" INTEGER NOT NULL,
+    "temperature" DOUBLE PRECISION NOT NULL,
+    "monthlyTokenCap" INTEGER NOT NULL DEFAULT 200000,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "OrgClaudeConfig_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "OrgPromptLibrary" (
+    "id" UUID NOT NULL,
+    "orgId" UUID NOT NULL,
+    "name" TEXT NOT NULL,
+    "promptType" "PromptType" NOT NULL,
+    "systemPrompt" TEXT NOT NULL,
+    "userTemplate" TEXT NOT NULL,
+    "version" INTEGER NOT NULL,
+    "isActive" BOOLEAN NOT NULL DEFAULT false,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "OrgPromptLibrary_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ClaudeUsageLog" (
+    "id" UUID NOT NULL,
+    "orgId" UUID NOT NULL,
+    "workerId" UUID,
+    "promptType" TEXT NOT NULL,
+    "tokenCount" INTEGER NOT NULL,
+    "cost" DECIMAL(12,6) NOT NULL,
+    "timestamp" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ClaudeUsageLog_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "Organization_ein_key" ON "Organization"("ein");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Organization_stripeCustomerId_key" ON "Organization"("stripeCustomerId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Organization_stripeSubscriptionId_key" ON "Organization"("stripeSubscriptionId");
 
 -- CreateIndex
 CREATE INDEX "ComplianceCalendar_orgId_dueDate_idx" ON "ComplianceCalendar"("orgId", "dueDate");
@@ -202,6 +268,24 @@ CREATE INDEX "Alert_scopeType_scopeId_idx" ON "Alert"("scopeType", "scopeId");
 -- CreateIndex
 CREATE INDEX "Alert_createdAt_idx" ON "Alert"("createdAt");
 
+-- CreateIndex
+CREATE UNIQUE INDEX "OrgClaudeConfig_orgId_key" ON "OrgClaudeConfig"("orgId");
+
+-- CreateIndex
+CREATE INDEX "OrgPromptLibrary_orgId_promptType_isActive_idx" ON "OrgPromptLibrary"("orgId", "promptType", "isActive");
+
+-- CreateIndex
+CREATE INDEX "OrgPromptLibrary_orgId_createdAt_idx" ON "OrgPromptLibrary"("orgId", "createdAt");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "OrgPromptLibrary_orgId_promptType_version_key" ON "OrgPromptLibrary"("orgId", "promptType", "version");
+
+-- CreateIndex
+CREATE INDEX "ClaudeUsageLog_orgId_timestamp_idx" ON "ClaudeUsageLog"("orgId", "timestamp");
+
+-- CreateIndex
+CREATE INDEX "ClaudeUsageLog_orgId_promptType_timestamp_idx" ON "ClaudeUsageLog"("orgId", "promptType", "timestamp");
+
 -- AddForeignKey
 ALTER TABLE "ComplianceCalendar" ADD CONSTRAINT "ComplianceCalendar_orgId_fkey" FOREIGN KEY ("orgId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
@@ -226,3 +310,14 @@ ALTER TABLE "IncomeTransaction" ADD CONSTRAINT "IncomeTransaction_sourceOrgId_fk
 -- AddForeignKey
 ALTER TABLE "TaxEstimate" ADD CONSTRAINT "TaxEstimate_workerId_fkey" FOREIGN KEY ("workerId") REFERENCES "Worker"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
+-- AddForeignKey
+ALTER TABLE "OrgClaudeConfig" ADD CONSTRAINT "OrgClaudeConfig_orgId_fkey" FOREIGN KEY ("orgId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "OrgPromptLibrary" ADD CONSTRAINT "OrgPromptLibrary_orgId_fkey" FOREIGN KEY ("orgId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ClaudeUsageLog" ADD CONSTRAINT "ClaudeUsageLog_orgId_fkey" FOREIGN KEY ("orgId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ClaudeUsageLog" ADD CONSTRAINT "ClaudeUsageLog_workerId_fkey" FOREIGN KEY ("workerId") REFERENCES "Worker"("id") ON DELETE SET NULL ON UPDATE CASCADE;

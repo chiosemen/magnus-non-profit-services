@@ -1,3 +1,0 @@
--- No-op migration.
--- This file previously contained accidental CLI output (non-SQL) and has been sanitized.
--- Intended Claude Partner changes were captured in later migrations.
