@@ -26,6 +26,6 @@
       "@types/*": ["./types/*"]
     }
   },
-  "include": ["services/**/*.ts", "prompts/**/*.ts", "prisma/**/*.ts", "utils/**/*.ts"],
+  "include": ["src/**/*.ts", "services/**/*.ts", "prompts/**/*.ts", "prisma/**/*.ts", "utils/**/*.ts"],
   "exclude": ["node_modules", "dist", "**/*.test.ts"]
 }
