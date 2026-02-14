@@ -21,23 +21,55 @@ export class DbAlertSink implements AlertSink {
   }
 
   async emit(event: AlertEvent): Promise<void> {
+    const scopeType = mapScopeType(event.scopeType);
+    const scopeId = event.scopeId;
+    const type = event.type;
+    const dedupeKey = event.dedupeKey;
+
+    // Enforce dedupeKey idempotency for the same scope+type.
+    // If a dedupeKey collision occurs across different scopes/types, fail closed.
+    const existing = await this.db.alert.findUnique({
+      where: { dedupeKey },
+      select: { scopeType: true, scopeId: true, type: true },
+    });
+    if (existing) {
+      const same =
+        existing.scopeType === scopeType &&
+        existing.scopeId === scopeId &&
+        existing.type === type;
+      if (same) return;
+      throw new Error('ALERT_DEDUPEKEY_COLLISION');
+    }
+
     try {
       await this.db.alert.create({
         data: {
-          scopeType: mapScopeType(event.scopeType),
-          scopeId: event.scopeId,
+          scopeType,
+          scopeId,
           severity: mapSeverity(event.severity),
-          type: event.type,
+          type,
           title: event.title,
           body: event.body,
           recommendedActions: event.recommendedActions as Prisma.InputJsonValue,
-          dedupeKey: event.dedupeKey,
+          dedupeKey,
           createdAt: new Date(),
         },
       });
     } catch (err: any) {
-      // P2002 unique constraint: dedupeKey already exists => idempotent no-op.
-      if (err?.code === 'P2002') return;
+      // P2002 unique constraint: handle races by checking if it's the same scope+type.
+      if (err?.code === 'P2002') {
+        const row = await this.db.alert.findUnique({
+          where: { dedupeKey },
+          select: { scopeType: true, scopeId: true, type: true },
+        });
+        const same =
+          row &&
+          row.scopeType === scopeType &&
+          row.scopeId === scopeId &&
+          row.type === type;
+        if (same) return;
+        throw new Error('ALERT_DEDUPEKEY_COLLISION');
+      }
       throw err;
     }
   }

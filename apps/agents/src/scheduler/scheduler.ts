@@ -2,7 +2,7 @@ import type { AgentName, AgentRunContext, ScopeType } from '../contracts/run';
 import { prisma } from '../db';
 import { AgentRunLogger } from '../audit/AgentRunLogger';
 import type { AlertSink } from '../sinks/AlertSink';
-import { tryAdvisoryLock } from './locks';
+import { tryAdvisoryXactLock } from './locks';
 import { ComplianceWatchdog } from '../agents/complianceWatchdog/ComplianceWatchdog';
 import { WorkerIncomeOptimizer } from '../agents/workerIncomeOptimizer/WorkerIncomeOptimizer';
 import { GrantLifecycleManager } from '../agents/grantLifecycleManager/GrantLifecycleManager';
@@ -30,27 +30,31 @@ export class Scheduler {
     await prisma.$queryRaw`SELECT 1`;
 
     const lockKey = `${ctx.agentName}:${ctx.scope.type}:${ctx.scope.id}:${ctx.window.end.toISOString()}`;
-    const lock = await tryAdvisoryLock(lockKey);
-    if (!lock.acquired) {
-      throw new Error('Agent run blocked by lock (another run in progress for the same scope/window).');
-    }
+    await prisma.$transaction(
+      async tx => {
+        const acquired = await tryAdvisoryXactLock(lockKey, tx as any);
+        if (!acquired) {
+          throw new Error('Agent run blocked by lock (another run in progress for the same scope/window).');
+        }
 
-    let runId: string | null = null;
-    const metrics: Record<string, unknown> = { skippedRules: [] as string[] };
-    try {
-      runId = await this.runLogger.start(ctx);
-      const agent = this.getAgent(ctx.agentName, this.deps.alertSink);
-      const agentMetrics = await agent.run(ctx);
-      Object.assign(metrics, agentMetrics);
-      await this.runLogger.finishSuccess(runId, metrics);
-    } catch (err) {
-      if (runId) {
-        await this.runLogger.finishFailed(runId, err, metrics);
-      }
-      throw err;
-    } finally {
-      await lock.release();
-    }
+        let runId: string | null = null;
+        const metrics: Record<string, unknown> = { skippedRules: [] as string[] };
+        try {
+          runId = await this.runLogger.start(ctx);
+          const agent = this.getAgent(ctx.agentName, this.deps.alertSink);
+          const agentMetrics = await agent.run(ctx);
+          Object.assign(metrics, agentMetrics);
+          await this.runLogger.finishSuccess(runId, metrics);
+        } catch (err) {
+          if (runId) {
+            await this.runLogger.finishFailed(runId, err, metrics);
+          }
+          throw err;
+        }
+      },
+      // Hold a single DB session open so pg_try_advisory_xact_lock remains active for the whole agent run.
+      { maxWait: 5000, timeout: 10 * 60 * 1000 },
+    );
   }
 
   async runScheduled(agentName: AgentName, window: { start: Date; end: Date }): Promise<void> {

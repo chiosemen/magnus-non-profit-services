@@ -6,6 +6,7 @@ import type { AgentName, ScopeType } from './contracts/run';
 import { Scheduler } from './scheduler/scheduler';
 import { startCron } from './scheduler/cron';
 import { redactErrorMessage } from './security/redaction';
+import { prisma } from './db';
 
 function parseArg(name: string): string | undefined {
   const prefix = `--${name}=`;
@@ -32,6 +33,15 @@ function parseAgentName(s: string): AgentName {
 async function main(): Promise<void> {
   const env = loadEnv();
 
+  try {
+    // Fail-closed: DB must be reachable at boot.
+    await prisma.$queryRaw`SELECT 1`;
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error(redactErrorMessage(err));
+    process.exit(1);
+  }
+
   const sink = env.AGENTS_ALERT_SINK === 'db' ? new DbAlertSink() : new ConsoleAlertSink();
   const scheduler = new Scheduler({ alertSink: sink });
 
@@ -48,7 +58,12 @@ async function main(): Promise<void> {
   }
 
   // Default: run cron scheduler.
-  startCron(env, scheduler);
+  if (process.env['AGENTS_ENABLED'] === 'true') {
+    startCron(env, scheduler);
+  } else {
+    // eslint-disable-next-line no-console
+    console.log('Agents disabled — AGENTS_ENABLED not set');
+  }
 }
 
 function computeDefaultWindow(agentName: AgentName): { start: Date; end: Date } {
