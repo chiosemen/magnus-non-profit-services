@@ -2,6 +2,7 @@ import 'dotenv/config';
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import { createJwtAuthMiddleware } from '@magnus/auth/jwtAuth';
 import { getOrgComplianceCalendar, getOrgGrants, getOrgOverview } from './orgReadService';
 
 const app = express();
@@ -10,13 +11,14 @@ app.use(helmet());
 app.use(cors({ origin: false })); // API-first; caller should proxy in production.
 app.use(express.json({ limit: '1mb' }));
 
+const jwtAuth = createJwtAuthMiddleware();
+
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
-app.get('/api/org/overview', async (req, res, next) => {
+app.get('/api/org/overview', jwtAuth, async (req, res, next) => {
   try {
-    const orgId = typeof req.query['orgId'] === 'string' ? req.query['orgId'] : undefined;
-    const ein = typeof req.query['ein'] === 'string' ? req.query['ein'] : undefined;
-    const overview = await getOrgOverview({ orgId, ein });
+    const orgId = (req as any).auth.orgId as string;
+    const overview = await getOrgOverview({ orgId });
     if (!overview) return res.status(404).json({ error: 'ORG_NOT_FOUND' });
     return res.json({ organization: overview });
   } catch (err) {
@@ -24,10 +26,9 @@ app.get('/api/org/overview', async (req, res, next) => {
   }
 });
 
-app.get('/api/org/compliance', async (req, res, next) => {
+app.get('/api/org/compliance', jwtAuth, async (req, res, next) => {
   try {
-    const orgId = typeof req.query['orgId'] === 'string' ? req.query['orgId'] : undefined;
-    if (!orgId) return res.status(400).json({ error: 'ORG_ID_REQUIRED' });
+    const orgId = (req as any).auth.orgId as string;
     const items = await getOrgComplianceCalendar(orgId);
     return res.json({ orgId, complianceCalendar: items });
   } catch (err) {
@@ -35,10 +36,9 @@ app.get('/api/org/compliance', async (req, res, next) => {
   }
 });
 
-app.get('/api/org/grants', async (req, res, next) => {
+app.get('/api/org/grants', jwtAuth, async (req, res, next) => {
   try {
-    const orgId = typeof req.query['orgId'] === 'string' ? req.query['orgId'] : undefined;
-    if (!orgId) return res.status(400).json({ error: 'ORG_ID_REQUIRED' });
+    const orgId = (req as any).auth.orgId as string;
     const items = await getOrgGrants(orgId);
     return res.json({ orgId, grants: items });
   } catch (err) {
@@ -61,4 +61,3 @@ app.listen(port, () => {
   // eslint-disable-next-line no-console
   console.log(`org-dashboard-api listening on ${port}`);
 });
-

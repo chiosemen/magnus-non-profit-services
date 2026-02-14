@@ -11,7 +11,7 @@ export type RequiredWorkerAccess =
 export function createWorkerTierGuard(db: PrismaClient) {
   return (required: RequiredWorkerAccess) => {
     return async (req: Request, res: Response, next: NextFunction) => {
-      const workerId = (req as any).worker?.workerId as string | undefined;
+      const workerId = (req as any).auth?.workerId as string | undefined;
       if (!workerId) {
         res.status(401).json({ error: 'WORKER_AUTH_REQUIRED' });
         return;
@@ -43,4 +43,3 @@ function isAllowed(tier: WorkerTier, required: RequiredWorkerAccess): boolean {
   // PREMIUM: all features
   return true;
 }
-

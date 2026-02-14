@@ -8,7 +8,7 @@ test('FREE worker is blocked from premium endpoints', async () => {
   };
   const guard = createWorkerTierGuard(db)('income_optimizer_alerts');
 
-  const req: any = { worker: { workerId: 'w1' }, header: () => undefined };
+  const req: any = { auth: { workerId: 'w1' }, header: () => undefined };
   let status: number | null = null;
   let body: any = null;
   const res: any = {
@@ -37,7 +37,7 @@ test('PREMIUM worker can access premium endpoints', async () => {
   };
   const guard = createWorkerTierGuard(db)('volatility_analysis');
 
-  const req: any = { worker: { workerId: 'w1' }, header: () => undefined };
+  const req: any = { auth: { workerId: 'w1' }, header: () => undefined };
   const res: any = { status: () => res, json: () => {} };
 
   let nextCalled = false;
@@ -46,4 +46,3 @@ test('PREMIUM worker can access premium endpoints', async () => {
   });
   assert.equal(nextCalled, true);
 });
-

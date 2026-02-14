@@ -1,6 +1,6 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
 import type { PrismaClient } from '@magnus/db/types';
-import { authGuard } from '../middleware/authGuard';
+import { createJwtAuthMiddleware } from '@magnus/auth/jwtAuth';
 import { PromptLibraryService } from '../services/PromptLibraryService';
 import { OrgClaudeConfigService } from '../services/OrgClaudeConfigService';
 import { UsageAuditService } from '../services/UsageAuditService';
@@ -10,6 +10,7 @@ import { promptDeploymentWorkflow } from '../workflows/promptDeploymentWorkflow'
 
 export function buildRoutes(params: { db: PrismaClient; anthropicApiKey: string }): Router {
   const router = Router();
+  const jwtAuth = createJwtAuthMiddleware();
   const promptLib = new PromptLibraryService(params.db);
   const cfgSvc = new OrgClaudeConfigService(params.db);
   const auditSvc = new UsageAuditService(params.db);
@@ -17,15 +18,15 @@ export function buildRoutes(params: { db: PrismaClient; anthropicApiKey: string 
 
   router.get('/health', (_req, res) => res.json({ ok: true }));
 
-  router.post('/api/claude/onboarding', authGuard, asyncHandler(async (req, res) => {
-    const orgId = (req as any).org.orgId as string;
+  router.post('/api/claude/onboarding', jwtAuth, asyncHandler(async (req, res) => {
+    const orgId = (req as any).auth.orgId as string;
     const result = await onboardingWorkflow({ db: params.db, orgId });
     res.json(result);
   }));
 
   // New onboarding API: explicit orgId param.
-  router.post('/api/claude/onboard/:orgId', authGuard, asyncHandler(async (req, res) => {
-    const headerOrgId = (req as any).org.orgId as string;
+  router.post('/api/claude/onboard/:orgId', jwtAuth, asyncHandler(async (req, res) => {
+    const headerOrgId = (req as any).auth.orgId as string;
     const orgId = String(req.params.orgId ?? '');
     if (!orgId) {
       res.status(400).json({ error: 'ORG_ID_REQUIRED' });
@@ -39,8 +40,8 @@ export function buildRoutes(params: { db: PrismaClient; anthropicApiKey: string 
     res.json(result);
   }));
 
-  router.get('/api/claude/config', authGuard, asyncHandler(async (req, res) => {
-    const orgId = (req as any).org.orgId as string;
+  router.get('/api/claude/config', jwtAuth, asyncHandler(async (req, res) => {
+    const orgId = (req as any).auth.orgId as string;
     const cfg = await cfgSvc.get(orgId);
     if (!cfg) {
       res.status(404).json({ error: 'CLAUDE_CONFIG_NOT_FOUND' });
@@ -49,8 +50,8 @@ export function buildRoutes(params: { db: PrismaClient; anthropicApiKey: string 
     res.json({ config: cfg });
   }));
 
-  router.get('/api/claude/prompts', authGuard, asyncHandler(async (req, res) => {
-    const orgId = (req as any).org.orgId as string;
+  router.get('/api/claude/prompts', jwtAuth, asyncHandler(async (req, res) => {
+    const orgId = (req as any).auth.orgId as string;
     const promptType = typeof req.query['promptType'] === 'string' ? req.query['promptType'] : undefined;
     if (!promptType) {
       res.status(400).json({ error: 'PROMPT_TYPE_REQUIRED' });
@@ -65,8 +66,8 @@ export function buildRoutes(params: { db: PrismaClient; anthropicApiKey: string 
     res.json({ activePrompt: active });
   }));
 
-  router.post('/api/claude/prompts', authGuard, asyncHandler(async (req, res) => {
-    const orgId = (req as any).org.orgId as string;
+  router.post('/api/claude/prompts', jwtAuth, asyncHandler(async (req, res) => {
+    const orgId = (req as any).auth.orgId as string;
     await cfgSvc.ensurePartnerAccess(orgId);
     const promptType = typeof req.body?.promptType === 'string' ? req.body.promptType : '';
     const systemPrompt = typeof req.body?.systemPrompt === 'string' ? req.body.systemPrompt : '';
@@ -84,8 +85,8 @@ export function buildRoutes(params: { db: PrismaClient; anthropicApiKey: string 
     res.status(201).json({ prompt: created });
   }));
 
-  router.post('/api/claude/prompts/deploy', authGuard, asyncHandler(async (req, res) => {
-    const orgId = (req as any).org.orgId as string;
+  router.post('/api/claude/prompts/deploy', jwtAuth, asyncHandler(async (req, res) => {
+    const orgId = (req as any).auth.orgId as string;
     const promptId = typeof req.body?.promptId === 'string' ? req.body.promptId : '';
     if (!promptId) {
       res.status(400).json({ error: 'PROMPT_ID_REQUIRED' });
@@ -95,8 +96,8 @@ export function buildRoutes(params: { db: PrismaClient; anthropicApiKey: string 
     res.json({ ok: true });
   }));
 
-  router.post('/api/claude/messages', authGuard, asyncHandler(async (req, res) => {
-    const orgId = (req as any).org.orgId as string;
+  router.post('/api/claude/messages', jwtAuth, asyncHandler(async (req, res) => {
+    const orgId = (req as any).auth.orgId as string;
 
     // Partner-tier enforcement lives in the core service (not controller business logic).
     await cfgSvc.ensurePartnerAccess(orgId);

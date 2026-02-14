@@ -1,0 +1,31 @@
+{
+  "name": "@magnus/auth",
+  "version": "1.0.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./jwtAuth": {
+      "types": "./dist/jwtAuth.d.ts",
+      "default": "./dist/jwtAuth.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "pnpm build && node --test dist/tests"
+  },
+  "dependencies": {
+    "jsonwebtoken": "^9.0.2"
+  },
+  "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.7",
+    "@types/node": "^22.5.0",
+    "typescript": "^5.5.4"
+  },
+  "engines": { "node": ">=20.0.0" }
+}
+
