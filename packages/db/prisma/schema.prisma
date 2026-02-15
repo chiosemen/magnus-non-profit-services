@@ -93,6 +93,16 @@ enum ClaudeStatus {
 
 // ─── Core Models ─────────────────────────────────────────────────────────────
 
+model User {
+  id        String   @id @default(uuid()) @db.Uuid
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sessions Session[]
+}
+
 model Organization {
   id              String           @id @default(uuid()) @db.Uuid
   ein             String           @unique
@@ -113,12 +123,32 @@ model Organization {
   grants             Grant[]
   workerRelationships WorkerOrgRelationship[]
   incomeTransactions  IncomeTransaction[]
+  sessions           Session[]
 
   // Claude Partner layer
   claudeConfig       OrgClaudeConfig?
   promptLibraries    OrgPromptLibrary[]
   claudeUsageLogs    ClaudeUsageLog[]
   sessions           Session[]
+}
+
+model Session {
+  id               String   @id @default(cuid())
+  userId           String   @db.Uuid
+  orgId            String   @db.Uuid
+  refreshTokenHash String   @unique
+  createdAt        DateTime @default(now())
+  lastSeenAt       DateTime @default(now())
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  ip               String?
+  userAgent        String?
+
+  user User         @relation(fields: [userId], references: [id])
+  org  Organization @relation(fields: [orgId], references: [id])
+
+  @@index([userId])
+  @@index([orgId])
 }
 
 model ComplianceCalendar {
