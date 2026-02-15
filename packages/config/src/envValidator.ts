@@ -16,7 +16,8 @@ export type EnvServiceName =
   | 'billing'
   | 'agents'
   | 'grant-generator'
-  | 'mcp-connector';
+  | 'mcp-connector'
+  | 'web';
 
 const nonEmpty = z.string().trim().min(1);
 const numeric = z.string().regex(/^\d+$/);
@@ -50,6 +51,10 @@ const grantGeneratorSchema = z.object({
 
 const mcpConnectorSchema = baseServiceSchema; // DATABASE_URL + JWT_SECRET ≥ 32
 
+const webSchema = baseServiceSchema.extend({
+  NODE_ENV: nonEmpty,
+});
+
 type EnvByService = {
   'agents': z.infer<typeof agentsSchema>;
   'billing': z.infer<typeof billingSchema>;
@@ -58,6 +63,7 @@ type EnvByService = {
   'mcp-connector': z.infer<typeof mcpConnectorSchema>;
   'org-dashboard-api': z.infer<typeof baseServiceSchema>;
   'worker-financial-layer': z.infer<typeof baseServiceSchema>;
+  'web': z.infer<typeof webSchema>;
 };
 
 export function getEnv<S extends EnvServiceName>(service: S): EnvByService[S] {
@@ -69,6 +75,7 @@ export function getEnv<S extends EnvServiceName>(service: S): EnvByService[S] {
     'mcp-connector': mcpConnectorSchema,
     'org-dashboard-api': baseServiceSchema,
     'worker-financial-layer': baseServiceSchema,
+    'web': webSchema,
   };
 
   const schema = schemas[service];
@@ -94,6 +101,7 @@ export function validateEnv(service: EnvServiceName): void {
     'mcp-connector': mcpConnectorSchema,
     'org-dashboard-api': baseServiceSchema,
     'worker-financial-layer': baseServiceSchema,
+    'web': webSchema,
   };
 
   const schema = schemas[service];
@@ -109,4 +117,3 @@ export function validateEnv(service: EnvServiceName): void {
   const suffix = missingOrInvalid.length > 0 ? `: ${missingOrInvalid.join(', ')}` : '';
   throw new Error(`Invalid environment configuration for ${service}${suffix}`);
 }
-

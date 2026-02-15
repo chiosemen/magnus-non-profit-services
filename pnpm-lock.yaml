@@ -355,6 +355,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@magnus/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       '@magnus/db':
         specifier: workspace:*
         version: link:../../packages/db
