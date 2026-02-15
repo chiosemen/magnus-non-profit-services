@@ -358,6 +358,9 @@ importers:
       '@magnus/db':
         specifier: workspace:*
         version: link:../../packages/db
+      bcryptjs:
+        specifier: ^2.4.3
+        version: 2.4.3
       jsonwebtoken:
         specifier: ^9.0.2
         version: 9.0.3
@@ -371,6 +374,9 @@ importers:
         specifier: ^18.3.1
         version: 18.3.1(react@18.3.1)
     devDependencies:
+      '@types/bcryptjs':
+        specifier: ^2.4.6
+        version: 2.4.6
       '@types/jsonwebtoken':
         specifier: ^9.0.7
         version: 9.0.10

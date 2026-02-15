@@ -12,7 +12,6 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
           </Link>
           <nav className="navLinks">
             <Link className="pill" href="/tools">Tools</Link>
-            <Link className="pill" href="/pricing">Pricing</Link>
             <Link className="pill" href="/book-audit">Book Audit</Link>
             <Link className="pill" href="/login">Login</Link>
             <Link className="pill pillPrimary" href="/app">Dashboard</Link>

@@ -1,6 +1,8 @@
 const SENSITIVE_KEYS = new Set([
   'ssn',
   'ssnEncrypted',
+  'passwordHash',
+  'refreshTokenHash',
   'plaidAccessToken',
   'DATABASE_URL',
   'JWT_SECRET',

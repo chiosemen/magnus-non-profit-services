@@ -1,13 +1,6 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 
-const APP_NAV = [
-  { label: 'Dashboard', href: '/app' },
-  { label: 'Compliance', href: '/app/compliance' },
-  { label: 'Grants', href: '/app/grants' },
-  { label: 'Settings', href: '/app/settings' },
-];
-
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
     <>
@@ -18,14 +11,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             <span>Magnus App</span>
           </Link>
           <nav className="navLinks">
-            {APP_NAV.map(item => (
-              <Link key={item.href} className="pill" href={item.href}>
-                {item.label}
-              </Link>
-            ))}
-            <Link className="pill" href="/">
-              Marketing
-            </Link>
+            <Link className="pill" href="/">Marketing</Link>
+            <Link className="pill" href="/tools">Tools</Link>
             <form action="/api/auth/logout" method="post">
               <button className="pill" type="submit">Logout</button>
             </form>
@@ -38,3 +25,4 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     </>
   );
 }
+

@@ -1,6 +1,7 @@
 import { prisma } from '@magnus/db/client';
 import { cookies } from 'next/headers';
 import { AUTH_COOKIE_NAME, verifyAppToken } from '@/lib/auth';
+import { verifySession } from '@/lib/session';
 
 export const runtime = 'nodejs';
 
@@ -11,6 +12,16 @@ export async function GET() {
   let payload: { orgId: string; workerId: string };
   try {
     const p = verifyAppToken(token);
+
+    // Session-state enforcement: verify session before any DB access
+    if (!p.sessionId) {
+      return Response.json({ error: 'SESSION_MISSING' }, { status: 401 });
+    }
+    const session = await verifySession(p.sessionId);
+    if (!session) {
+      return Response.json({ error: 'SESSION_INVALID' }, { status: 401 });
+    }
+
     payload = { orgId: p.orgId, workerId: p.workerId };
   } catch {
     return Response.json({ error: 'AUTH_INVALID' }, { status: 401 });
@@ -29,4 +40,3 @@ export async function GET() {
 
   return Response.json({ org, worker });
 }
-
