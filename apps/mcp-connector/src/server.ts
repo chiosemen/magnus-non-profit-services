@@ -1,4 +1,6 @@
-import 'dotenv/config';
+import { validateEnv } from '@magnus/config';
+validateEnv('mcp-connector');
+
 import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';

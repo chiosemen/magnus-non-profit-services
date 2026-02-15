@@ -51,3 +51,21 @@ test('validateEnv requires ANTHROPIC_API_KEY for claude-partner', () => {
   );
 });
 
+test('validateEnv requires ANTHROPIC_API_KEY for grant-generator', () => {
+  withEnv(
+    { DATABASE_URL: 'postgres://localhost/db', ANTHROPIC_API_KEY: undefined },
+    () => {
+      assert.throws(() => validateEnv('grant-generator'), /ANTHROPIC_API_KEY/);
+    },
+  );
+});
+
+test('validateEnv requires JWT_SECRET for mcp-connector', () => {
+  withEnv(
+    { DATABASE_URL: 'postgres://localhost/db', JWT_SECRET: undefined },
+    () => {
+      assert.throws(() => validateEnv('mcp-connector'), /JWT_SECRET/);
+    },
+  );
+});
+

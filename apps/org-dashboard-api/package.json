@@ -7,7 +7,8 @@
   "scripts": {
     "build": "tsc --project tsconfig.json",
     "start": "node dist/server.js",
-    "dev": "ts-node-dev --respawn --transpile-only src/server.ts"
+    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "test": "echo 'no tests yet'"
   },
   "dependencies": {
     "@magnus/auth": "workspace:*",
@@ -25,5 +26,7 @@
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.5.4"
   },
-  "engines": { "node": ">=20.0.0" }
+  "engines": {
+    "node": ">=20.0.0"
+  }
 }

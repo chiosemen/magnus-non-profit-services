@@ -1,4 +1,6 @@
-import 'dotenv/config';
+import { validateEnv } from '@magnus/config';
+validateEnv('grant-generator');
+
 import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';

@@ -19,6 +19,7 @@
     "test": "pnpm build && node --test dist/tests"
   },
   "dependencies": {
+    "dotenv": "^16.4.5",
     "zod": "^3.23.8"
   },
   "devDependencies": {
@@ -27,4 +28,3 @@
   },
   "engines": { "node": ">=20.0.0" }
 }
-
