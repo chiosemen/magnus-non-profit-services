@@ -1,18 +1,14 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
-const COOKIE_NAME = 'magnus_token';
+const ACCESS_COOKIE_NAME = 'session';
 
 export async function middleware(req: NextRequest) {
-  const token = req.cookies.get(COOKIE_NAME)?.value;
+  const token = req.cookies.get(ACCESS_COOKIE_NAME)?.value;
   if (!token) return redirectToLogin(req);
 
-  // Middleware runs in the Edge runtime; validate by calling a Node.js route handler.
-  // Fail-closed: any error => redirect to login.
   try {
-    const res = await fetch(new URL('/api/auth/me', req.url), {
-      headers: {
-        cookie: req.headers.get('cookie') ?? '',
-      },
+    const res = await fetch(new URL('/api/me', req.url), {
+      headers: { cookie: req.headers.get('cookie') ?? '' },
       cache: 'no-store',
     });
     if (!res.ok) return redirectToLogin(req);
@@ -24,7 +20,7 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/app/:path*'],
+  matcher: ['/dashboard/:path*'],
 };
 
 function redirectToLogin(req: NextRequest) {

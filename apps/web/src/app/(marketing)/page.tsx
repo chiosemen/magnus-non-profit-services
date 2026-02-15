@@ -12,10 +12,10 @@ export default function LandingPage() {
               deadlines, and a path from dashboard actions to backend checks and database truth.
             </p>
             <div className="ctaRow">
-              <Link className="pill pillPrimary" href="/book-audit">Book Audit</Link>
-              <Link className="pill" href="/tools">Tools</Link>
+              <Link className="pill pillPrimary" href="/login">Book Free Audit</Link>
+              <Link className="pill" href="/login">Explore 14 AI Tools</Link>
               <Link className="pill" href="/login">Login</Link>
-              <Link className="pill" href="/app">Dashboard</Link>
+              <Link className="pill" href="/dashboard">Dashboard</Link>
             </div>
           </div>
           <aside className="panel panelPad">
@@ -54,7 +54,7 @@ export default function LandingPage() {
             </div>
             <div className="card">
               <div className="cardTitle">Protected App</div>
-              <p className="cardBody">The `/app/*` area is guarded by middleware and requires an authenticated session.</p>
+              <p className="cardBody">The `/dashboard/*` area is guarded by middleware and requires an authenticated session.</p>
             </div>
           </div>
         </div>
@@ -62,4 +62,3 @@ export default function LandingPage() {
     </main>
   );
 }
-

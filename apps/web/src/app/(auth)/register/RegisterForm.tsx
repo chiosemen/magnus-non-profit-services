@@ -26,7 +26,7 @@ export default function RegisterForm() {
         const body = await safeJson(res);
         throw new Error(body?.error || 'REGISTER_FAILED');
       }
-      router.push('/app');
+      router.push('/dashboard');
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'REGISTER_FAILED');
@@ -68,4 +68,3 @@ async function safeJson(res: Response): Promise<any | null> {
     return null;
   }
 }
-

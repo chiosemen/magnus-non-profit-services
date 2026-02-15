@@ -24,13 +24,12 @@ export default function ToolsPage() {
             </div>
           </div>
           <div className="ctaRow" style={{ marginTop: 16 }}>
-            <Link className="pill pillPrimary" href="/book-audit">Book Audit</Link>
+            <Link className="pill pillPrimary" href="/login">Book Audit</Link>
             <Link className="pill" href="/login">Login</Link>
-            <Link className="pill" href="/app">Dashboard</Link>
+            <Link className="pill" href="/dashboard">Dashboard</Link>
           </div>
         </div>
       </div>
     </main>
   );
 }
-

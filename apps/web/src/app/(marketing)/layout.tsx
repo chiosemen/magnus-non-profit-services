@@ -11,10 +11,10 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
             <span>Magnus</span>
           </Link>
           <nav className="navLinks">
-            <Link className="pill" href="/tools">Tools</Link>
-            <Link className="pill" href="/book-audit">Book Audit</Link>
+            <Link className="pill" href="/login">Tools</Link>
+            <Link className="pill" href="/login">Book Audit</Link>
             <Link className="pill" href="/login">Login</Link>
-            <Link className="pill pillPrimary" href="/app">Dashboard</Link>
+            <Link className="pill pillPrimary" href="/dashboard">Dashboard</Link>
           </nav>
         </div>
       </header>
@@ -27,4 +27,3 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
     </>
   );
 }
-

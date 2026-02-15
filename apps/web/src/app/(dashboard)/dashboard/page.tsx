@@ -1,0 +1,58 @@
+import { cookies, headers } from 'next/headers';
+import { redirect } from 'next/navigation';
+import { prisma } from '@magnus/db/client';
+
+export const runtime = 'nodejs';
+
+type Me = {
+  userId: string;
+  orgId: string;
+  role: string;
+};
+
+async function fetchMe(): Promise<Me> {
+  const cookieHeader = cookies().toString();
+  if (!cookieHeader) redirect('/login');
+
+  const host = headers().get('host');
+  const proto = headers().get('x-forwarded-proto') ?? 'https';
+  const base = host ? `${proto}://${host}` : 'http://localhost:3000';
+
+  const res = await fetch(`${base}/api/me`, {
+    headers: { cookie: cookieHeader },
+    cache: 'no-store',
+  });
+
+  if (!res.ok) redirect('/login');
+  return (await res.json()) as Me;
+}
+
+export default async function DashboardPage() {
+  const me = await fetchMe();
+
+  const user = await prisma.user.findUnique({ where: { id: me.userId }, select: { email: true } });
+  if (!user) redirect('/login');
+
+  return (
+    <div className="panel panelPad">
+      <h1 className="h1" style={{ fontSize: 34, marginBottom: 10 }}>Dashboard</h1>
+      <p className="subhead" style={{ marginBottom: 16 }}>
+        Authenticated session verified server-side. Tokens are issued at login and enforced by middleware.
+      </p>
+
+      <div className="cards">
+        <div className="card">
+          <div className="cardTitle">Identity</div>
+          <p className="cardBody"><b>User ID:</b> {me.userId}</p>
+          <p className="cardBody"><b>Email:</b> {user.email}</p>
+          <p className="cardBody"><b>Role:</b> {me.role}</p>
+        </div>
+        <div className="card">
+          <div className="cardTitle">Organization</div>
+          <p className="cardBody"><b>Org ID:</b> {me.orgId}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
