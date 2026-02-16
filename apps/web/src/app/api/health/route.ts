@@ -1,5 +1,6 @@
 import { prisma } from '@magnus/db/client';
 
+export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export async function GET() {
