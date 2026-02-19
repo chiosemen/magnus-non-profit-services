@@ -1,0 +1,173 @@
+:root {
+  --bg: #0b0f17;
+  --panel: rgba(255, 255, 255, 0.06);
+  --panel2: rgba(255, 255, 255, 0.1);
+  --text: rgba(255, 255, 255, 0.92);
+  --muted: rgba(255, 255, 255, 0.7);
+  --border: rgba(255, 255, 255, 0.14);
+  --accent: #39ff88;
+  --accent2: #5cc8ff;
+  --danger: #ff5c5c;
+  --shadow: 0 18px 60px rgba(0, 0, 0, 0.35);
+  --radius: 18px;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  color: var(--text);
+  background:
+    radial-gradient(1200px 600px at 15% 15%, rgba(57, 255, 136, 0.12), transparent 55%),
+    radial-gradient(900px 500px at 90% 25%, rgba(92, 200, 255, 0.14), transparent 55%),
+    radial-gradient(700px 450px at 55% 95%, rgba(255, 255, 255, 0.06), transparent 55%),
+    linear-gradient(180deg, #070a10, var(--bg));
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+}
+
+a { color: inherit; text-decoration: none; }
+button, input { font: inherit; }
+
+.container {
+  width: min(1040px, calc(100% - 48px));
+  margin: 0 auto;
+}
+
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  backdrop-filter: blur(10px);
+  background: rgba(7, 10, 16, 0.55);
+  border-bottom: 1px solid var(--border);
+}
+.navInner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0;
+}
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+.brandMark {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  box-shadow: 0 0 18px rgba(57, 255, 136, 0.35);
+}
+.navLinks {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+}
+.pill:hover { background: rgba(255, 255, 255, 0.06); }
+.pillPrimary {
+  border-color: rgba(57, 255, 136, 0.35);
+  background: linear-gradient(135deg, rgba(57, 255, 136, 0.14), rgba(92, 200, 255, 0.12));
+}
+
+.hero {
+  padding: 62px 0 26px;
+}
+.heroGrid {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 28px;
+  align-items: start;
+}
+.h1 {
+  font-size: clamp(34px, 4vw, 54px);
+  line-height: 1.02;
+  margin: 0 0 14px;
+  letter-spacing: -0.6px;
+}
+.subhead {
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1.6;
+  margin: 0 0 22px;
+}
+.ctaRow { display: flex; gap: 12px; flex-wrap: wrap; }
+
+.panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+.panelPad { padding: 18px; }
+.kpi {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.kpiItem {
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+}
+.kpiBig { font-size: 18px; font-weight: 700; }
+.kpiSmall { color: var(--muted); font-size: 12px; margin-top: 3px; }
+
+.section { padding: 18px 0 54px; }
+.cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+.card {
+  padding: 16px;
+  border-radius: var(--radius);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+}
+.cardTitle { font-weight: 700; margin: 0 0 8px; }
+.cardBody { margin: 0; color: var(--muted); line-height: 1.55; }
+
+.footer {
+  padding: 34px 0 56px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.form {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+.field { display: grid; gap: 6px; }
+.label { font-size: 12px; color: var(--muted); }
+.input {
+  padding: 12px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--text);
+}
+.error {
+  color: var(--danger);
+  font-size: 13px;
+}
+
+@media (max-width: 920px) {
+  .heroGrid { grid-template-columns: 1fr; }
+  .cards { grid-template-columns: 1fr; }
+}
+

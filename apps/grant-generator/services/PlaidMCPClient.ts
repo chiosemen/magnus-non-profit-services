@@ -33,7 +33,7 @@ export class PlaidMCPClient {
       const startDate = new Date();
       startDate.setMonth(startDate.getMonth() - months);
 
-      const response = await this.client.beta.messages.create({
+      const response: any = await (this.client as any).beta.messages.create({
         model: 'claude-opus-4-5-20251101',
         max_tokens: 2048,
         mcp_servers: [{ type: 'url', url: this.mcpUrl, name: 'plaid' }],
@@ -45,11 +45,11 @@ export class PlaidMCPClient {
 3. Categorize transactions by revenue vs expense
 Return as structured JSON with: totalRevenue, totalExpenses, netAssets, cashBalance, revenueStreams, expenseCategories.`,
         }],
-      } as Parameters<typeof this.client.beta.messages.create>[0]);
+      });
 
       const text = response.content
-        .filter(b => b.type === 'text')
-        .map(b => (b as { type: 'text'; text: string }).text)
+        .filter((b: any) => b.type === 'text')
+        .map((b: any) => (b as { type: 'text'; text: string }).text)
         .join('');
 
       const match = text.match(/\{[\s\S]*\}/);
@@ -78,7 +78,7 @@ Return as structured JSON with: totalRevenue, totalExpenses, netAssets, cashBala
 
   async getAccountBalances(accessToken: string): Promise<number | null> {
     try {
-      const response = await this.client.beta.messages.create({
+      const response: any = await (this.client as any).beta.messages.create({
         model: 'claude-opus-4-5-20251101',
         max_tokens: 512,
         mcp_servers: [{ type: 'url', url: this.mcpUrl, name: 'plaid' }],
@@ -86,11 +86,11 @@ Return as structured JSON with: totalRevenue, totalExpenses, netAssets, cashBala
           role: 'user',
           content: `Using Plaid with access token "${accessToken}", fetch the total balance across all accounts. Return just the number.`,
         }],
-      } as Parameters<typeof this.client.beta.messages.create>[0]);
+      });
 
       const text = response.content
-        .filter(b => b.type === 'text')
-        .map(b => (b as { type: 'text'; text: string }).text)
+        .filter((b: any) => b.type === 'text')
+        .map((b: any) => (b as { type: 'text'; text: string }).text)
         .join('');
 
       const match = text.match(/[\d,]+\.?\d*/);

@@ -45,14 +45,14 @@ ORGANIZATION DATA:
 - EIN: {{ein}}
 - Mission: {{missionStatement}}
 - Years Operating: {{yearsInOperation}}
-- Annual Budget: ${{annualBudget}}
+- Annual Budget: ${'$'}{{annualBudget}}
 - Program Ratio: {{programRatio}}%
 - Location: {{city}}, {{state}}
 
 FUNDING REQUEST:
 - Funder: {{funderName}}
 - Program: {{funderProgramName}}
-- Amount Requested: ${{requestedAmount}}
+- Amount Requested: ${'$'}{{requestedAmount}}
 - Project Name: {{projectName}}
 - Project Duration: {{projectDuration}}
 
@@ -237,7 +237,7 @@ PROJECT DETAILS:
 - Population: {{targetPopulation}}
 - Target Number Served: {{numberToBeServed}}
 
-GRANT AMOUNT: ${{requestedAmount}} from {{funderName}}
+GRANT AMOUNT: ${'$'}{{requestedAmount}} from {{funderName}}
 
 PROGRAM ACTIVITIES (use all):
 {{programActivities}}
@@ -324,7 +324,7 @@ Evaluation plan standards:
   userPrompt: `Write a rigorous Evaluation Plan for this grant proposal.
 
 PROJECT: {{projectName}} | {{orgName}}
-FUNDER: {{funderName}} | Grant Amount: ${{requestedAmount}}
+FUNDER: {{funderName}} | Grant Amount: ${'$'}{{requestedAmount}}
 DURATION: {{startDate}} to {{endDate}}
 
 PROJECT OUTCOMES (must evaluate all):
@@ -416,7 +416,7 @@ ORGANIZATION PROFILE:
 - Name: {{orgName}}
 - Founded: {{foundingYear}} ({{yearsInOperation}} years operating)
 - Mission: {{missionStatement}}
-- Annual Budget: ${{annualBudget}}
+- Annual Budget: ${'$'}{{annualBudget}}
 - Program Expense Ratio: {{programRatio}}%
 - Staff: {{fullTimeStaff}} FTE, {{partTimeStaff}} part-time
 - Volunteers: {{volunteerCount}}
@@ -503,9 +503,9 @@ Budget narrative standards:
 
   userPrompt: `Write a Budget Narrative justifying every line item in this grant budget.
 
-GRANT REQUEST: ${{requestedAmount}} from {{funderName}}
-TOTAL PROJECT BUDGET: ${{totalProjectBudget}}
-LEVERAGED FUNDS: ${{leveragedFunds}} from {{otherFundingSources}}
+GRANT REQUEST: ${'$'}{{requestedAmount}} from {{funderName}}
+TOTAL PROJECT BUDGET: ${'$'}{{totalProjectBudget}}
+LEVERAGED FUNDS: ${'$'}{{leveragedFunds}} from {{otherFundingSources}}
 PROJECT PERIOD: {{startDate}} to {{endDate}}
 PARTICIPANTS SERVED: {{numberToBeServed}}
 
@@ -530,7 +530,7 @@ INDIRECT COSTS ($X,XXX):
 - [Rate]% × [base] = $[amount]. [Justification]
 
 BUDGET SUMMARY:
-- Total Request: ${{requestedAmount}} ({{percentOfTotal}}% of total project cost)
+- Total Request: ${'$'}{{requestedAmount}} ({{percentOfTotal}}% of total project cost)
 - Cost per Participant: $[calculation]
 - Matching/Leverage: $[amount] from [sources]
 
@@ -594,9 +594,9 @@ Sustainability plan principles:
   userPrompt: `Write a Sustainability Plan for this grant application.
 
 PROJECT: {{projectName}} | Duration: {{projectDuration}}
-ORGANIZATION: {{orgName}} | Annual Budget: ${{annualBudget}}
-GRANT REQUEST: ${{requestedAmount}} from {{funderName}}
-ONGOING ANNUAL COST AFTER GRANT: ${{ongoingCost}}
+ORGANIZATION: {{orgName}} | Annual Budget: ${'$'}{{annualBudget}}
+GRANT REQUEST: ${'$'}{{requestedAmount}} from {{funderName}}
+ONGOING ANNUAL COST AFTER GRANT: ${'$'}{{ongoingCost}}
 
 SUSTAINABILITY STRATEGY (use all applicable):
 {{sustainabilityStrategies}}

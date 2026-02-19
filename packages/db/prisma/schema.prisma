@@ -1,0 +1,331 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider     = "postgresql"
+  url          = env("DATABASE_URL")
+  relationMode = "foreignKeys"
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum SubscriptionTier {
+  STARTER
+  GROWTH
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+}
+
+enum ComplianceDeadlineType {
+  FORM_990
+  STATE_REGISTRATION
+  GRANT_REPORT
+}
+
+enum ComplianceStatus {
+  PENDING
+  IN_PROGRESS
+  FILED
+}
+
+enum WorkerRelationshipType {
+  W2_EMPLOYEE
+  CONTRACTOR_1099
+  BOARD_MEMBER
+}
+
+enum WorkerTier {
+  FREE
+  PREMIUM
+}
+
+enum IncomeType {
+  SALARY
+  CONSULTING
+  SPEAKING
+  ROYALTY
+}
+
+enum TaxFormType {
+  W2
+  NEC_1099
+  MISC_1099
+}
+
+enum AgentScopeType {
+  ORG
+  WORKER
+  GRANT
+}
+
+enum AgentRunStatus {
+  STARTED
+  SUCCESS
+  FAILED
+}
+
+enum AlertSeverity {
+  LOW
+  MED
+  HIGH
+  CRITICAL
+}
+
+enum PromptType {
+  GRANT_DRAFT
+  BOARD_REPORT
+  DONOR_UPDATE
+  INTERNAL_MEMO
+}
+
+enum ClaudeStatus {
+  NOT_ENABLED
+  CONFIGURING
+  ACTIVE
+  SUSPENDED
+}
+
+// ─── Core Models ─────────────────────────────────────────────────────────────
+
+model Organization {
+  id              String           @id @default(uuid()) @db.Uuid
+  ein             String           @unique
+  name            String
+  annualRevenue   Decimal?         @db.Decimal(12, 2)
+  fiscalYearEnd   DateTime?
+  subscriptionTier SubscriptionTier
+  claudeStatus    ClaudeStatus     @default(NOT_ENABLED)
+  plaidAccessToken String?         // encrypted
+  stripeAccountId  String?
+  stripeCustomerId String?         @unique
+  stripeSubscriptionId String?     @unique
+  subscriptionStatus SubscriptionStatus @default(ACTIVE)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  complianceCalendar ComplianceCalendar[]
+  grants             Grant[]
+  workerRelationships WorkerOrgRelationship[]
+  incomeTransactions  IncomeTransaction[]
+
+  // Claude Partner layer
+  claudeConfig       OrgClaudeConfig?
+  promptLibraries    OrgPromptLibrary[]
+  claudeUsageLogs    ClaudeUsageLog[]
+  sessions           Session[]
+}
+
+model ComplianceCalendar {
+  id           String                @id @default(uuid()) @db.Uuid
+  orgId        String                @db.Uuid
+  deadlineType ComplianceDeadlineType
+  dueDate      DateTime
+  status       ComplianceStatus
+  asanaTaskId  String?
+  createdAt    DateTime              @default(now())
+
+  organization Organization          @relation(fields: [orgId], references: [id])
+
+  @@index([orgId, dueDate])
+}
+
+model Grant {
+  id                String   @id @default(uuid()) @db.Uuid
+  orgId             String   @db.Uuid
+  funderName        String
+  totalAmount       Decimal  @db.Decimal(12, 2)
+  startDate         DateTime
+  endDate           DateTime
+  spentToDate       Decimal  @db.Decimal(12, 2)
+  reportingSchedule Json
+  createdAt         DateTime @default(now())
+
+  organization      Organization          @relation(fields: [orgId], references: [id])
+  workerRelationships WorkerOrgRelationship[]
+
+  @@index([orgId, endDate])
+}
+
+model Worker {
+  id              String   @id @default(uuid()) @db.Uuid
+  email           String   @unique
+  name            String?
+  passwordHash    String?  // bcrypt hash — nullable for migration period
+  workerTier      WorkerTier @default(FREE)
+  ssnEncrypted    String?  // encrypted
+  plaidAccessToken String? // encrypted
+  stripeCustomerId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  workerOrgRelationships WorkerOrgRelationship[]
+  incomeTransactions     IncomeTransaction[]
+  taxEstimates           TaxEstimate[]
+  claudeUsageLogs        ClaudeUsageLog[]
+  sessions               Session[]
+}
+
+model Session {
+  id                String    @id @default(uuid()) @db.Uuid
+  workerId          String    @db.Uuid
+  orgId             String    @db.Uuid
+  refreshTokenHash  String    // SHA-256 hash of refresh token
+  expiresAt         DateTime
+  revokedAt         DateTime?
+  lastSeenAt        DateTime?
+  createdAt         DateTime  @default(now())
+
+  worker            Worker       @relation(fields: [workerId], references: [id])
+  organization      Organization @relation(fields: [orgId], references: [id])
+
+  @@unique([refreshTokenHash])
+  @@index([workerId, revokedAt])
+  @@index([expiresAt])
+  @@index([orgId])
+}
+
+model WorkerOrgRelationship {
+  id                String                @id @default(uuid()) @db.Uuid
+  workerId          String                @db.Uuid
+  orgId             String                @db.Uuid
+  relationshipType  WorkerRelationshipType
+  startDate         DateTime
+  endDate           DateTime?
+  annualCompensation Decimal?            @db.Decimal(12, 2)
+  hoursPerWeek      Int?
+  grantFunded       Boolean
+  grantId           String?              @db.Uuid
+  createdAt         DateTime             @default(now())
+
+  worker            Worker                @relation(fields: [workerId], references: [id])
+  organization      Organization          @relation(fields: [orgId], references: [id])
+  grant             Grant?                @relation(fields: [grantId], references: [id])
+
+  @@unique([workerId, orgId])
+}
+
+model IncomeTransaction {
+  id               String     @id @default(uuid()) @db.Uuid
+  workerId         String     @db.Uuid
+  sourceOrgId      String?    @db.Uuid
+  amount           Decimal    @db.Decimal(12, 2)
+  transactionDate  DateTime
+  incomeType       IncomeType
+  taxForm          TaxFormType
+  plaidTransactionId String?
+  stripePaymentId  String?
+  createdAt        DateTime   @default(now())
+
+  worker           Worker       @relation(fields: [workerId], references: [id])
+  organization     Organization? @relation(fields: [sourceOrgId], references: [id])
+
+  @@index([workerId, transactionDate])
+}
+
+model TaxEstimate {
+  id              String   @id @default(uuid()) @db.Uuid
+  workerId        String   @db.Uuid
+  taxYear         Int
+  quarter         Int
+  estimatedFederal Decimal @db.Decimal(12, 2)
+  estimatedState  Decimal  @db.Decimal(12, 2)
+  paidFederal     Decimal? @db.Decimal(12, 2)
+  paidState       Decimal? @db.Decimal(12, 2)
+  dueDate         DateTime
+  createdAt       DateTime @default(now())
+
+  worker          Worker   @relation(fields: [workerId], references: [id])
+
+  @@index([workerId, taxYear, quarter])
+}
+
+model AgentRun {
+  id         String        @id @default(uuid()) @db.Uuid
+  agentName  String
+  scopeType  AgentScopeType
+  scopeId    String        @db.Uuid
+  windowStart DateTime
+  windowEnd   DateTime
+  status     AgentRunStatus
+  startedAt  DateTime      @default(now())
+  finishedAt DateTime?
+  error      String?
+  metrics    Json?
+
+  @@index([agentName, scopeType, scopeId])
+  @@index([windowEnd])
+  @@unique([agentName, scopeType, scopeId, windowStart, windowEnd])
+}
+
+model Alert {
+  id                String        @id @default(uuid()) @db.Uuid
+  scopeType          AgentScopeType
+  scopeId            String        @db.Uuid
+  severity           AlertSeverity
+  type               String
+  title              String
+  body               String
+  recommendedActions Json
+  dedupeKey          String        @unique
+  createdAt          DateTime      @default(now())
+  acknowledgedAt     DateTime?
+
+  @@index([scopeType, scopeId])
+  @@index([createdAt])
+}
+
+// ─── Claude Partner Models ───────────────────────────────────────────────────
+
+model OrgClaudeConfig {
+  id                  String   @id @default(uuid()) @db.Uuid
+  orgId               String   @unique @db.Uuid
+  enabled             Boolean  @default(false)
+  defaultModel        String
+  maxTokens           Int
+  temperature         Float
+  monthlyTokenCap     Int      @default(200000)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  organization        Organization @relation(fields: [orgId], references: [id])
+}
+
+model OrgPromptLibrary {
+  id         String   @id @default(uuid()) @db.Uuid
+  orgId      String   @db.Uuid
+  name       String
+  promptType PromptType
+  systemPrompt String
+  userTemplate String
+  version    Int
+  isActive   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  organization Organization @relation(fields: [orgId], references: [id])
+
+  @@unique([orgId, promptType, version])
+  @@index([orgId, promptType, isActive])
+  @@index([orgId, createdAt])
+}
+
+model ClaudeUsageLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  orgId      String   @db.Uuid
+  workerId   String?  @db.Uuid
+  promptType String
+  tokenCount Int
+  cost       Decimal  @db.Decimal(12, 6)
+  timestamp  DateTime @default(now())
+
+  organization Organization @relation(fields: [orgId], references: [id])
+  worker       Worker?      @relation(fields: [workerId], references: [id])
+
+  @@index([orgId, timestamp])
+  @@index([orgId, promptType, timestamp])
+}

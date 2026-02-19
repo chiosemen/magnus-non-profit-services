@@ -4,6 +4,7 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk';
+import { getEnv } from '@magnus/config';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -37,20 +38,18 @@ export class ClaudeClient {
   private readonly client: Anthropic;
   private readonly defaultModel: string;
   private readonly defaultMaxTokens: number;
-  private readonly defaultTemperature: number;
   private readonly maxRetries: number;
   private readonly retryDelay: number;
 
   constructor() {
-    const apiKey = process.env['ANTHROPIC_API_KEY'];
-    if (!apiKey) throw new Error('ANTHROPIC_API_KEY is required');
+    const env = getEnv('grant-generator');
+    const apiKey = env.ANTHROPIC_API_KEY;
 
     this.client = new Anthropic({ apiKey });
-    this.defaultModel = process.env['ANTHROPIC_MODEL'] ?? 'claude-opus-4-5-20251101';
-    this.defaultMaxTokens = parseInt(process.env['ANTHROPIC_MAX_TOKENS'] ?? '4096', 10);
-    this.defaultTemperature = parseFloat(process.env['ANTHROPIC_TEMPERATURE'] ?? '0.7');
-    this.maxRetries = parseInt(process.env['MAX_RETRIES'] ?? '3', 10);
-    this.retryDelay = parseInt(process.env['RETRY_DELAY_MS'] ?? '1000', 10);
+    this.defaultModel = env.ANTHROPIC_MODEL ?? 'claude-opus-4-5-20251101';
+    this.defaultMaxTokens = parseInt(env.ANTHROPIC_MAX_TOKENS ?? '4096', 10);
+    this.maxRetries = parseInt(env.MAX_RETRIES ?? '3', 10);
+    this.retryDelay = parseInt(env.RETRY_DELAY_MS ?? '1000', 10);
   }
 
   // ─── Core Generate ──────────────────────────────────────────────────────────
