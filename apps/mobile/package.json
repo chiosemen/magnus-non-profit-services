@@ -1,0 +1,30 @@
+{
+  "name": "@magnus/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "main": "node_modules/expo/AppEntry.js",
+  "scripts": {
+    "start": "pnpm exec expo start",
+    "ios": "pnpm exec expo start --ios",
+    "android": "pnpm exec expo start --android",
+    "web": "pnpm exec expo start --web",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@expo/vector-icons": "^14.0.0",
+    "@react-navigation/native": "^7.0.0",
+    "@react-navigation/native-stack": "^7.0.0",
+    "axios": "^1.7.7",
+    "expo": "^52.0.0",
+    "expo-secure-store": "~14.0.0",
+    "react": "18.3.1",
+    "react-native": "0.76.0",
+    "react-native-safe-area-context": "4.10.5",
+    "react-native-screens": "~4.9.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.3",
+    "babel-preset-expo": "^12.0.0",
+    "typescript": "^5.5.4"
+  }
+}
