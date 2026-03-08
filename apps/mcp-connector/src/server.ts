@@ -1,22 +1,163 @@
 import { validateEnv } from '@magnus/config';
 validateEnv('mcp-connector');
 
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
+import { z } from 'zod';
+import { getTokenValidator, TokenPayload } from './auth/TokenValidator';
+import { getTool, getAllTools, hasTool } from './tools/registry';
+import { isMagnusError } from './utils/errors';
+
+// Extend Express Request type
+declare global {
+  namespace Express {
+    interface Request {
+      auth?: TokenPayload;
+    }
+  }
+}
 
 const app = express();
 app.disable('x-powered-by');
 app.use(helmet());
-app.use(cors({ origin: false })); // API-first; proxy should set CORS in production.
+app.use(cors({ origin: false }));
+app.use(express.json());
+
+// ─── Health Check (public) ───────────────────────────────────────────────────
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
+// ─── Auth Middleware ─────────────────────────────────────────────────────────
+
+function authMiddleware(req: Request, res: Response, next: NextFunction): void {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    res.status(401).json({ error: 'AUTH_REQUIRED', message: 'Authorization header required' });
+    return;
+  }
+
+  try {
+    const validator = getTokenValidator();
+    const payload = validator.validate(authHeader);
+    req.auth = payload;
+    next();
+  } catch (err) {
+    if (isMagnusError(err)) {
+      res.status(err.statusCode).json({ error: err.code, message: err.message });
+      return;
+    }
+    res.status(401).json({ error: 'AUTH_INVALID', message: 'Invalid token' });
+  }
+}
+
+// ─── Tool Execution Request Schema ───────────────────────────────────────────
+
+const ToolExecuteSchema = z.object({
+  input: z.record(z.unknown()).default({}),
+});
+
+// ─── Routes ──────────────────────────────────────────────────────────────────
+
+// GET /api/tools - List available tools (authenticated)
+app.get('/api/tools', authMiddleware, (_req: Request, res: Response) => {
+  const tools = getAllTools().map(t => ({
+    name: t.name,
+    category: t.category,
+    description: t.description,
+  }));
+  res.json({ tools });
+});
+
+// POST /api/tools/:toolName - Execute a tool (authenticated)
+app.post('/api/tools/:toolName', authMiddleware, async (req: Request, res: Response) => {
+  const toolName = req.params['toolName']!;
+  const auth = req.auth!;
+
+  // Check if tool exists
+  if (!hasTool(toolName)) {
+    res.status(404).json({
+      error: 'MCP_TOOL_NOT_FOUND',
+      message: `Tool not found: ${toolName}`,
+    });
+    return;
+  }
+
+  const tool = getTool(toolName)!;
+
+  // Check permission (tool name or category or wildcard)
+  const hasPermission =
+    auth.permissions.includes('*') ||
+    auth.permissions.includes(`tool:${toolName}`) ||
+    auth.permissions.includes(`tool:${tool.category}:*`) ||
+    auth.roles.includes('admin');
+
+  if (!hasPermission) {
+    res.status(403).json({
+      error: 'PERMISSION_DENIED',
+      message: `Permission denied for tool: ${toolName}`,
+    });
+    return;
+  }
+
+  // Validate request body
+  const parseResult = ToolExecuteSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    res.status(400).json({
+      error: 'VALIDATION_ERROR',
+      message: 'Invalid request body',
+      details: parseResult.error.flatten().fieldErrors,
+    });
+    return;
+  }
+
+  const { input } = parseResult.data;
+
+  try {
+    // Validate input against tool schema
+    const validatedInput = tool.schema.parse(input);
+
+    // Execute tool
+    const result = await tool.execute(validatedInput);
+
+    res.json({
+      tool: toolName,
+      result: JSON.parse(result),
+      executedBy: auth.sub,
+      executedAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      res.status(400).json({
+        error: 'VALIDATION_ERROR',
+        message: 'Invalid tool input',
+        details: err.flatten().fieldErrors,
+      });
+      return;
+    }
+    if (isMagnusError(err)) {
+      res.status(err.statusCode).json({
+        error: err.code,
+        message: err.message,
+      });
+      return;
+    }
+    console.error(`Tool execution error (${toolName}):`, err);
+    res.status(500).json({
+      error: 'TOOL_EXECUTION_ERROR',
+      message: 'Tool execution failed',
+    });
+  }
+});
+
+// ─── 404 Handler ─────────────────────────────────────────────────────────────
+
 app.use((_req, res) => res.status(404).json({ error: 'NOT_FOUND' }));
+
+// ─── Start Server ────────────────────────────────────────────────────────────
 
 const port = parseInt(process.env['PORT'] ?? '3001', 10);
 app.listen(port, () => {
-  // eslint-disable-next-line no-console
   console.log(`mcp-connector listening on ${port}`);
+  console.log(`Tools registered: ${getAllTools().length}`);
 });
-
