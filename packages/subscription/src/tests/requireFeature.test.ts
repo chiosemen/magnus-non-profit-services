@@ -48,6 +48,118 @@ test('requireFeature blocks when feature not enabled by tier', async () => {
   assert.ok(err instanceof FeatureNotEnabledError);
 });
 
+// ─── Allowed Cases ──────────────────────────────────────────────────────────
+
+test('STARTER allows compliance_calendar', async () => {
+  const secret = 'x'.repeat(32);
+  const token = jwt.sign({ orgId: 'org1' }, secret, { algorithm: 'HS256', expiresIn: '1h' });
+  const mw = requireFeature('compliance_calendar', {
+    jwtSecret: secret,
+    db: fakeDb({ tier: 'STARTER', status: 'ACTIVE' }),
+  });
+
+  const err = await runMw(mw, { headers: { authorization: `Bearer ${token}` } });
+  assert.equal(err, undefined, 'STARTER should allow compliance_calendar');
+});
+
+test('GROWTH allows grant_generator', async () => {
+  const secret = 'x'.repeat(32);
+  const token = jwt.sign({ orgId: 'org1' }, secret, { algorithm: 'HS256', expiresIn: '1h' });
+  const mw = requireFeature('grant_generator', {
+    jwtSecret: secret,
+    db: fakeDb({ tier: 'GROWTH', status: 'ACTIVE' }),
+  });
+
+  const err = await runMw(mw, { headers: { authorization: `Bearer ${token}` } });
+  assert.equal(err, undefined, 'GROWTH should allow grant_generator');
+});
+
+test('ENTERPRISE allows claude_partner', async () => {
+  const secret = 'x'.repeat(32);
+  const token = jwt.sign({ orgId: 'org1' }, secret, { algorithm: 'HS256', expiresIn: '1h' });
+  const mw = requireFeature('claude_partner', {
+    jwtSecret: secret,
+    db: fakeDb({ tier: 'ENTERPRISE', status: 'ACTIVE' }),
+  });
+
+  const err = await runMw(mw, { headers: { authorization: `Bearer ${token}` } });
+  assert.equal(err, undefined, 'ENTERPRISE should allow claude_partner');
+});
+
+test('ENTERPRISE allows worker_financial_layer', async () => {
+  const secret = 'x'.repeat(32);
+  const token = jwt.sign({ orgId: 'org1' }, secret, { algorithm: 'HS256', expiresIn: '1h' });
+  const mw = requireFeature('worker_financial_layer', {
+    jwtSecret: secret,
+    db: fakeDb({ tier: 'ENTERPRISE', status: 'ACTIVE' }),
+  });
+
+  const err = await runMw(mw, { headers: { authorization: `Bearer ${token}` } });
+  assert.equal(err, undefined, 'ENTERPRISE should allow worker_financial_layer');
+});
+
+test('ENTERPRISE allows agents_layer', async () => {
+  const secret = 'x'.repeat(32);
+  const token = jwt.sign({ orgId: 'org1' }, secret, { algorithm: 'HS256', expiresIn: '1h' });
+  const mw = requireFeature('agents_layer', {
+    jwtSecret: secret,
+    db: fakeDb({ tier: 'ENTERPRISE', status: 'ACTIVE' }),
+  });
+
+  const err = await runMw(mw, { headers: { authorization: `Bearer ${token}` } });
+  assert.equal(err, undefined, 'ENTERPRISE should allow agents_layer');
+});
+
+// ─── Denied Cases ───────────────────────────────────────────────────────────
+
+test('STARTER denies grant_generator', async () => {
+  const secret = 'x'.repeat(32);
+  const token = jwt.sign({ orgId: 'org1' }, secret, { algorithm: 'HS256', expiresIn: '1h' });
+  const mw = requireFeature('grant_generator', {
+    jwtSecret: secret,
+    db: fakeDb({ tier: 'STARTER', status: 'ACTIVE' }),
+  });
+
+  const err = await runMw(mw, { headers: { authorization: `Bearer ${token}` } });
+  assert.ok(err instanceof FeatureNotEnabledError, 'STARTER should deny grant_generator');
+});
+
+test('GROWTH denies claude_partner', async () => {
+  const secret = 'x'.repeat(32);
+  const token = jwt.sign({ orgId: 'org1' }, secret, { algorithm: 'HS256', expiresIn: '1h' });
+  const mw = requireFeature('claude_partner', {
+    jwtSecret: secret,
+    db: fakeDb({ tier: 'GROWTH', status: 'ACTIVE' }),
+  });
+
+  const err = await runMw(mw, { headers: { authorization: `Bearer ${token}` } });
+  assert.ok(err instanceof FeatureNotEnabledError, 'GROWTH should deny claude_partner');
+});
+
+test('GROWTH denies worker_financial_layer', async () => {
+  const secret = 'x'.repeat(32);
+  const token = jwt.sign({ orgId: 'org1' }, secret, { algorithm: 'HS256', expiresIn: '1h' });
+  const mw = requireFeature('worker_financial_layer', {
+    jwtSecret: secret,
+    db: fakeDb({ tier: 'GROWTH', status: 'ACTIVE' }),
+  });
+
+  const err = await runMw(mw, { headers: { authorization: `Bearer ${token}` } });
+  assert.ok(err instanceof FeatureNotEnabledError, 'GROWTH should deny worker_financial_layer');
+});
+
+test('GROWTH denies agents_layer', async () => {
+  const secret = 'x'.repeat(32);
+  const token = jwt.sign({ orgId: 'org1' }, secret, { algorithm: 'HS256', expiresIn: '1h' });
+  const mw = requireFeature('agents_layer', {
+    jwtSecret: secret,
+    db: fakeDb({ tier: 'GROWTH', status: 'ACTIVE' }),
+  });
+
+  const err = await runMw(mw, { headers: { authorization: `Bearer ${token}` } });
+  assert.ok(err instanceof FeatureNotEnabledError, 'GROWTH should deny agents_layer');
+});
+
 function fakeDb(params: { tier: any; status: any }): any {
   return {
     organization: {

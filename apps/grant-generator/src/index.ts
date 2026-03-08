@@ -7,6 +7,13 @@ import cors from 'cors';
 import { z } from 'zod';
 import { prisma } from '@magnus/db/client';
 import { createJwtAuthMiddleware, type AuthContext } from '@magnus/auth';
+import {
+  requireFeature,
+  FeatureNotEnabledError,
+  AuthRequiredError,
+  InvalidTokenError,
+  SubscriptionNotActiveError,
+} from '@magnus/subscription';
 import { getClaudeClient } from '../services/ClaudeClient';
 import { QualityValidator } from '../services/QualityValidator';
 import PROMPT_TEMPLATES from '../prompts/grantSectionTemplates';
@@ -31,6 +38,7 @@ app.get('/health', (_req, res) => res.json({ ok: true }));
 
 // Auth middleware for all /api routes
 const authMiddleware = createJwtAuthMiddleware();
+const requireGrantGen = requireFeature('grant_generator');
 
 // ─── Request Validation Schemas ──────────────────────────────────────────────
 
@@ -59,7 +67,7 @@ const GenerateRequestSchema = z.object({
 // ─── Routes ──────────────────────────────────────────────────────────────────
 
 // POST /api/grants/generate - Generate a new grant proposal
-app.post('/api/grants/generate', authMiddleware, async (req, res) => {
+app.post('/api/grants/generate', authMiddleware, requireGrantGen, async (req, res) => {
   const auth = req.auth!;
   const parseResult = GenerateRequestSchema.safeParse(req.body);
 
@@ -174,7 +182,7 @@ app.post('/api/grants/generate', authMiddleware, async (req, res) => {
 });
 
 // GET /api/grants - List org's grant proposals
-app.get('/api/grants', authMiddleware, async (req, res) => {
+app.get('/api/grants', authMiddleware, requireGrantGen, async (req, res) => {
   const auth = req.auth!;
 
   try {
@@ -206,7 +214,7 @@ app.get('/api/grants', authMiddleware, async (req, res) => {
 });
 
 // GET /api/grants/:id - Get a specific grant proposal
-app.get('/api/grants/:id', authMiddleware, async (req, res) => {
+app.get('/api/grants/:id', authMiddleware, requireGrantGen, async (req, res) => {
   const auth = req.auth!;
   const { id } = req.params;
 
@@ -245,6 +253,20 @@ app.get('/api/grants/:id', authMiddleware, async (req, res) => {
     console.error('Get grant error:', err);
     return res.status(500).json({ error: 'SERVER_ERROR' });
   }
+});
+
+// Subscription error handler
+app.use((err: unknown, _req: any, res: any, next: any) => {
+  if (err instanceof FeatureNotEnabledError) {
+    return res.status(403).json({ error: 'FEATURE_NOT_ENABLED', feature: err.featureKey });
+  }
+  if (err instanceof SubscriptionNotActiveError) {
+    return res.status(403).json({ error: 'SUBSCRIPTION_NOT_ACTIVE' });
+  }
+  if (err instanceof AuthRequiredError || err instanceof InvalidTokenError) {
+    return res.status(401).json({ error: err instanceof AuthRequiredError ? 'AUTH_REQUIRED' : 'INVALID_TOKEN' });
+  }
+  next(err);
 });
 
 // 404 handler

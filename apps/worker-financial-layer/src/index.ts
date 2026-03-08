@@ -3,6 +3,12 @@ import express, { type NextFunction, type Request, type Response } from 'express
 import cors from 'cors';
 import helmet from 'helmet';
 import { validateEnv } from '@magnus/config/envValidator';
+import {
+  FeatureNotEnabledError,
+  AuthRequiredError,
+  InvalidTokenError,
+  SubscriptionNotActiveError,
+} from '@magnus/subscription';
 import { loadEnv } from './config/env';
 import { prisma } from './db';
 import { buildRoutes } from './api/routes';
@@ -23,7 +29,20 @@ async function main(): Promise<void> {
   app.use(buildRoutes(prisma));
 
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
-    const msg = err instanceof Error ? err.message : 'INTERNAL_ERROR';
+    // Subscription errors
+    if (err instanceof FeatureNotEnabledError) {
+      res.status(403).json({ error: 'FEATURE_NOT_ENABLED', feature: err.featureKey });
+      return;
+    }
+    if (err instanceof SubscriptionNotActiveError) {
+      res.status(403).json({ error: 'SUBSCRIPTION_NOT_ACTIVE' });
+      return;
+    }
+    if (err instanceof AuthRequiredError || err instanceof InvalidTokenError) {
+      res.status(401).json({ error: err instanceof AuthRequiredError ? 'AUTH_REQUIRED' : 'INVALID_TOKEN' });
+      return;
+    }
+
     res.status(500).json({ error: 'INTERNAL_ERROR' });
   });
 

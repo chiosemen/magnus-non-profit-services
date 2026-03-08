@@ -8,6 +8,11 @@ import { z } from 'zod';
 import { getTokenValidator, TokenPayload } from './auth/TokenValidator';
 import { getTool, getAllTools, hasTool } from './tools/registry';
 import { isMagnusError } from './utils/errors';
+import {
+  enforceFeature,
+  FeatureNotEnabledError,
+  SubscriptionNotActiveError,
+} from '@magnus/subscription';
 
 // Extend Express Request type
 declare global {
@@ -98,6 +103,28 @@ app.post('/api/tools/:toolName', authMiddleware, async (req: Request, res: Respo
       message: `Permission denied for tool: ${toolName}`,
     });
     return;
+  }
+
+  // Check subscription feature entitlement
+  try {
+    await enforceFeature(auth.orgId, 'agents_layer');
+  } catch (err) {
+    if (err instanceof FeatureNotEnabledError) {
+      res.status(403).json({
+        error: 'FEATURE_NOT_ENABLED',
+        feature: 'agents_layer',
+        message: 'MCP tools require agents_layer subscription feature',
+      });
+      return;
+    }
+    if (err instanceof SubscriptionNotActiveError) {
+      res.status(403).json({
+        error: 'SUBSCRIPTION_NOT_ACTIVE',
+        message: 'Organization subscription is not active',
+      });
+      return;
+    }
+    throw err;
   }
 
   // Validate request body

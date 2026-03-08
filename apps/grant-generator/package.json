@@ -21,6 +21,7 @@
     "@magnus/auth": "workspace:*",
     "@magnus/config": "workspace:*",
     "@magnus/db": "workspace:*",
+    "@magnus/subscription": "workspace:*",
     "docx": "^8.5.0",
     "pdf-lib": "^1.17.1",
     "express": "^4.19.2",

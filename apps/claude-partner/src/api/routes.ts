@@ -1,6 +1,7 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
 import type { PrismaClient } from '@magnus/db/types';
 import { createJwtAuthMiddleware } from '@magnus/auth/jwtAuth';
+import { requireFeature } from '@magnus/subscription';
 import { PromptLibraryService } from '../services/PromptLibraryService';
 import { OrgClaudeConfigService } from '../services/OrgClaudeConfigService';
 import { UsageAuditService } from '../services/UsageAuditService';
@@ -11,6 +12,7 @@ import { promptDeploymentWorkflow } from '../workflows/promptDeploymentWorkflow'
 export function buildRoutes(params: { db: PrismaClient; anthropicApiKey: string }): Router {
   const router = Router();
   const jwtAuth = createJwtAuthMiddleware();
+  const requireClaudePartner = requireFeature('claude_partner');
   const promptLib = new PromptLibraryService(params.db);
   const cfgSvc = new OrgClaudeConfigService(params.db);
   const auditSvc = new UsageAuditService(params.db);
@@ -18,14 +20,14 @@ export function buildRoutes(params: { db: PrismaClient; anthropicApiKey: string 
 
   router.get('/health', (_req, res) => res.json({ ok: true }));
 
-  router.post('/api/claude/onboarding', jwtAuth, asyncHandler(async (req, res) => {
+  router.post('/api/claude/onboarding', jwtAuth, requireClaudePartner, asyncHandler(async (req, res) => {
     const orgId = (req as any).auth.orgId as string;
     const result = await onboardingWorkflow({ db: params.db, orgId });
     res.json(result);
   }));
 
   // New onboarding API: explicit orgId param.
-  router.post('/api/claude/onboard/:orgId', jwtAuth, asyncHandler(async (req, res) => {
+  router.post('/api/claude/onboard/:orgId', jwtAuth, requireClaudePartner, asyncHandler(async (req, res) => {
     const headerOrgId = (req as any).auth.orgId as string;
     const orgId = String(req.params.orgId ?? '');
     if (!orgId) {
@@ -40,7 +42,7 @@ export function buildRoutes(params: { db: PrismaClient; anthropicApiKey: string 
     res.json(result);
   }));
 
-  router.get('/api/claude/config', jwtAuth, asyncHandler(async (req, res) => {
+  router.get('/api/claude/config', jwtAuth, requireClaudePartner, asyncHandler(async (req, res) => {
     const orgId = (req as any).auth.orgId as string;
     const cfg = await cfgSvc.get(orgId);
     if (!cfg) {
@@ -50,7 +52,7 @@ export function buildRoutes(params: { db: PrismaClient; anthropicApiKey: string 
     res.json({ config: cfg });
   }));
 
-  router.get('/api/claude/prompts', jwtAuth, asyncHandler(async (req, res) => {
+  router.get('/api/claude/prompts', jwtAuth, requireClaudePartner, asyncHandler(async (req, res) => {
     const orgId = (req as any).auth.orgId as string;
     const promptType = typeof req.query['promptType'] === 'string' ? req.query['promptType'] : undefined;
     if (!promptType) {
@@ -66,7 +68,7 @@ export function buildRoutes(params: { db: PrismaClient; anthropicApiKey: string 
     res.json({ activePrompt: active });
   }));
 
-  router.post('/api/claude/prompts', jwtAuth, asyncHandler(async (req, res) => {
+  router.post('/api/claude/prompts', jwtAuth, requireClaudePartner, asyncHandler(async (req, res) => {
     const orgId = (req as any).auth.orgId as string;
     await cfgSvc.ensurePartnerAccess(orgId);
     const promptType = typeof req.body?.promptType === 'string' ? req.body.promptType : '';
@@ -85,7 +87,7 @@ export function buildRoutes(params: { db: PrismaClient; anthropicApiKey: string 
     res.status(201).json({ prompt: created });
   }));
 
-  router.post('/api/claude/prompts/deploy', jwtAuth, asyncHandler(async (req, res) => {
+  router.post('/api/claude/prompts/deploy', jwtAuth, requireClaudePartner, asyncHandler(async (req, res) => {
     const orgId = (req as any).auth.orgId as string;
     const promptId = typeof req.body?.promptId === 'string' ? req.body.promptId : '';
     if (!promptId) {
@@ -96,7 +98,7 @@ export function buildRoutes(params: { db: PrismaClient; anthropicApiKey: string 
     res.json({ ok: true });
   }));
 
-  router.post('/api/claude/messages', jwtAuth, asyncHandler(async (req, res) => {
+  router.post('/api/claude/messages', jwtAuth, requireClaudePartner, asyncHandler(async (req, res) => {
     const orgId = (req as any).auth.orgId as string;
 
     // Partner-tier enforcement lives in the core service (not controller business logic).
