@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.28.0",
+    "@magnus/auth": "workspace:*",
     "@magnus/config": "workspace:*",
     "@magnus/db": "workspace:*",
     "docx": "^8.5.0",
@@ -36,6 +37,7 @@
     "retry": "^0.13.1"
   },
   "devDependencies": {
+    "jsonwebtoken": "^9.0.2",
     "@types/express": "^4.17.21",
     "@types/cors": "^2.8.17",
     "@types/uuid": "^10.0.0",
