@@ -3,12 +3,11 @@ import { prisma } from '@magnus/db/client';
 import { signAccessToken } from '@/lib/auth/tokens';
 import { generateRefreshToken, hashRefreshToken } from '@/lib/auth/refresh';
 import { setAccessCookie, setRefreshCookie } from '@/lib/auth/cookies';
+import { hashPassword } from '@/lib/auth/password';
 import type { AuthPayload } from '@/lib/auth/types';
-import bcrypt from 'bcryptjs';
 
 export const runtime = 'nodejs';
 
-const BCRYPT_ROUNDS = 12;
 const MIN_PASSWORD_LENGTH = 8;
 
 export async function POST(req: Request) {
@@ -19,16 +18,16 @@ export async function POST(req: Request) {
   const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : '';
   const password = typeof body?.password === 'string' ? body.password : '';
 
-  if (!orgName || !ein || !email) {
+  if (!orgName || !ein || !email || !password) {
     return NextResponse.json({ error: 'INVALID_INPUT' }, { status: 400 });
   }
 
-  if (!password || password.length < MIN_PASSWORD_LENGTH) {
-    return Response.json({ error: 'PASSWORD_TOO_SHORT' }, { status: 400 });
+  // Validate password strength
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    return NextResponse.json({ error: 'PASSWORD_TOO_SHORT' }, { status: 400 });
   }
 
-  // Hash raw password — no trim/toLowerCase on password
-  const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+  const passwordHashValue = await hashPassword(password);
 
   try {
     // Create minimal records using existing schema defaults and required fields.
@@ -46,8 +45,8 @@ export async function POST(req: Request) {
 
       const worker = await tx.worker.upsert({
         where: { email },
-        update: { ...(name ? { name } : {}), passwordHash },
-        create: { email, passwordHash, ...(name ? { name } : {}) },
+        update: { ...(name ? { name } : {}), passwordHash: passwordHashValue },
+        create: { email, passwordHash: passwordHashValue, ...(name ? { name } : {}) },
       });
 
       const existing = await tx.workerOrgRelationship.findFirst({
@@ -67,8 +66,8 @@ export async function POST(req: Request) {
 
       const user = await tx.user.upsert({
         where: { email },
-        update: { name: name || null },
-        create: { id: worker.id, email, name: name || null },
+        update: { name: name || null, passwordHash: passwordHashValue },
+        create: { id: worker.id, email, name: name || null, passwordHash: passwordHashValue },
       });
 
       return { user, org, worker };

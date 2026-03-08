@@ -94,11 +94,12 @@ enum ClaudeStatus {
 // ─── Core Models ─────────────────────────────────────────────────────────────
 
 model User {
-  id        String   @id @default(uuid()) @db.Uuid
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique
+  name         String?
+  passwordHash String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   sessions Session[]
 }

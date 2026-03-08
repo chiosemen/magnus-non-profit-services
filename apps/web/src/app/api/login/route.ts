@@ -12,31 +12,33 @@ export async function POST(req: Request) {
   try {
     const formData = await req.formData();
     const email = normalize(formData.get('email'));
-    const password = normalize(formData.get('password'));
+    const password = formData.get('password');
 
-    if (!email || !password) {
+    if (!email || typeof password !== 'string' || !password) {
       return NextResponse.json({ error: 'INVALID_INPUT' }, { status: 400 });
     }
 
-    const worker = await prisma.worker.findUnique({
+    // Find user by email
+    const user = await prisma.user.findUnique({
       where: { email },
-      include: { workerOrgRelationships: { select: { orgId: true }, take: 1 } },
     });
-    if (!worker) return NextResponse.json({ error: 'INVALID_CREDENTIALS' }, { status: 401 });
-
-    const passwordHash = worker.ssnEncrypted;
-    if (!passwordHash || !(await verifyPassword(password, passwordHash))) {
+    if (!user) {
       return NextResponse.json({ error: 'INVALID_CREDENTIALS' }, { status: 401 });
     }
 
-    const orgRel = worker.workerOrgRelationships.at(0);
-    if (!orgRel) return NextResponse.json({ error: 'ORG_NOT_FOUND' }, { status: 401 });
+    // Verify password against User.passwordHash
+    if (!user.passwordHash || !(await verifyPassword(password, user.passwordHash))) {
+      return NextResponse.json({ error: 'INVALID_CREDENTIALS' }, { status: 401 });
+    }
 
-    const user = await prisma.user.upsert({
-      where: { email },
-      update: { name: worker.name ?? null },
-      create: { id: worker.id, email, name: worker.name ?? null },
+    // Find org association via worker (User.id === Worker.id by design)
+    const workerRel = await prisma.workerOrgRelationship.findFirst({
+      where: { workerId: user.id },
+      select: { orgId: true },
     });
+    if (!workerRel) {
+      return NextResponse.json({ error: 'ORG_NOT_FOUND' }, { status: 401 });
+    }
 
     const refreshToken = generateRefreshToken();
     const refreshTokenHash = hashRefreshToken(refreshToken);
@@ -46,14 +48,14 @@ export async function POST(req: Request) {
     await prisma.session.create({
       data: {
         userId: user.id,
-        orgId: orgRel.orgId,
+        orgId: workerRel.orgId,
         refreshTokenHash,
         expiresAt,
         lastSeenAt: now,
       },
     });
 
-    const payload: AuthPayload = { userId: user.id, orgId: orgRel.orgId, role: 'user' };
+    const payload: AuthPayload = { userId: user.id, orgId: workerRel.orgId, role: 'user' };
     const accessToken = signAccessToken(payload);
 
     const res = NextResponse.redirect(new URL('/dashboard', req.url));
@@ -69,4 +71,3 @@ function normalize(input: FormDataEntryValue | null): string {
   if (typeof input !== 'string') return '';
   return input.trim().toLowerCase();
 }
-

@@ -9,6 +9,7 @@ export default function RegisterForm() {
   const [ein, setEin] = useState('');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -20,7 +21,7 @@ export default function RegisterForm() {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ orgName, ein, name, email }),
+        body: JSON.stringify({ orgName, ein, name, email, password }),
       });
       if (!res.ok) {
         const body = await safeJson(res);
@@ -51,7 +52,11 @@ export default function RegisterForm() {
       </div>
       <div className="field">
         <div className="label">Email</div>
-        <input className="input" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@org.org" required />
+        <input className="input" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@org.org" required />
+      </div>
+      <div className="field">
+        <div className="label">Password</div>
+        <input className="input" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Min 8 characters" minLength={8} required />
       </div>
       {error ? <div className="error">{error}</div> : null}
       <button className="pill pillPrimary" type="submit" disabled={pending}>
