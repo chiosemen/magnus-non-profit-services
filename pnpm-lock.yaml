@@ -407,6 +407,9 @@ importers:
       '@types/node':
         specifier: ^22.5.0
         version: 22.19.11
+      jsonwebtoken:
+        specifier: ^9.0.3
+        version: 9.0.3
       ts-node-dev:
         specifier: ^2.0.0
         version: 2.0.0(@types/node@22.19.11)(typescript@5.9.3)

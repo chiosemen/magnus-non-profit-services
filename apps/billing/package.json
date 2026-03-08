@@ -8,7 +8,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
-    "test": "pnpm build && node --test dist/tests"
+    "test": "pnpm build && node --test dist/tests && node --test __tests__/smoke.test.js"
   },
   "dependencies": {
     "@magnus/config": "workspace:*",

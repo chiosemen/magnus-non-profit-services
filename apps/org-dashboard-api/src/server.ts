@@ -84,9 +84,15 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   res.status(status).json({ error: code });
 });
 
-const port = parseInt(process.env['PORT'] ?? '4010', 10);
-app.listen(port, () => {
-  // Intentionally minimal logging.
-  // eslint-disable-next-line no-console
-  console.log(`org-dashboard-api listening on ${port}`);
-});
+// Export app for testing
+export { app };
+
+// Only call listen() when run directly (not when imported for tests)
+if (require.main === module) {
+  const port = parseInt(process.env['PORT'] ?? '4010', 10);
+  app.listen(port, () => {
+    // Intentionally minimal logging.
+    // eslint-disable-next-line no-console
+    console.log(`org-dashboard-api listening on ${port}`);
+  });
+}

@@ -1,0 +1,321 @@
+# Magnus Accord — Smoke Test Coverage Matrix
+
+This document tracks critical smoke test coverage across all Magnus services.
+
+**Last Updated:** 2026-03-08
+**Coverage Status:** ✅ All core services have smoke tests
+
+---
+
+## Coverage Summary
+
+| Service | Tests | Health | Auth | Protected Routes | Webhooks | In-Process |
+|---------|-------|--------|------|------------------|----------|------------|
+| **agents** | ✅ 39 | N/A | N/A | N/A | N/A | ✅ |
+| **billing** | ✅ 11 | ✅ | N/A | N/A | ✅ | ✅ |
+| **claude-partner** | ✅ 4 | N/A | N/A | N/A | N/A | ✅ |
+| **grant-generator** | ✅ 35 | ✅ | ✅ | ✅ | N/A | ✅ |
+| **mcp-connector** | ✅ 20 | ✅ | ✅ | ✅ | N/A | ✅ |
+| **org-dashboard-api** | ✅ 11 | ✅ | ✅ | ✅ | N/A | ✅ |
+| **worker-financial-layer** | ✅ 1 | N/A | N/A | N/A | N/A | ✅ |
+| **web** | ⚠️ 0 | N/A | N/A | N/A | N/A | N/A |
+| **mobile** | ⚠️ 0 | N/A | N/A | N/A | N/A | N/A |
+
+**Total Tests:** 121
+**Apps with Tests:** 7/9
+
+---
+
+## Service Details
+
+### apps/agents
+
+**Test Count:** 39 tests
+**Test Files:**
+- `src/tests/complianceWatchdog.rules.test.ts`
+- `src/tests/dbAlertSink.idempotency.test.ts`
+- `src/tests/env.failclosed.test.ts`
+- `src/tests/fallbackAlertSink.test.ts`
+- `src/tests/grantLifecycleManager.rules.test.ts`
+- `src/tests/locks.test.ts`
+- `src/tests/slackAlertSink.test.ts`
+- `src/tests/workerIncomeOptimizer.rules.test.ts`
+
+**Coverage:**
+- ✅ Agent rule logic
+- ✅ Alert sink behavior (DB, Slack, Fallback, Console)
+- ✅ Environment fail-closed validation
+- ✅ Database advisory locks
+- ✅ Dedupe key stability
+
+**Run:** `pnpm --filter @magnus/agents test`
+
+---
+
+### apps/billing
+
+**Test Count:** 11 tests (1 unit + 10 smoke)
+**Test Files:**
+- `src/tests/subscriptionSyncService.test.ts` (unit)
+- `__tests__/smoke.test.js` (smoke)
+
+**Coverage:**
+- ✅ Health endpoint (public)
+- ✅ Stripe webhook signature validation
+- ✅ Webhook event handling
+- ✅ Subscription status mapping
+- ✅ Error responses (404, 500)
+
+**Critical Paths:**
+- `GET /health` → 200 (unauthenticated)
+- `POST /webhooks/stripe` → 400 (missing signature)
+- `POST /webhooks/stripe` → 400 (invalid signature)
+
+**App Export:** ✅ `src/app.ts` exports `createApp()`
+**Run:** `pnpm --filter @magnus/billing test`
+
+---
+
+### apps/claude-partner
+
+**Test Count:** 4 tests
+**Test Files:**
+- `src/tests/env.test.ts`
+- `src/tests/orgClaudeConfigService.test.ts`
+- `src/tests/promptLibraryService.test.ts`
+- `src/tests/usageAuditService.test.ts`
+
+**Coverage:**
+- ✅ Environment validation
+- ✅ Org config service
+- ✅ Prompt library service
+- ✅ Usage audit service
+
+**Run:** `pnpm --filter @magnus/claude-partner test`
+
+---
+
+### apps/grant-generator
+
+**Test Count:** 35 tests (13 base + 22 route)
+**Test Files:**
+- `__tests__/smoke.test.js` (auth + validation)
+- `__tests__/routes.smoke.test.js` (routes + features)
+
+**Coverage:**
+- ✅ Health endpoint (public)
+- ✅ JWT auth middleware
+- ✅ Zod request validation
+- ✅ Org scoping checks
+- ✅ Subscription feature checks (grant_generator)
+- ✅ Protected routes (POST /api/generate, GET /api/proposals, POST /api/status/:id)
+- ✅ Error responses (401, 403, 404, 500)
+
+**Critical Paths:**
+- `GET /health` → 200 (unauthenticated)
+- `POST /api/generate` → 401 (no token)
+- `POST /api/generate` → 403 (feature not enabled)
+- `GET /api/proposals` → 200 (valid token + feature)
+
+**App Export:** ✅ Exports app instance
+**Run:** `pnpm --filter @magnus/grant-generator test`
+
+---
+
+### apps/mcp-connector
+
+**Test Count:** 20 tests
+**Test File:** `__tests__/smoke.test.js`
+
+**Coverage:**
+- ✅ Health endpoint (public)
+- ✅ TokenValidator (expired, invalid, missing tokens)
+- ✅ Tool permission checks (wildcard, specific, category, admin)
+- ✅ Tool registry (naming, categories)
+- ✅ Request validation
+- ✅ Error responses (401, 403, 404)
+
+**Critical Paths:**
+- `GET /health` → 200 (unauthenticated)
+- `GET /api/tools` → 401 (no token)
+- `POST /api/tools/:toolName` → 401 (no token)
+- `POST /api/tools/:toolName` → 403 (insufficient permissions)
+- `POST /api/tools/:toolName` → 404 (unknown tool)
+
+**App Export:** ✅ Exports `app` from `src/server.ts`
+**Run:** `pnpm --filter @magnus/mcp-connector test`
+
+---
+
+### apps/org-dashboard-api
+
+**Test Count:** 11 tests
+**Test File:** `__tests__/smoke.test.js`
+
+**Coverage:**
+- ✅ Health endpoint (public)
+- ✅ JWT auth middleware
+- ✅ Protected routes (GET /api/org/overview, /api/org/compliance, /api/org/grants)
+- ✅ Subscription feature checks (compliance_calendar, grant_generator)
+- ✅ Error responses (401, 403, 404)
+
+**Critical Paths:**
+- `GET /health` → 200 (unauthenticated)
+- `GET /api/org/overview` → 401 (no token)
+- `GET /api/org/overview` → 403 (feature not enabled)
+- `GET /api/org/compliance` → 200 (valid token + feature)
+
+**App Export:** ✅ Exports `app` from `src/server.ts`
+**Run:** `pnpm --filter @magnus/org-dashboard-api test`
+
+---
+
+### apps/worker-financial-layer
+
+**Test Count:** 1 test
+**Test File:** `src/tests/workerTierGuard.test.ts`
+
+**Coverage:**
+- ✅ Worker tier guard logic
+
+**Run:** `pnpm --filter @magnus/worker-financial-layer test`
+
+---
+
+### apps/web
+
+**Status:** ⚠️ No tests
+**Type:** Next.js frontend
+**Note:** Frontend apps typically don't have smoke tests in this pattern. Consider E2E tests separately.
+
+---
+
+### apps/mobile
+
+**Status:** ⚠️ No tests
+**Type:** React Native frontend
+**Note:** Mobile apps typically don't have smoke tests in this pattern. Consider E2E tests separately.
+
+---
+
+## Test Execution
+
+### Run All Tests
+
+```bash
+# Run all service tests in parallel
+pnpm -r --if-present test
+
+# Run specific service
+pnpm --filter @magnus/<service> test
+```
+
+### Expected Output
+
+All tests should pass with **0 failures**:
+
+```
+apps/agents: 39/39 passed
+apps/billing: 11/11 passed
+apps/claude-partner: 4/4 passed
+apps/grant-generator: 35/35 passed
+apps/mcp-connector: 20/20 passed
+apps/org-dashboard-api: 11/11 passed
+apps/worker-financial-layer: 1/1 passed
+```
+
+---
+
+## CI Integration
+
+### GitHub Actions
+
+Tests run on every PR via `.github/workflows/ci.yml`:
+
+```yaml
+- name: Run tests
+  run: pnpm -r --if-present test
+```
+
+**Merge Blocker:** Tests must pass before PR can merge.
+
+---
+
+## In-Process Testability
+
+All services export their Express app instances for in-process testing:
+
+### Pattern
+
+```typescript
+// src/server.ts or src/app.ts
+export { app };
+
+// Only listen when run directly
+if (require.main === module) {
+  app.listen(port, () => console.log(`Service listening on ${port}`));
+}
+```
+
+### Services Following This Pattern
+
+- ✅ **billing:** `src/app.ts` exports `createApp()`
+- ✅ **grant-generator:** Exports app instance
+- ✅ **mcp-connector:** `src/server.ts` exports `app`
+- ✅ **org-dashboard-api:** `src/server.ts` exports `app`
+
+### Benefits
+
+- No need to spawn actual HTTP server for tests
+- Faster test execution
+- Better isolation
+- Easier to mock dependencies
+
+---
+
+## Coverage Gaps & Future Work
+
+### Web App (apps/web)
+
+- **Status:** No tests
+- **Recommendation:** Add Playwright E2E tests for critical flows
+- **Priority:** Low (frontend testing is separate concern)
+
+### Mobile App (apps/mobile)
+
+- **Status:** No tests
+- **Recommendation:** Add Detox E2E tests for critical flows
+- **Priority:** Low (mobile testing is separate concern)
+
+### Integration Tests
+
+- **Status:** Not in scope for smoke tests
+- **Recommendation:** Consider adding integration tests that test multiple services together
+- **Priority:** Medium
+
+---
+
+## Maintenance
+
+### Adding New Tests
+
+1. Create `__tests__/smoke.test.js` in service directory
+2. Add `test` script to `package.json`
+3. Update this matrix
+4. Run `pnpm -r --if-present test` to verify
+
+### Updating Existing Tests
+
+1. Modify test file
+2. Run tests locally: `pnpm --filter @magnus/<service> test`
+3. Update this matrix if coverage changes
+4. CI will validate on PR
+
+---
+
+## Contact
+
+Questions about testing strategy? Contact the engineering team.
+
+**Last Audit:** 2026-03-08
+**Next Audit:** 2026-04-08
