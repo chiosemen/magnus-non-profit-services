@@ -1,8 +1,11 @@
 import 'dotenv/config';
 import { validateEnv } from '@magnus/config/envValidator';
-import { loadEnv } from './config/env';
+import { loadEnv, type AlertSinkType, type AgentsEnv } from './config/env';
+import type { AlertSink } from './sinks/AlertSink';
 import { DbAlertSink } from './sinks/DbAlertSink';
 import { ConsoleAlertSink } from './sinks/ConsoleAlertSink';
+import { SlackAlertSink } from './sinks/SlackAlertSink';
+import { FallbackAlertSink, createStructuredFailureLogger } from './sinks/FallbackAlertSink';
 import type { AgentName, ScopeType } from './contracts/run';
 import { Scheduler } from './scheduler/scheduler';
 import { startCron } from './scheduler/cron';
@@ -26,6 +29,45 @@ function parseScopeType(s: string): ScopeType {
   throw new Error('Invalid --scope. Expected org|worker|grant.');
 }
 
+function createAlertSink(env: AgentsEnv): AlertSink {
+  const sinkType = env.AGENTS_ALERT_SINK;
+
+  if (sinkType === 'console') {
+    return new ConsoleAlertSink();
+  }
+
+  if (sinkType === 'db') {
+    return new DbAlertSink();
+  }
+
+  if (sinkType === 'slack') {
+    return new SlackAlertSink({
+      webhookUrl: env.SLACK_WEBHOOK_URL!,
+      maxRetries: env.SLACK_MAX_RETRIES,
+    });
+  }
+
+  // fallback: Slack -> DB -> Console (dev only)
+  const failureLogger = createStructuredFailureLogger();
+  const sinks: Array<{ name: string; sink: AlertSink }> = [
+    {
+      name: 'slack',
+      sink: new SlackAlertSink({
+        webhookUrl: env.SLACK_WEBHOOK_URL!,
+        maxRetries: env.SLACK_MAX_RETRIES,
+      }),
+    },
+    { name: 'db', sink: new DbAlertSink() },
+  ];
+
+  // Only add console as last resort in non-production
+  if (env.NODE_ENV !== 'production') {
+    sinks.push({ name: 'console', sink: new ConsoleAlertSink() });
+  }
+
+  return new FallbackAlertSink(sinks, { onFailure: failureLogger });
+}
+
 function parseAgentName(s: string): AgentName {
   if (s === 'ComplianceWatchdog' || s === 'WorkerIncomeOptimizer' || s === 'GrantLifecycleManager') return s;
   throw new Error('Invalid --agent. Expected ComplianceWatchdog|WorkerIncomeOptimizer|GrantLifecycleManager.');
@@ -44,7 +86,7 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const sink = env.AGENTS_ALERT_SINK === 'db' ? new DbAlertSink() : new ConsoleAlertSink();
+  const sink = createAlertSink(env);
   const scheduler = new Scheduler({ alertSink: sink });
 
   const mode = process.argv[2];
