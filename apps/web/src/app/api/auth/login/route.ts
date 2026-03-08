@@ -1,7 +1,10 @@
+import { NextResponse } from 'next/server';
 import { prisma } from '@magnus/db/client';
-import { cookies, headers } from 'next/headers';
-import { AUTH_COOKIE_NAME, REFRESH_COOKIE_NAME, signAppToken } from '@/lib/auth';
-import { createSession } from '@/lib/session';
+import { headers } from 'next/headers';
+import { signAccessToken } from '@/lib/auth/tokens';
+import { generateRefreshToken, hashRefreshToken } from '@/lib/auth/refresh';
+import { setAccessCookie, setRefreshCookie } from '@/lib/auth/cookies';
+import type { AuthPayload } from '@/lib/auth/types';
 import { checkRateLimit, recordFailure, clearFailures } from '@/lib/rate-limit';
 import bcrypt from 'bcryptjs';
 
@@ -23,7 +26,10 @@ export async function POST(req: Request) {
   const ein = typeof body?.ein === 'string' ? body.ein.trim() : '';
   const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : '';
   const password = typeof body?.password === 'string' ? body.password : '';
-  if (!ein || !email || !password) return Response.json({ error: 'INVALID_INPUT' }, { status: 400 });
+
+  if (!ein || !email || !password) {
+    return Response.json({ error: 'INVALID_INPUT' }, { status: 400 });
+  }
 
   const org = await prisma.organization.findUnique({ where: { ein } });
   if (!org) {
@@ -33,7 +39,7 @@ export async function POST(req: Request) {
 
   const worker = await prisma.worker.findUnique({
     where: { email },
-    select: { id: true, passwordHash: true },
+    select: { id: true, name: true, passwordHash: true },
   });
   if (!worker) {
     recordFailure(ip);
@@ -65,31 +71,36 @@ export async function POST(req: Request) {
   // Login succeeded — clear rate-limit record for this IP
   clearFailures(ip);
 
-  // Create server-side session row bound to the verified org
-  const { sessionId, refreshToken } = await createSession(worker.id, org.id);
-
-  const token = signAppToken({ orgId: org.id, workerId: worker.id, role: 'admin', sub: worker.id, sessionId });
-  cookies().set({
-    name: AUTH_COOKIE_NAME,
-    value: token,
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env['NODE_ENV'] === 'production',
-    path: '/',
-    maxAge: 900, // 15 minutes — aligned with JWT exp
+  // Upsert User record for unified auth model
+  const user = await prisma.user.upsert({
+    where: { email },
+    update: { name: worker.name ?? null },
+    create: { id: worker.id, email, name: worker.name ?? null },
   });
 
-  cookies().set({
-    name: REFRESH_COOKIE_NAME,
-    value: refreshToken,
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env['NODE_ENV'] === 'production',
-    path: '/',
-    maxAge: 30 * 24 * 60 * 60, // 30 days
+  // Create session with refresh token
+  const refreshToken = generateRefreshToken();
+  const refreshTokenHash = hashRefreshToken(refreshToken);
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30d
+
+  await prisma.session.create({
+    data: {
+      userId: user.id,
+      orgId: org.id,
+      refreshTokenHash,
+      expiresAt,
+      lastSeenAt: now,
+    },
   });
 
-  return Response.json({ ok: true });
+  const payload: AuthPayload = { userId: user.id, orgId: org.id, role: 'user' };
+  const accessToken = signAccessToken(payload);
+
+  const res = NextResponse.json({ ok: true });
+  setAccessCookie(res, accessToken);
+  setRefreshCookie(res, refreshToken);
+  return res;
 }
 
 async function safeJson(req: Request): Promise<any | null> {

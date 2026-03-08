@@ -1,98 +1,79 @@
+import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { AUTH_COOKIE_NAME, REFRESH_COOKIE_NAME, signAppToken, verifyAppToken } from '@/lib/auth';
-import { rotateSession } from '@/lib/session';
+import { prisma } from '@magnus/db/client';
+import { signAccessToken } from '@/lib/auth/tokens';
+import { generateRefreshToken, hashRefreshToken } from '@/lib/auth/refresh';
+import { setAccessCookie, setRefreshCookie, clearAuthCookies } from '@/lib/auth/cookies';
+import type { AuthPayload } from '@/lib/auth/types';
 
 export const runtime = 'nodejs';
 
-/**
- * POST /api/auth/refresh
- *
- * Fail-closed refresh token rotation:
- *   1. Read refresh cookie (raw token) + access cookie (for sessionId)
- *   2. Decode access JWT (allow expired — we're refreshing)
- *   3. Call rotateSession(sessionId, rawToken)
- *      - validates hash match, not revoked, not expired
- *      - on hash mismatch → revokes session (token reuse attack)
- *      - replaces hash in DB, updates lastSeenAt
- *   4. Issue new access JWT + new refresh cookie
- *   5. Old refresh token is immediately invalid
- */
 export async function POST() {
-    // ── 1. Read cookies ──────────────────────────────────────────────
-    const refreshToken = cookies().get(REFRESH_COOKIE_NAME)?.value;
-    const accessToken = cookies().get(AUTH_COOKIE_NAME)?.value;
+  const refreshToken = cookies().get('refresh')?.value;
+  if (!refreshToken) {
+    return NextResponse.json({ error: 'AUTH_REQUIRED' }, { status: 401 });
+  }
 
-    if (!refreshToken || !accessToken) {
-        return Response.json({ error: 'REFRESH_REQUIRED' }, { status: 401 });
-    }
+  const refreshTokenHash = hashRefreshToken(refreshToken);
 
-    // ── 2. Decode access JWT to extract sessionId ────────────────────
-    // Use verifyAppToken which will throw if fully invalid.
-    // For refresh flow, we accept the JWT even if expired (the refresh token is the auth).
-    let sessionId: string | undefined;
-    try {
-        const payload = verifyAppToken(accessToken);
-        sessionId = payload.sessionId;
-    } catch {
-        // JWT expired or invalid — try to extract sessionId from raw decode
-        try {
-            const jwt = await import('jsonwebtoken');
-            const decoded = jwt.default.decode(accessToken);
-            if (decoded && typeof decoded === 'object' && typeof decoded.sessionId === 'string') {
-                sessionId = decoded.sessionId;
-            }
-        } catch {
-            // Fully undecodable
-        }
-    }
+  const session = await prisma.session.findUnique({
+    where: { refreshTokenHash },
+    select: {
+      id: true,
+      userId: true,
+      orgId: true,
+      expiresAt: true,
+      revokedAt: true,
+      user: { select: { id: true } },
+    },
+  });
 
-    if (!sessionId) {
-        return Response.json({ error: 'SESSION_MISSING' }, { status: 401 });
-    }
+  // Fail closed: reject if session not found, revoked, or expired
+  if (!session) {
+    const res = NextResponse.json({ error: 'AUTH_INVALID' }, { status: 401 });
+    clearAuthCookies(res);
+    return res;
+  }
 
-    // ── 3. Rotate session ────────────────────────────────────────────
-    const result = await rotateSession(sessionId, refreshToken);
-    if (!result) {
-        // Rotation failed — token reuse, revoked, or expired
-        // Clear both cookies to force re-login
-        clearCookies();
-        return Response.json({ error: 'REFRESH_INVALID' }, { status: 401 });
-    }
+  if (session.revokedAt !== null) {
+    const res = NextResponse.json({ error: 'AUTH_REVOKED' }, { status: 401 });
+    clearAuthCookies(res);
+    return res;
+  }
 
-    // ── 4. Issue new tokens ──────────────────────────────────────────
-    const newAccessToken = signAppToken({
-        orgId: result.orgId,
-        workerId: result.workerId,
-        role: 'admin',
-        sub: result.workerId,
-        sessionId,
-    });
+  if (session.expiresAt < new Date()) {
+    const res = NextResponse.json({ error: 'AUTH_EXPIRED' }, { status: 401 });
+    clearAuthCookies(res);
+    return res;
+  }
 
-    cookies().set({
-        name: AUTH_COOKIE_NAME,
-        value: newAccessToken,
-        httpOnly: true,
-        sameSite: 'lax',
-        secure: process.env['NODE_ENV'] === 'production',
-        path: '/',
-        maxAge: 900, // 15 minutes — aligned with JWT exp
-    });
+  // Rotate refresh token: revoke old, create new
+  const newRefreshToken = generateRefreshToken();
+  const newRefreshTokenHash = hashRefreshToken(newRefreshToken);
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30d
 
-    cookies().set({
-        name: REFRESH_COOKIE_NAME,
-        value: result.newRefreshToken,
-        httpOnly: true,
-        sameSite: 'lax',
-        secure: process.env['NODE_ENV'] === 'production',
-        path: '/',
-        maxAge: 30 * 24 * 60 * 60, // 30 days
-    });
+  await prisma.$transaction([
+    prisma.session.update({
+      where: { id: session.id },
+      data: { revokedAt: now },
+    }),
+    prisma.session.create({
+      data: {
+        userId: session.userId,
+        orgId: session.orgId,
+        refreshTokenHash: newRefreshTokenHash,
+        expiresAt,
+        lastSeenAt: now,
+      },
+    }),
+  ]);
 
-    return Response.json({ ok: true });
-}
+  const payload: AuthPayload = { userId: session.userId, orgId: session.orgId, role: 'user' };
+  const accessToken = signAccessToken(payload);
 
-function clearCookies() {
-    const secure = process.env['NODE_ENV'] === 'production';
-    cookies().set({ name: AUTH_COOKIE_NAME, value: '', httpOnly: true, sameSite: 'lax', secure, path: '/', maxAge: 0 });
-    cookies().set({ name: REFRESH_COOKIE_NAME, value: '', httpOnly: true, sameSite: 'lax', secure, path: '/', maxAge: 0 });
+  const res = NextResponse.json({ ok: true });
+  setAccessCookie(res, accessToken);
+  setRefreshCookie(res, newRefreshToken);
+  return res;
 }

@@ -1,7 +1,9 @@
+import { NextResponse } from 'next/server';
 import { prisma } from '@magnus/db/client';
-import { cookies } from 'next/headers';
-import { AUTH_COOKIE_NAME, REFRESH_COOKIE_NAME, signAppToken } from '@/lib/auth';
-import { createSession } from '@/lib/session';
+import { signAccessToken } from '@/lib/auth/tokens';
+import { generateRefreshToken, hashRefreshToken } from '@/lib/auth/refresh';
+import { setAccessCookie, setRefreshCookie } from '@/lib/auth/cookies';
+import type { AuthPayload } from '@/lib/auth/types';
 import bcrypt from 'bcryptjs';
 
 export const runtime = 'nodejs';
@@ -17,7 +19,9 @@ export async function POST(req: Request) {
   const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : '';
   const password = typeof body?.password === 'string' ? body.password : '';
 
-  if (!orgName || !ein || !email) return Response.json({ error: 'INVALID_INPUT' }, { status: 400 });
+  if (!orgName || !ein || !email) {
+    return NextResponse.json({ error: 'INVALID_INPUT' }, { status: 400 });
+  }
 
   if (!password || password.length < MIN_PASSWORD_LENGTH) {
     return Response.json({ error: 'PASSWORD_TOO_SHORT' }, { status: 400 });
@@ -26,66 +30,75 @@ export async function POST(req: Request) {
   // Hash raw password — no trim/toLowerCase on password
   const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
-  // Create minimal records using existing schema defaults and required fields.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- tx type resolved after prisma generate
-  const { org, worker } = await prisma.$transaction(async (tx: any) => {
-    const org = await tx.organization.upsert({
-      where: { ein },
-      update: { name: orgName },
-      create: {
-        ein,
-        name: orgName,
-        subscriptionTier: 'STARTER',
+  try {
+    // Create minimal records using existing schema defaults and required fields.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- tx type resolved after prisma generate
+    const { org, worker, user } = await prisma.$transaction(async (tx: any) => {
+      const org = await tx.organization.upsert({
+        where: { ein },
+        update: { name: orgName },
+        create: {
+          ein,
+          name: orgName,
+          subscriptionTier: 'STARTER',
+        },
+      });
+
+      const worker = await tx.worker.upsert({
+        where: { email },
+        update: { ...(name ? { name } : {}), passwordHash },
+        create: { email, passwordHash, ...(name ? { name } : {}) },
+      });
+
+      const existing = await tx.workerOrgRelationship.findFirst({
+        where: { orgId: org.id, workerId: worker.id },
+      });
+      if (!existing) {
+        await tx.workerOrgRelationship.create({
+          data: {
+            workerId: worker.id,
+            orgId: org.id,
+            relationshipType: 'CONTRACTOR_1099',
+            startDate: new Date(),
+            grantFunded: false,
+          },
+        });
+      }
+
+      const user = await tx.user.upsert({
+        where: { email },
+        update: { name: name || null },
+        create: { id: worker.id, email, name: name || null },
+      });
+
+      return { user, org, worker };
+    });
+
+    const refreshToken = generateRefreshToken();
+    const refreshTokenHash = hashRefreshToken(refreshToken);
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30d
+
+    await prisma.session.create({
+      data: {
+        userId: user.id,
+        orgId: org.id,
+        refreshTokenHash,
+        expiresAt,
+        lastSeenAt: now,
       },
     });
 
-    const worker = await tx.worker.upsert({
-      where: { email },
-      update: { ...(name ? { name } : {}), passwordHash },
-      create: { email, passwordHash, ...(name ? { name } : {}) },
-    });
+    const payload: AuthPayload = { userId: user.id, orgId: org.id, role: 'user' };
+    const accessToken = signAccessToken(payload);
 
-    const existing = await tx.workerOrgRelationship.findFirst({ where: { orgId: org.id, workerId: worker.id } });
-    if (!existing) {
-      await tx.workerOrgRelationship.create({
-        data: {
-          workerId: worker.id,
-          orgId: org.id,
-          relationshipType: 'CONTRACTOR_1099',
-          startDate: new Date(),
-          grantFunded: false,
-        },
-      });
-    }
-
-    return { org, worker };
-  });
-
-  // Create server-side session row bound to the verified org
-  const { sessionId, refreshToken } = await createSession(worker.id, org.id);
-
-  const token = signAppToken({ orgId: org.id, workerId: worker.id, role: 'admin', sub: worker.id, sessionId });
-  cookies().set({
-    name: AUTH_COOKIE_NAME,
-    value: token,
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env['NODE_ENV'] === 'production',
-    path: '/',
-    maxAge: 900, // 15 minutes — aligned with JWT exp
-  });
-
-  cookies().set({
-    name: REFRESH_COOKIE_NAME,
-    value: refreshToken,
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env['NODE_ENV'] === 'production',
-    path: '/',
-    maxAge: 30 * 24 * 60 * 60, // 30 days
-  });
-
-  return Response.json({ ok: true });
+    const res = NextResponse.json({ ok: true });
+    setAccessCookie(res, accessToken);
+    setRefreshCookie(res, refreshToken);
+    return res;
+  } catch (err) {
+    return NextResponse.json({ error: 'SERVER_ERROR' }, { status: 500 });
+  }
 }
 
 async function safeJson(req: Request): Promise<any | null> {

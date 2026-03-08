@@ -1,38 +1,28 @@
 import { prisma } from '@magnus/db/client';
 import { cookies } from 'next/headers';
-import { AUTH_COOKIE_NAME, verifyAppToken } from '@/lib/auth';
-import { verifySession } from '@/lib/session';
+import { verifyAccessToken } from '@/lib/auth/tokens';
 
 export const runtime = 'nodejs';
 
 export async function GET() {
-  const token = cookies().get(AUTH_COOKIE_NAME)?.value;
+  const token = cookies().get('session')?.value;
   if (!token) return Response.json({ error: 'AUTH_REQUIRED' }, { status: 401 });
 
-  let payload: { orgId: string; workerId: string };
+  let payload: { orgId: string; userId: string };
   try {
-    const p = verifyAppToken(token);
-
-    // Session-state enforcement: verify session before any DB access
-    if (!p.sessionId) {
-      return Response.json({ error: 'SESSION_MISSING' }, { status: 401 });
-    }
-    const session = await verifySession(p.sessionId);
-    if (!session) {
-      return Response.json({ error: 'SESSION_INVALID' }, { status: 401 });
-    }
-
-    payload = { orgId: p.orgId, workerId: p.workerId };
+    const p = verifyAccessToken(token);
+    payload = { orgId: p.orgId, userId: p.userId };
   } catch {
     return Response.json({ error: 'AUTH_INVALID' }, { status: 401 });
   }
 
+  // userId maps to worker.id (set during registration)
   const org = await prisma.organization.findUnique({
     where: { id: payload.orgId },
     select: { id: true, ein: true, name: true },
   });
   const worker = await prisma.worker.findUnique({
-    where: { id: payload.workerId },
+    where: { id: payload.userId },
     select: { id: true, email: true, name: true },
   });
 
