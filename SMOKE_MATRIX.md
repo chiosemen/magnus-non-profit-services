@@ -13,15 +13,15 @@ This document tracks critical smoke test coverage across all Magnus services.
 |---------|-------|--------|------|------------------|----------|------------|
 | **agents** | ✅ 39 | N/A | N/A | N/A | N/A | ✅ |
 | **billing** | ✅ 11 | ✅ | N/A | N/A | ✅ | ✅ |
-| **claude-partner** | ✅ 4 | N/A | N/A | N/A | N/A | ✅ |
-| **grant-generator** | ✅ 35 | ✅ | ✅ | ✅ | N/A | ✅ |
+| **claude-partner** | ✅ 6 | N/A | N/A | N/A | N/A | ✅ |
+| **grant-generator** | ✅ 25 | ✅ | ✅ | ✅ | N/A | ✅ |
 | **mcp-connector** | ✅ 20 | ✅ | ✅ | ✅ | N/A | ✅ |
-| **org-dashboard-api** | ✅ 11 | ✅ | ✅ | ✅ | N/A | ✅ |
-| **worker-financial-layer** | ✅ 1 | N/A | N/A | N/A | N/A | ✅ |
+| **org-dashboard-api** | ✅ 10 | ✅ | ✅ | ✅ | N/A | ✅ |
+| **worker-financial-layer** | ✅ 2 | N/A | N/A | N/A | N/A | ✅ |
 | **web** | ⚠️ 0 | N/A | N/A | N/A | N/A | N/A |
 | **mobile** | ⚠️ 0 | N/A | N/A | N/A | N/A | N/A |
 
-**Total Tests:** 121
+**Total Tests:** 113
 **Apps with Tests:** 7/9
 
 ---
@@ -78,7 +78,7 @@ This document tracks critical smoke test coverage across all Magnus services.
 
 ### apps/claude-partner
 
-**Test Count:** 4 tests
+**Test Count:** 6 tests
 **Test Files:**
 - `src/tests/env.test.ts`
 - `src/tests/orgClaudeConfigService.test.ts`
@@ -97,7 +97,7 @@ This document tracks critical smoke test coverage across all Magnus services.
 
 ### apps/grant-generator
 
-**Test Count:** 35 tests (13 base + 22 route)
+**Test Count:** 25 tests (12 base + 13 route)
 **Test Files:**
 - `__tests__/smoke.test.js` (auth + validation)
 - `__tests__/routes.smoke.test.js` (routes + features)
@@ -149,7 +149,7 @@ This document tracks critical smoke test coverage across all Magnus services.
 
 ### apps/org-dashboard-api
 
-**Test Count:** 11 tests
+**Test Count:** 10 tests
 **Test File:** `__tests__/smoke.test.js`
 
 **Coverage:**
@@ -172,7 +172,7 @@ This document tracks critical smoke test coverage across all Magnus services.
 
 ### apps/worker-financial-layer
 
-**Test Count:** 1 test
+**Test Count:** 2 tests
 **Test File:** `src/tests/workerTierGuard.test.ts`
 
 **Coverage:**
@@ -217,11 +217,11 @@ All tests should pass with **0 failures**:
 ```
 apps/agents: 39/39 passed
 apps/billing: 11/11 passed
-apps/claude-partner: 4/4 passed
-apps/grant-generator: 35/35 passed
+apps/claude-partner: 6/6 passed
+apps/grant-generator: 25/25 passed
 apps/mcp-connector: 20/20 passed
-apps/org-dashboard-api: 11/11 passed
-apps/worker-financial-layer: 1/1 passed
+apps/org-dashboard-api: 10/10 passed
+apps/worker-financial-layer: 2/2 passed
 ```
 
 ---
