@@ -27,6 +27,9 @@ jobs:
       - name: Install deps
         run: pnpm install --frozen-lockfile
 
+      - name: Prisma generate
+        run: pnpm --filter @magnus/db prisma:generate
+
       - name: Run typecheck
         run: pnpm -r exec tsc --noEmit
 
@@ -38,6 +41,3 @@ jobs:
 
       - name: Validate migrations (additive-only)
         run: node scripts/validate-migrations.js
-
-      - name: Prisma generate (unified)
-        run: pnpm prisma:generate
