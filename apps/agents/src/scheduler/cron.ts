@@ -1,9 +1,19 @@
 import cron from 'node-cron';
 import type { AgentsEnv } from '../config/env';
 import { Scheduler } from './scheduler';
+import { cleanupExpiredSessions } from '../maintenance/sessionCleanup';
 
 export function startCron(env: AgentsEnv, scheduler: Scheduler): void {
   const tz = env.AGENTS_TIMEZONE;
+
+  // Daily 03:00 UTC - Session cleanup (maintenance task, not agent-based)
+  cron.schedule('0 3 * * *', () => {
+    cleanupExpiredSessions().catch(err => {
+      console.error('[Cron] Session cleanup failed:', err);
+      // Fail closed: exit on cleanup failure to ensure monitoring catches the issue
+      process.exit(1);
+    });
+  }, { timezone: 'UTC' });
 
   // Daily 09:00 local time
   cron.schedule('0 9 * * *', () => {

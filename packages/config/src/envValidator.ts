@@ -25,6 +25,7 @@ const numeric = z.string().regex(/^\d+$/);
 const baseServiceSchema = z.object({
   DATABASE_URL: nonEmpty,
   JWT_SECRET: nonEmpty.min(32),
+  ENCRYPTION_KEY: nonEmpty.regex(/^[0-9a-fA-F]{64}$/, 'ENCRYPTION_KEY must be 64 hex characters (32 bytes)'),
 });
 
 const billingSchema = baseServiceSchema.extend({
@@ -37,10 +38,12 @@ const claudePartnerSchema = baseServiceSchema.extend({
 
 const agentsSchema = z.object({
   DATABASE_URL: nonEmpty,
+  ENCRYPTION_KEY: nonEmpty.regex(/^[0-9a-fA-F]{64}$/, 'ENCRYPTION_KEY must be 64 hex characters (32 bytes)'),
 });
 
 const grantGeneratorSchema = z.object({
   DATABASE_URL: nonEmpty,
+  ENCRYPTION_KEY: nonEmpty.regex(/^[0-9a-fA-F]{64}$/, 'ENCRYPTION_KEY must be 64 hex characters (32 bytes)'),
   ANTHROPIC_API_KEY: nonEmpty,
   // Optional knobs used by the grant-generator ClaudeClient.
   ANTHROPIC_MODEL: nonEmpty.optional(),

@@ -13,6 +13,7 @@ import {
   FeatureNotEnabledError,
   SubscriptionNotActiveError,
 } from '@magnus/subscription';
+import { validateOrgOwnership, validateWorkerAccess } from './security/validateOrgOwnership';
 
 // Extend Express Request type
 declare global {
@@ -143,6 +144,25 @@ app.post('/api/tools/:toolName', authMiddleware, async (req: Request, res: Respo
   try {
     // Validate input against tool schema
     const validatedInput = tool.schema.parse(input);
+
+    // SECURITY: Validate org ownership for tools accepting EIN
+    if ('ein' in validatedInput && typeof validatedInput.ein === 'string') {
+      await validateOrgOwnership(validatedInput.ein, auth.orgId);
+    }
+
+    // SECURITY: Validate org ownership for tools accepting EINs array
+    if ('eins' in validatedInput && Array.isArray(validatedInput.eins)) {
+      for (const ein of validatedInput.eins) {
+        if (typeof ein === 'string') {
+          await validateOrgOwnership(ein, auth.orgId);
+        }
+      }
+    }
+
+    // SECURITY: Validate worker access for tools accepting workerId
+    if ('workerId' in validatedInput && typeof validatedInput.workerId === 'string') {
+      await validateWorkerAccess(validatedInput.workerId, auth.orgId);
+    }
 
     // Execute tool
     const result = await tool.execute(validatedInput);

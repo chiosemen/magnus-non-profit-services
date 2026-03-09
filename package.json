@@ -19,5 +19,8 @@
       "@prisma/engines",
       "prisma"
     ]
+  },
+  "devDependencies": {
+    "dotenv": "^16.6.1"
   }
 }

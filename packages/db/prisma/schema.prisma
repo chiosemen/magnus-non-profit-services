@@ -131,7 +131,6 @@ model Organization {
   claudeConfig       OrgClaudeConfig?
   promptLibraries    OrgPromptLibrary[]
   claudeUsageLogs    ClaudeUsageLog[]
-  sessions           Session[]
 }
 
 model Session {
@@ -238,26 +237,6 @@ model Worker {
   incomeTransactions     IncomeTransaction[]
   taxEstimates           TaxEstimate[]
   claudeUsageLogs        ClaudeUsageLog[]
-  sessions               Session[]
-}
-
-model Session {
-  id                String    @id @default(uuid()) @db.Uuid
-  workerId          String    @db.Uuid
-  orgId             String    @db.Uuid
-  refreshTokenHash  String    // SHA-256 hash of refresh token
-  expiresAt         DateTime
-  revokedAt         DateTime?
-  lastSeenAt        DateTime?
-  createdAt         DateTime  @default(now())
-
-  worker            Worker       @relation(fields: [workerId], references: [id])
-  organization      Organization @relation(fields: [orgId], references: [id])
-
-  @@unique([refreshTokenHash])
-  @@index([workerId, revokedAt])
-  @@index([expiresAt])
-  @@index([orgId])
 }
 
 model WorkerOrgRelationship {
@@ -278,6 +257,9 @@ model WorkerOrgRelationship {
   grant             Grant?                @relation(fields: [grantId], references: [id])
 
   @@unique([workerId, orgId])
+  @@index([workerId], map: "idx_worker_org_workerId")
+  @@index([orgId], map: "idx_worker_org_orgId")
+  @@index([grantId], map: "idx_worker_org_grantId")
 }
 
 model IncomeTransaction {
@@ -296,6 +278,7 @@ model IncomeTransaction {
   organization     Organization? @relation(fields: [sourceOrgId], references: [id])
 
   @@index([workerId, transactionDate])
+  @@index([sourceOrgId], map: "idx_income_sourceOrgId")
 }
 
 model TaxEstimate {
