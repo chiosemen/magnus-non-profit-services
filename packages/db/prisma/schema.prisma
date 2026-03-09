@@ -153,6 +153,18 @@ model Session {
   @@index([orgId])
 }
 
+model StripeWebhookEvent {
+  id          String   @id @default(uuid()) @db.Uuid
+  eventId     String   @unique  // Stripe event.id for idempotency
+  eventType   String
+  processedAt DateTime @default(now())
+  succeeded   Boolean  @default(true)
+  error       String?
+
+  @@index([eventId])
+  @@index([processedAt])
+}
+
 model ComplianceCalendar {
   id           String                @id @default(uuid()) @db.Uuid
   orgId        String                @db.Uuid

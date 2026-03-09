@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import express, { Request, Response, NextFunction } from 'express';
+import express, { Request, Response, NextFunction, Application } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import { createJwtAuthMiddleware } from '@magnus/auth/jwtAuth';
@@ -21,7 +21,7 @@ try {
   process.exit(1);
 }
 
-const app = express();
+const app: Application = express();
 app.disable('x-powered-by');
 app.use(helmet());
 app.use(cors({ origin: false })); // API-first; caller should proxy in production.
