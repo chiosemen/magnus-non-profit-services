@@ -150,6 +150,7 @@ model Session {
 
   @@index([userId])
   @@index([orgId])
+  @@index([expiresAt])
 }
 
 model StripeWebhookEvent {
