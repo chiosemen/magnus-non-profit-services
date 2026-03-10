@@ -1,7 +1,9 @@
-import type { Prisma, PrismaClient } from '@magnus/db/types';
+import type { DbClient } from '../db';
 import type { PromptType, OrgPromptLibraryRecord } from '../contracts/prompts';
 
-type Db = PrismaClient | Prisma.TransactionClient;
+type PromptLibraryTx = Pick<DbClient, 'orgPromptLibrary'>;
+type PromptLibraryDb = PromptLibraryTx & Pick<DbClient, '$transaction'>;
+type Db = PromptLibraryDb | PromptLibraryTx;
 
 export class PromptLibraryService {
   private readonly db: Db;
@@ -68,7 +70,7 @@ export class PromptLibraryService {
   }
 
   private async createPromptVersionInTx(
-    tx: Prisma.TransactionClient,
+    tx: PromptLibraryTx,
     orgId: string,
     promptType: PromptType,
     name: string,
@@ -108,7 +110,7 @@ export class PromptLibraryService {
     return mapRow(row);
   }
 
-  private async activatePromptVersionInTx(tx: Prisma.TransactionClient, promptId: string): Promise<void> {
+  private async activatePromptVersionInTx(tx: PromptLibraryTx, promptId: string): Promise<void> {
     const row = await tx.orgPromptLibrary.findUnique({
       where: { id: promptId },
       select: { id: true, orgId: true, promptType: true },
@@ -128,7 +130,7 @@ export class PromptLibraryService {
   }
 }
 
-function hasTransaction(db: Db): db is PrismaClient {
+function hasTransaction(db: Db): db is PromptLibraryDb {
   return typeof (db as any).$transaction === 'function';
 }
 

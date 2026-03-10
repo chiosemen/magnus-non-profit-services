@@ -1,10 +1,10 @@
-import type { PrismaClient } from '@magnus/db/types';
+import type { DbClient } from '../db';
 import type { ClaudeOrgConfig } from '../contracts/claudeConfig';
 
 export class OrgClaudeConfigService {
-  private readonly db: PrismaClient;
+  private readonly db: DbClient;
 
-  constructor(db: PrismaClient) {
+  constructor(db: DbClient) {
     this.db = db;
   }
 

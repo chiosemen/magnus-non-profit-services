@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from 'express';
-import type { PrismaClient, WorkerTier } from '@magnus/db/types';
+import type { WorkerTier } from '@magnus/db/types';
+import type { DbClient } from '../db';
 
 export type RequiredWorkerAccess =
   | 'income_summary'
@@ -8,7 +9,7 @@ export type RequiredWorkerAccess =
   | 'compensation_benchmark'
   | 'volatility_analysis';
 
-export function createWorkerTierGuard(db: PrismaClient) {
+export function createWorkerTierGuard(db: DbClient) {
   return (required: RequiredWorkerAccess) => {
     return async (req: Request, res: Response, next: NextFunction) => {
       const workerId = (req as any).auth?.workerId as string | undefined;

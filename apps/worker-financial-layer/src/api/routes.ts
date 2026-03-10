@@ -1,10 +1,10 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
-import type { PrismaClient } from '@magnus/db/types';
 import { createJwtAuthMiddleware } from '@magnus/auth/jwtAuth';
 import { requireFeature } from '@magnus/subscription';
+import type { DbClient } from '../db';
 import { createWorkerTierGuard } from '../middleware/workerTierGuard';
 
-export function buildRoutes(db: PrismaClient): Router {
+export function buildRoutes(db: DbClient): Router {
   const router = Router();
   const tierGuard = createWorkerTierGuard(db);
   const jwtAuth = createJwtAuthMiddleware({ requireWorkerId: true });

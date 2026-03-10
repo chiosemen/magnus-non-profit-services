@@ -1,13 +1,15 @@
-import type { Prisma } from '@magnus/db/types';
 import type { FeatureKey } from '@magnus/subscription';
+import type { DbClient } from '../db';
 import { isFeatureEnabled } from '@magnus/subscription';
 
 // Internal helper: compare tiers.
 const TIER_RANK: Record<string, number> = { STARTER: 0, GROWTH: 1, ENTERPRISE: 2 };
 
+type BillingTx = Pick<DbClient, 'organization' | 'orgClaudeConfig'>;
+
 export class TierChangeService {
   async handleChange(params: {
-    tx: Prisma.TransactionClient;
+    tx: BillingTx;
     orgId: string;
     prevTier: 'STARTER' | 'GROWTH' | 'ENTERPRISE';
     newTier: 'STARTER' | 'GROWTH' | 'ENTERPRISE';
@@ -23,7 +25,7 @@ export class TierChangeService {
   }
 
   private async enforceRevocation(
-    tx: Prisma.TransactionClient,
+    tx: BillingTx,
     orgId: string,
     tier: 'STARTER' | 'GROWTH' | 'ENTERPRISE',
     status: 'ACTIVE' | 'PAST_DUE' | 'CANCELED',
@@ -34,7 +36,7 @@ export class TierChangeService {
   }
 
   private async maybeSuspendClaude(
-    tx: Prisma.TransactionClient,
+    tx: BillingTx,
     orgId: string,
     tier: 'STARTER' | 'GROWTH' | 'ENTERPRISE',
     status: 'ACTIVE' | 'PAST_DUE' | 'CANCELED',

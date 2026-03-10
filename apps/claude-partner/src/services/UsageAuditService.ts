@@ -1,4 +1,5 @@
-import { Prisma, type PrismaClient } from '@magnus/db/types';
+import { Prisma } from '@magnus/db/types';
+import type { DbClient } from '../db';
 
 export type MonthlyUsageSummary = {
   orgId: string;
@@ -9,9 +10,9 @@ export type MonthlyUsageSummary = {
 };
 
 export class UsageAuditService {
-  private readonly db: PrismaClient;
+  private readonly db: DbClient;
 
-  constructor(db: PrismaClient) {
+  constructor(db: DbClient) {
     this.db = db;
   }
 

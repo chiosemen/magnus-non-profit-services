@@ -1,7 +1,7 @@
 import type Stripe from 'stripe';
 import { Prisma, type SubscriptionStatus, type SubscriptionTier } from '@magnus/db/types';
-import type { PrismaClient } from '@magnus/db/types';
 import { createLogger, getLogger } from '@magnus/logging';
+import type { DbClient } from '../db';
 import { TierChangeService } from './tierChangeService';
 
 const logger = createLogger({ service: 'billing', component: 'subscription-sync' });
@@ -13,11 +13,11 @@ type OrgSyncTarget = {
 };
 
 export class SubscriptionSyncService {
-  private readonly db: PrismaClient;
+  private readonly db: DbClient;
   private readonly stripe: Stripe;
   private readonly tierChange: TierChangeService;
 
-  constructor(params: { db: PrismaClient; stripe: Stripe }) {
+  constructor(params: { db: DbClient; stripe: Stripe }) {
     this.db = params.db;
     this.stripe = params.stripe;
     this.tierChange = new TierChangeService();

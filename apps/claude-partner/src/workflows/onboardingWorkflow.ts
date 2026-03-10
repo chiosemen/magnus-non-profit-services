@@ -1,4 +1,5 @@
-import { Prisma, type PrismaClient } from '@magnus/db/types';
+import { Prisma } from '@magnus/db/types';
+import type { DbClient } from '../db';
 import { PromptLibraryService } from '../services/PromptLibraryService';
 
 export type OnboardingResult = {
@@ -7,7 +8,7 @@ export type OnboardingResult = {
   promptsCreated: Array<{ promptType: string; version: number; promptId: string }>;
 };
 
-export async function onboardingWorkflow(params: { db: PrismaClient; orgId: string }): Promise<OnboardingResult> {
+export async function onboardingWorkflow(params: { db: DbClient; orgId: string }): Promise<OnboardingResult> {
   // Step 1: Org tier verification (Growth or Enterprise).
   const org = await params.db.organization.findUnique({
     where: { id: params.orgId },
@@ -111,7 +112,7 @@ async function assertMcpActive(): Promise<void> {
   if (!json || json.ok !== true) throw new Error('MCP_CONNECTOR_UNHEALTHY');
 }
 
-async function assertComplianceAccessible(db: PrismaClient, orgId: string): Promise<void> {
+async function assertComplianceAccessible(db: DbClient, orgId: string): Promise<void> {
   // Compliance data must be present; empty means onboarding cannot produce compliance-aware prompts.
   const count = await db.complianceCalendar.count({ where: { orgId } });
   if (count <= 0) throw new Error('COMPLIANCE_DATA_MISSING');

@@ -1,7 +1,7 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
-import type { PrismaClient } from '@magnus/db/types';
 import { createJwtAuthMiddleware } from '@magnus/auth/jwtAuth';
 import { requireFeature } from '@magnus/subscription';
+import type { DbClient } from '../db';
 import { PromptLibraryService } from '../services/PromptLibraryService';
 import { OrgClaudeConfigService } from '../services/OrgClaudeConfigService';
 import { UsageAuditService } from '../services/UsageAuditService';
@@ -9,7 +9,7 @@ import { ClaudeClient } from '../services/ClaudeClient';
 import { onboardingWorkflow } from '../workflows/onboardingWorkflow';
 import { promptDeploymentWorkflow } from '../workflows/promptDeploymentWorkflow';
 
-export function buildRoutes(params: { db: PrismaClient; anthropicApiKey: string }): Router {
+export function buildRoutes(params: { db: DbClient; anthropicApiKey: string }): Router {
   const router = Router();
   const jwtAuth = createJwtAuthMiddleware();
   const requireClaudePartner = requireFeature('claude_partner');
