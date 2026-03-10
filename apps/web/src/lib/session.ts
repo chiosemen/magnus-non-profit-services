@@ -16,7 +16,7 @@ export async function createSession(workerId: string, orgId: string): Promise<{ 
 
     const session = await prisma.session.create({
         data: {
-            workerId,
+            userId: workerId,
             orgId,
             refreshTokenHash,
             expiresAt,
@@ -41,12 +41,12 @@ export async function verifySession(sessionId: string): Promise<{ id: string; wo
             revokedAt: null,
             expiresAt: { gt: now },
         },
-        select: { id: true, workerId: true, orgId: true },
+        select: { id: true, userId: true, orgId: true },
     });
 
     if (!session) return null;
 
-    return { id: session.id, workerId: session.workerId, orgId: session.orgId };
+    return { id: session.id, workerId: session.userId, orgId: session.orgId };
 }
 
 /**
@@ -81,7 +81,7 @@ export async function rotateSession(
         },
         select: {
             id: true,
-            workerId: true,
+            userId: true,
             orgId: true,
             refreshTokenHash: true,
         },
@@ -102,7 +102,7 @@ export async function rotateSession(
     }
 
     // ── Validate org membership is still active ──────────────────────
-    const stillMember = await validateMembership(session.workerId, session.orgId);
+    const stillMember = await validateMembership(session.userId, session.orgId);
     if (!stillMember) return null; // membership revoked since login — fail closed
 
     // ── Rotate: atomic compare-and-swap ──────────────────────────────
@@ -132,7 +132,7 @@ export async function rotateSession(
     // orgId comes from the session row — deterministic, bound at login
     return {
         newRefreshToken,
-        workerId: session.workerId,
+        workerId: session.userId,
         orgId: session.orgId,
     };
 }
