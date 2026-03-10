@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { prisma } from '@magnus/db/client';
+import { consumeRefreshAttempt } from '@magnus/security';
 import { signAccessToken } from '@/lib/auth/tokens';
 import { generateRefreshToken, hashRefreshToken } from '@/lib/auth/refresh';
 import { setAccessCookie, setRefreshCookie, clearAuthCookies } from '@/lib/auth/cookies';
@@ -9,6 +10,16 @@ import type { AuthPayload } from '@/lib/auth/types';
 export const runtime = 'nodejs';
 
 export async function POST() {
+  // ── Rate-limit gate: 10 refresh attempts per minute per IP ───────────────────
+  const ip = extractIp();
+  const rl = await consumeRefreshAttempt(ip);
+  if (rl.limited) {
+    return NextResponse.json(
+      { error: 'RATE_LIMITED', retryAfterSec: rl.retryAfterSec },
+      { status: 429, headers: { 'Retry-After': String(rl.retryAfterSec) } },
+    );
+  }
+
   const refreshToken = cookies().get('refresh')?.value;
   if (!refreshToken) {
     return NextResponse.json({ error: 'AUTH_REQUIRED' }, { status: 401 });
@@ -76,4 +87,18 @@ export async function POST() {
   setAccessCookie(res, accessToken);
   setRefreshCookie(res, newRefreshToken);
   return res;
+}
+
+/**
+ * Extract client IP from request headers.
+ * Prefers x-forwarded-for (set by reverse proxies / Vercel).
+ * Falls back to '127.0.0.1' in development.
+ */
+function extractIp(): string {
+  const forwarded = headers().get('x-forwarded-for');
+  if (forwarded) {
+    const first = forwarded.split(',')[0]?.trim();
+    if (first) return first;
+  }
+  return '127.0.0.1';
 }

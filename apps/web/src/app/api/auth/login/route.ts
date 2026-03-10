@@ -5,20 +5,19 @@ import { signAccessToken } from '@/lib/auth/tokens';
 import { generateRefreshToken, hashRefreshToken } from '@/lib/auth/refresh';
 import { setAccessCookie, setRefreshCookie } from '@/lib/auth/cookies';
 import type { AuthPayload } from '@/lib/auth/types';
-import { checkRateLimit, recordFailure, clearFailures } from '@/lib/rate-limit';
+import { isLoginBlocked, recordLoginFailure, clearLoginFailures } from '@magnus/security';
 import bcrypt from 'bcryptjs';
 
 export const runtime = 'nodejs';
 
 export async function POST(req: Request) {
-  // ── Rate-limit gate (in-memory, temporary until Redis) ────────────
+  // ── Rate-limit gate: block IPs that have exhausted their failure budget ─────
   const ip = extractIp();
-  const rateCheck = checkRateLimit(ip);
-  if (rateCheck.limited) {
-    const retryAfterSec = Math.ceil(rateCheck.retryAfterMs / 1000);
+  const preCheck = await isLoginBlocked(ip);
+  if (preCheck.limited) {
     return Response.json(
-      { error: 'RATE_LIMITED', retryAfterSec },
-      { status: 429, headers: { 'Retry-After': String(retryAfterSec) } },
+      { error: 'RATE_LIMITED', retryAfterSec: preCheck.retryAfterSec },
+      { status: 429, headers: { 'Retry-After': String(preCheck.retryAfterSec) } },
     );
   }
 
@@ -33,7 +32,8 @@ export async function POST(req: Request) {
 
   const org = await prisma.organization.findUnique({ where: { ein } });
   if (!org) {
-    recordFailure(ip);
+    const limited = await penalizeLogin(ip);
+    if (limited) return limited;
     return Response.json({ error: 'ORG_NOT_FOUND' }, { status: 401 });
   }
 
@@ -42,20 +42,23 @@ export async function POST(req: Request) {
     select: { id: true, name: true, passwordHash: true },
   });
   if (!worker) {
-    recordFailure(ip);
+    const limited = await penalizeLogin(ip);
+    if (limited) return limited;
     return Response.json({ error: 'WORKER_NOT_FOUND' }, { status: 401 });
   }
 
   // Fail closed: reject login if no password hash is stored
   if (!worker.passwordHash) {
-    recordFailure(ip);
+    const limited = await penalizeLogin(ip);
+    if (limited) return limited;
     return Response.json({ error: 'CREDENTIALS_INVALID' }, { status: 401 });
   }
 
   // Compare raw password bytes — no trim/toLowerCase on password
   const valid = await bcrypt.compare(password, worker.passwordHash);
   if (!valid) {
-    recordFailure(ip);
+    const limited = await penalizeLogin(ip);
+    if (limited) return limited;
     return Response.json({ error: 'CREDENTIALS_INVALID' }, { status: 401 });
   }
 
@@ -64,12 +67,13 @@ export async function POST(req: Request) {
     select: { id: true },
   });
   if (!rel) {
-    recordFailure(ip);
+    const limited = await penalizeLogin(ip);
+    if (limited) return limited;
     return Response.json({ error: 'NOT_ASSOCIATED' }, { status: 401 });
   }
 
-  // Login succeeded — clear rate-limit record for this IP
-  clearFailures(ip);
+  // Login succeeded — clear failure record for this IP
+  await clearLoginFailures(ip);
 
   // Upsert User record for unified auth model
   const user = await prisma.user.upsert({
@@ -109,6 +113,20 @@ async function safeJson(req: Request): Promise<any | null> {
   } catch {
     return null;
   }
+}
+
+/**
+ * Penalize an IP for a failed login attempt.
+ * Returns a 429 Response if this failure exhausted the remaining budget
+ * (edge case under concurrent load), null otherwise.
+ */
+async function penalizeLogin(ip: string): Promise<Response | null> {
+  const result = await recordLoginFailure(ip);
+  if (!result.limited) return null;
+  return Response.json(
+    { error: 'RATE_LIMITED', retryAfterSec: result.retryAfterSec },
+    { status: 429, headers: { 'Retry-After': String(result.retryAfterSec) } },
+  );
 }
 
 /**
