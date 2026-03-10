@@ -2,6 +2,7 @@ import { validateEnv } from '@magnus/config';
 validateEnv('grant-generator');
 
 import express from 'express';
+import type { Express } from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
 import { z } from 'zod';
@@ -28,7 +29,7 @@ declare global {
   }
 }
 
-const app = express();
+const app: Express = express();
 const logger = createLogger({ service: 'grant-generator' });
 
 app.disable('x-powered-by');

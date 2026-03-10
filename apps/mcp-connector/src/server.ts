@@ -2,6 +2,7 @@ import { validateEnv } from '@magnus/config';
 validateEnv('mcp-connector');
 
 import express, { Request, Response, NextFunction } from 'express';
+import type { Express } from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
 import { z } from 'zod';
@@ -25,7 +26,7 @@ declare global {
   }
 }
 
-const app = express();
+const app: Express = express();
 const logger = createLogger({ service: 'mcp-connector' });
 
 app.disable('x-powered-by');
