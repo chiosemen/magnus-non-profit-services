@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "build": "pnpm -r --if-present build",
-    "test": "pnpm -r --if-present test",
+    "test": "pnpm test:integration",
+    "test:integration": "vitest run",
+    "test:workspace": "pnpm -r --if-present test",
     "prisma:generate": "pnpm --filter @magnus/db prisma:generate",
     "prisma:migrate": "pnpm --filter @magnus/db prisma:migrate"
   },
@@ -21,6 +23,11 @@
     ]
   },
   "devDependencies": {
-    "dotenv": "^16.6.1"
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/supertest": "^6.0.3",
+    "dotenv": "^16.6.1",
+    "jsonwebtoken": "^9.0.2",
+    "supertest": "^7.1.4",
+    "vitest": "^3.2.4"
   }
 }

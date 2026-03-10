@@ -5,6 +5,9 @@ import { prisma } from './db';
 import { createStripeClient } from './stripe/stripeClient';
 import { SubscriptionSyncService } from './services/subscriptionSyncService';
 import { createApp } from './app';
+import { createLogger } from '@magnus/logging';
+
+const logger = createLogger({ service: 'billing' });
 
 async function main(): Promise<void> {
   validateEnv('billing');
@@ -19,13 +22,11 @@ async function main(): Promise<void> {
   const app = createApp({ stripe, webhookSecret: env.STRIPE_WEBHOOK_SECRET, sync });
 
   app.listen(env.PORT, () => {
-    // eslint-disable-next-line no-console
-    console.log(`billing listening on ${env.PORT}`);
+    logger.info({ event: 'billing_server_started', port: env.PORT }, 'Billing server started');
   });
 }
 
 main().catch(err => {
-  // eslint-disable-next-line no-console
-  console.error(err instanceof Error ? err.message : String(err));
+  logger.error({ err, event: 'billing_startup_failed' }, 'Billing startup failed');
   process.exit(1);
 });

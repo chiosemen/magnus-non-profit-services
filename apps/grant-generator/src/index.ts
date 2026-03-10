@@ -7,6 +7,7 @@ import cors from 'cors';
 import { z } from 'zod';
 import { prisma } from '@magnus/db/client';
 import { createJwtAuthMiddleware, type AuthContext } from '@magnus/auth';
+import { createLogger, getLogger, requestContextMiddleware } from '@magnus/logging';
 import {
   requireFeature,
   FeatureNotEnabledError,
@@ -28,7 +29,10 @@ declare global {
 }
 
 const app = express();
+const logger = createLogger({ service: 'grant-generator' });
+
 app.disable('x-powered-by');
+app.use(requestContextMiddleware(logger));
 app.use(helmet());
 app.use(cors({ origin: false }));
 app.use(express.json());
@@ -176,7 +180,10 @@ app.post('/api/grants/generate', authMiddleware, requireGrantGen, async (req, re
       createdAt: updatedProposal.createdAt,
     });
   } catch (err) {
-    console.error('Grant generation error:', err);
+    getLogger(logger).error(
+      { err, event: 'grant_generation_failed', orgId: auth.orgId },
+      'Grant generation failed'
+    );
     return res.status(500).json({ error: 'GENERATION_FAILED' });
   }
 });
@@ -208,7 +215,10 @@ app.get('/api/grants', authMiddleware, requireGrantGen, async (req, res) => {
       })),
     });
   } catch (err) {
-    console.error('List grants error:', err);
+    getLogger(logger).error(
+      { err, event: 'grant_list_failed', orgId: auth.orgId },
+      'Grant list retrieval failed'
+    );
     return res.status(500).json({ error: 'SERVER_ERROR' });
   }
 });
@@ -250,7 +260,10 @@ app.get('/api/grants/:id', authMiddleware, requireGrantGen, async (req, res) => 
       updatedAt: proposal.updatedAt,
     });
   } catch (err) {
-    console.error('Get grant error:', err);
+    getLogger(logger).error(
+      { err, event: 'grant_fetch_failed', orgId: auth.orgId, grantId: id },
+      'Grant retrieval failed'
+    );
     return res.status(500).json({ error: 'SERVER_ERROR' });
   }
 });
@@ -314,6 +327,11 @@ Write only the section content, no headings or labels.`;
 // ─── Start Server ────────────────────────────────────────────────────────────
 
 const port = parseInt(process.env['PORT'] ?? '3002', 10);
-app.listen(port, () => {
-  console.log(`grant-generator listening on ${port}`);
-});
+
+export { app };
+
+if (require.main === module) {
+  app.listen(port, () => {
+    logger.info({ event: 'grant_generator_server_started', port }, 'Grant generator server started');
+  });
+}

@@ -1,7 +1,10 @@
 import type Stripe from 'stripe';
 import { Prisma, type SubscriptionStatus, type SubscriptionTier } from '@magnus/db/types';
 import type { PrismaClient } from '@magnus/db/types';
+import { createLogger, getLogger } from '@magnus/logging';
 import { TierChangeService } from './tierChangeService';
+
+const logger = createLogger({ service: 'billing', component: 'subscription-sync' });
 
 type OrgSyncTarget = {
   id: string;
@@ -49,8 +52,10 @@ export class SubscriptionSyncService {
         });
 
     if (!org) {
-      // eslint-disable-next-line no-console
-      console.warn('[billing] orgIdHint lookup failed for Stripe event', { orgIdHint });
+      getLogger(logger).warn(
+        { event: 'billing_org_id_hint_lookup_failed', orgIdHint },
+        'orgIdHint lookup failed for Stripe event'
+      );
       throw new Error('ORG_NOT_FOUND_FOR_STRIPE_EVENT');
     }
 
@@ -168,11 +173,14 @@ export class SubscriptionSyncService {
         select: { id: true, subscriptionTier: true, subscriptionStatus: true },
       });
       if (!org) {
-        // eslint-disable-next-line no-console
-        console.warn('[billing] ORG_NOT_FOUND_FOR_STRIPE_SUBSCRIPTION', {
-          context: params.context,
-          stripeSubscriptionId: params.stripeSubscriptionId,
-        });
+        getLogger(logger).warn(
+          {
+            event: 'billing_org_not_found_for_stripe_subscription',
+            context: params.context,
+            stripeSubscriptionId: params.stripeSubscriptionId,
+          },
+          'Organization not found for Stripe subscription'
+        );
         throw new Error('ORG_NOT_FOUND_FOR_STRIPE_EVENT');
       }
 
@@ -183,12 +191,15 @@ export class SubscriptionSyncService {
         take: 2,
       });
       if (dup.length > 1) {
-        // eslint-disable-next-line no-console
-        console.error('[billing] ORG_NOT_UNIQUE_FOR_STRIPE_SUBSCRIPTION', {
-          context: params.context,
-          stripeSubscriptionId: params.stripeSubscriptionId,
-          orgIds: dup.map(d => d.id),
-        });
+        getLogger(logger).error(
+          {
+            event: 'billing_org_not_unique_for_stripe_subscription',
+            context: params.context,
+            stripeSubscriptionId: params.stripeSubscriptionId,
+            orgIds: dup.map(d => d.id),
+          },
+          'Multiple organizations matched the Stripe subscription'
+        );
         throw new Error('ORG_NOT_UNIQUE_FOR_STRIPE_EVENT');
       }
       return org;
@@ -200,11 +211,14 @@ export class SubscriptionSyncService {
         select: { id: true, subscriptionTier: true, subscriptionStatus: true },
       });
       if (!org) {
-        // eslint-disable-next-line no-console
-        console.warn('[billing] ORG_NOT_FOUND_FOR_STRIPE_CUSTOMER', {
-          context: params.context,
-          stripeCustomerId: params.stripeCustomerId,
-        });
+        getLogger(logger).warn(
+          {
+            event: 'billing_org_not_found_for_stripe_customer',
+            context: params.context,
+            stripeCustomerId: params.stripeCustomerId,
+          },
+          'Organization not found for Stripe customer'
+        );
         throw new Error('ORG_NOT_FOUND_FOR_STRIPE_EVENT');
       }
 
@@ -214,19 +228,24 @@ export class SubscriptionSyncService {
         take: 2,
       });
       if (dup.length > 1) {
-        // eslint-disable-next-line no-console
-        console.error('[billing] ORG_NOT_UNIQUE_FOR_STRIPE_CUSTOMER', {
-          context: params.context,
-          stripeCustomerId: params.stripeCustomerId,
-          orgIds: dup.map(d => d.id),
-        });
+        getLogger(logger).error(
+          {
+            event: 'billing_org_not_unique_for_stripe_customer',
+            context: params.context,
+            stripeCustomerId: params.stripeCustomerId,
+            orgIds: dup.map(d => d.id),
+          },
+          'Multiple organizations matched the Stripe customer'
+        );
         throw new Error('ORG_NOT_UNIQUE_FOR_STRIPE_EVENT');
       }
       return org;
     }
 
-    // eslint-disable-next-line no-console
-    console.warn('[billing] STRIPE_EVENT_ORG_LOOKUP_MISSING', { context: params.context });
+    getLogger(logger).warn(
+      { event: 'billing_stripe_event_org_lookup_missing', context: params.context },
+      'Stripe event org lookup inputs were missing'
+    );
     throw new Error('STRIPE_EVENT_ORG_LOOKUP_MISSING');
   }
 }

@@ -5,6 +5,7 @@
 import express, { type NextFunction, type Request, type Response } from 'express';
 import helmet from 'helmet';
 import type Stripe from 'stripe';
+import { createLogger, getLogger, requestContextMiddleware } from '@magnus/logging';
 import type { SubscriptionSyncService } from './services/subscriptionSyncService';
 import { createStripeWebhookHandler } from './webhooks/stripeWebhook';
 
@@ -16,10 +17,12 @@ export type AppOptions = {
 
 export function createApp(options: AppOptions): express.Application {
   const { stripe, webhookSecret, sync } = options;
+  const logger = createLogger({ service: 'billing' });
 
   const app = express();
   app.disable('x-powered-by');
   app.use(helmet());
+  app.use(requestContextMiddleware(logger));
 
   app.get('/health', (_req, res) => res.json({ ok: true }));
 
@@ -32,6 +35,7 @@ export function createApp(options: AppOptions): express.Application {
 
   app.use((_req, res) => res.status(404).json({ error: 'NOT_FOUND' }));
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+    getLogger(logger).error({ err, event: 'billing_unhandled_error' }, 'Unhandled billing app error');
     res.status(500).json({ error: 'INTERNAL_ERROR' });
   });
 

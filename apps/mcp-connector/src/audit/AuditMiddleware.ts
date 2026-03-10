@@ -4,9 +4,11 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
+import { createLogger, getLogger } from '@magnus/logging';
 import { AuditLogger } from './AuditLogger';
 
 const logger = new AuditLogger();
+const appLogger = createLogger({ service: 'mcp-connector', component: 'audit-middleware' });
 
 export function auditMiddleware(req: Request, res: Response, next: NextFunction): void {
   const startTime = Date.now();
@@ -23,10 +25,12 @@ export function auditMiddleware(req: Request, res: Response, next: NextFunction)
     orgId,
     params: req.body?.params ?? {},
     timestamp: new Date(),
-    requestId: req.headers['x-request-id'] as string ?? `req_${Date.now()}`,
+    requestId: req.requestId ?? req.headers['x-request-id'] as string ?? `req_${Date.now()}`,
     ...(ipAddress !== undefined ? { ipAddress } : {}),
     ...(userAgent !== undefined ? { userAgent } : {}),
-  }).catch(console.error);
+  }).catch(err => {
+    getLogger(appLogger).error({ err, event: 'audit_tool_call_log_failed', toolName }, 'Failed to record tool call audit log');
+  });
 
   // Intercept response to log result
   const originalJson = res.json.bind(res);
@@ -40,9 +44,11 @@ export function auditMiddleware(req: Request, res: Response, next: NextFunction)
       statusCode: res.statusCode,
       durationMs: duration,
       timestamp: new Date(),
-      requestId: req.headers['x-request-id'] as string ?? `req_${Date.now()}`,
+      requestId: req.requestId ?? req.headers['x-request-id'] as string ?? `req_${Date.now()}`,
       resultSummary: res.statusCode < 400 ? 'Success' : String((body as Record<string, unknown>)?.error ?? 'Error'),
-    }).catch(console.error);
+    }).catch(err => {
+      getLogger(appLogger).error({ err, event: 'audit_tool_result_log_failed', toolName }, 'Failed to record tool result audit log');
+    });
     return originalJson(body);
   };
 

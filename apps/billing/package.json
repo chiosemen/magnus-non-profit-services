@@ -13,6 +13,7 @@
   "dependencies": {
     "@magnus/config": "workspace:*",
     "@magnus/db": "workspace:*",
+    "@magnus/logging": "workspace:*",
     "@magnus/subscription": "workspace:*",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",

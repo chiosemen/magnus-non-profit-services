@@ -5,6 +5,7 @@ import express, { Request, Response, NextFunction } from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
 import { z } from 'zod';
+import { createLogger, getLogger, requestContextMiddleware } from '@magnus/logging';
 import { getTokenValidator, TokenPayload } from './auth/TokenValidator';
 import { getTool, getAllTools, hasTool } from './tools/registry';
 import { isMagnusError } from './utils/errors';
@@ -25,7 +26,10 @@ declare global {
 }
 
 const app = express();
+const logger = createLogger({ service: 'mcp-connector' });
+
 app.disable('x-powered-by');
+app.use(requestContextMiddleware(logger));
 app.use(helmet());
 app.use(cors({ origin: false }));
 app.use(express.json());
@@ -189,7 +193,16 @@ app.post('/api/tools/:toolName', authMiddleware, async (req: Request, res: Respo
       });
       return;
     }
-    console.error(`Tool execution error (${toolName}):`, err);
+    getLogger(logger).error(
+      {
+        err,
+        event: 'mcp_tool_execution_failed',
+        toolName,
+        orgId: auth.orgId,
+        userId: auth.sub,
+      },
+      'Tool execution failed'
+    );
     res.status(500).json({
       error: 'TOOL_EXECUTION_ERROR',
       message: 'Tool execution failed',
@@ -204,7 +217,14 @@ app.use((_req, res) => res.status(404).json({ error: 'NOT_FOUND' }));
 // ─── Start Server ────────────────────────────────────────────────────────────
 
 const port = parseInt(process.env['PORT'] ?? '3001', 10);
-app.listen(port, () => {
-  console.log(`mcp-connector listening on ${port}`);
-  console.log(`Tools registered: ${getAllTools().length}`);
-});
+
+export { app };
+
+if (require.main === module) {
+  app.listen(port, () => {
+    logger.info(
+      { event: 'mcp_connector_server_started', port, toolsRegistered: getAllTools().length },
+      'MCP connector server started'
+    );
+  });
+}

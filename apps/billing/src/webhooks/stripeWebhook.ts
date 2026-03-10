@@ -2,6 +2,9 @@ import type Stripe from 'stripe';
 import type { Request, Response } from 'express';
 import { SubscriptionSyncService } from '../services/subscriptionSyncService';
 import { prisma } from '@magnus/db';
+import { createLogger, getLogger } from '@magnus/logging';
+
+const logger = createLogger({ service: 'billing', component: 'stripe-webhook' });
 
 export function createStripeWebhookHandler(params: {
   stripe: Stripe;
@@ -29,12 +32,18 @@ export function createStripeWebhookHandler(params: {
     });
     if (existing) {
       // Already processed this event - idempotent success
-      console.log(`[Webhook] Duplicate event ignored: ${event.id} (${event.type})`);
+      getLogger(logger).info(
+        { event: 'stripe_webhook_duplicate_ignored', stripeEventId: event.id, stripeEventType: event.type },
+        'Duplicate webhook event ignored'
+      );
       res.json({ received: true, duplicate: true });
       return;
     }
 
-    console.log(`[Webhook] Processing event: ${event.id} (${event.type})`);
+    getLogger(logger).info(
+      { event: 'stripe_webhook_processing_started', stripeEventId: event.id, stripeEventType: event.type },
+      'Processing Stripe webhook event'
+    );
 
 
     let succeeded = true;
@@ -76,13 +85,19 @@ export function createStripeWebhookHandler(params: {
         },
       });
 
-      console.log(`[Webhook] Successfully processed: ${event.id} (${event.type})`);
+      getLogger(logger).info(
+        { event: 'stripe_webhook_processed', stripeEventId: event.id, stripeEventType: event.type, succeeded },
+        'Stripe webhook processed successfully'
+      );
       res.json({ received: true });
     } catch (err) {
       succeeded = false;
       error = err instanceof Error ? err.message : 'INTERNAL_ERROR';
 
-      console.error(`[Webhook] Processing failed for ${event.id} (${event.type}):`, err);
+      getLogger(logger).error(
+        { err, event: 'stripe_webhook_processing_failed', stripeEventId: event.id, stripeEventType: event.type },
+        'Stripe webhook processing failed'
+      );
 
       // Record failed processing attempt
       try {
@@ -96,7 +111,10 @@ export function createStripeWebhookHandler(params: {
         });
       } catch (dbErr) {
         // Ignore errors recording failure (rare race condition or DB down)
-        console.error(`[Webhook] Failed to log error for ${event.id}:`, dbErr);
+        getLogger(logger).error(
+          { err: dbErr, event: 'stripe_webhook_failure_recording_failed', stripeEventId: event.id },
+          'Failed to record Stripe webhook failure'
+        );
       }
 
       // Fail closed: return 500 so Stripe retries.
