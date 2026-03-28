@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "echo 'no tests yet'"
+    "test": "pnpm exec vitest run --config vitest.config.ts"
   },
   "dependencies": {
     "@magnus/config": "workspace:*",
