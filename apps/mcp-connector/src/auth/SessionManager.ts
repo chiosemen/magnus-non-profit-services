@@ -5,7 +5,9 @@
  */
 
 import { randomUUID } from 'crypto';
+import Redis from 'ioredis';
 import { SessionExpiredError } from '../utils/errors';
+import { getTokenValidator } from './TokenValidator';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -66,6 +68,57 @@ class InMemoryStore implements SessionStore {
   }
 }
 
+class RedisStore implements SessionStore {
+  private readonly client: Redis;
+
+  constructor() {
+    const url = process.env['REDIS_URL'];
+    if (!url) {
+      throw new Error('REDIS_URL must be configured to use RedisSessionStore');
+    }
+    this.client = new Redis(url, {
+      password: process.env['REDIS_PASSWORD'] || undefined,
+      db: parseInt(process.env['REDIS_DB'] ?? '0', 10),
+      enableReadyCheck: false,
+    });
+  }
+
+  async get(key: string): Promise<string | null> {
+    return this.client.get(key);
+  }
+
+  async set(key: string, value: string, ttlSeconds: number): Promise<void> {
+    await this.client.set(key, value, 'EX', ttlSeconds);
+  }
+
+  async del(key: string): Promise<void> {
+    await this.client.del(key);
+  }
+
+  async keys(pattern: string): Promise<string[]> {
+    const results: string[] = [];
+    let cursor = '0';
+    do {
+      const [nextCursor, batch] = await this.client.scan(cursor, 'MATCH', pattern, 'COUNT', 100);
+      cursor = nextCursor;
+      results.push(...batch);
+    } while (cursor !== '0');
+    return results;
+  }
+}
+
+function createSessionStore(): SessionStore {
+  if (process.env['REDIS_URL']) {
+    try {
+      return new RedisStore();
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn('Failed to initialize Redis session store, falling back to in-memory store', err);
+    }
+  }
+  return new InMemoryStore();
+}
+
 // ─── Session Manager ──────────────────────────────────────────────────────────
 
 export class SessionManager {
@@ -76,7 +129,7 @@ export class SessionManager {
   private readonly userIndexPrefix = 'magnus:user-sessions:';
 
   constructor(store?: SessionStore) {
-    this.store = store ?? new InMemoryStore();
+    this.store = store ?? createSessionStore();
     this.ttlSeconds = parseInt(process.env['SESSION_TTL_SECONDS'] ?? '3600', 10);
     this.maxSessionsPerUser = parseInt(process.env['SESSION_MAX_PER_USER'] ?? '5', 10);
   }
@@ -129,6 +182,7 @@ export class SessionManager {
     session.isActive = false;
     await this.store.set(this.key(sessionId), JSON.stringify(session), 60);
     await this.removeFromUserIndex(session.userId, sessionId);
+    getTokenValidator().revokeSession(session.userId, session.id);
   }
 
   async invalidateAllUserSessions(userId: string): Promise<number> {

@@ -17,6 +17,7 @@ import {
 } from '@magnus/subscription';
 import { validateOrgOwnership, validateWorkerAccess } from './security/validateOrgOwnership';
 import { auditMiddleware } from './audit/AuditMiddleware';
+import { getSessionManager } from './auth/SessionManager';
 
 // Extend Express Request type
 declare global {
@@ -29,6 +30,7 @@ declare global {
 
 const app: Express = express();
 const logger = createLogger({ service: 'mcp-connector' });
+const sessionManager = getSessionManager();
 
 app.disable('x-powered-by');
 app.use(requestContextMiddleware(logger));
@@ -42,7 +44,7 @@ app.get('/health', (_req, res) => res.json({ ok: true }));
 
 // ─── Auth Middleware ─────────────────────────────────────────────────────────
 
-function authMiddleware(req: Request, res: Response, next: NextFunction): void {
+async function authMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
   const authHeader = req.headers.authorization;
   if (!authHeader) {
     res.status(401).json({ error: 'AUTH_REQUIRED', message: 'Authorization header required' });
@@ -52,6 +54,7 @@ function authMiddleware(req: Request, res: Response, next: NextFunction): void {
   try {
     const validator = getTokenValidator();
     const payload = validator.validate(authHeader);
+    await sessionManager.validateSession(payload.sessionId);
     req.auth = payload;
     next();
   } catch (err) {
