@@ -2,8 +2,8 @@
 
 This document tracks critical smoke test coverage across all Magnus services.
 
-**Last Updated:** 2026-03-08
-**Coverage Status:** ✅ All core services have smoke tests
+**Last Updated:** 2026-03-28
+**Coverage Status:** 🟡 CI runs Postgres-backed integration tests (`pnpm test`) plus workspace smoke suites (`pnpm -r --if-present test`)
 
 ---
 
@@ -17,7 +17,7 @@ This document tracks critical smoke test coverage across all Magnus services.
 | **grant-generator** | ✅ 25 | ✅ | ✅ | ✅ | N/A | ✅ |
 | **mcp-connector** | ✅ 20 | ✅ | ✅ | ✅ | N/A | ✅ |
 | **org-dashboard-api** | ✅ 10 | ✅ | ✅ | ✅ | N/A | ✅ |
-| **worker-financial-layer** | ✅ 2 | N/A | N/A | N/A | N/A | ✅ |
+| **worker-financial-layer** | ⚠️ Excluded | N/A | N/A | N/A | N/A | N/A |
 | **web** | ⚠️ 0 | N/A | N/A | N/A | N/A | N/A |
 | **mobile** | ⚠️ 0 | N/A | N/A | N/A | N/A | N/A |
 
@@ -172,13 +172,7 @@ This document tracks critical smoke test coverage across all Magnus services.
 
 ### apps/worker-financial-layer
 
-**Test Count:** 2 tests
-**Test File:** `src/tests/workerTierGuard.test.ts`
-
-**Coverage:**
-- ✅ Worker tier guard logic
-
-**Run:** `pnpm --filter @magnus/worker-financial-layer test`
+**Status:** Excluded from current release scope (app refuses to start without `ALLOW_WORKER_FINANCIAL_LAYER=true`). Repository unit tests exist but are not part of the production smoke bar until the surface re-enters scope.
 
 ---
 
@@ -203,7 +197,10 @@ This document tracks critical smoke test coverage across all Magnus services.
 ### Run All Tests
 
 ```bash
-# Run all service tests in parallel
+# Postgres-backed integration suite (Vitest)
+pnpm test
+
+# Package/service smoke suites
 pnpm -r --if-present test
 
 # Run specific service
@@ -212,17 +209,8 @@ pnpm --filter @magnus/<service> test
 
 ### Expected Output
 
-All tests should pass with **0 failures**:
-
-```
-apps/agents: 39/39 passed
-apps/billing: 11/11 passed
-apps/claude-partner: 6/6 passed
-apps/grant-generator: 25/25 passed
-apps/mcp-connector: 20/20 passed
-apps/org-dashboard-api: 10/10 passed
-apps/worker-financial-layer: 2/2 passed
-```
+- `pnpm test` exercises grant-generator, org-dashboard-api, and mcp-connector HTTP stacks against the real database schema.
+- `pnpm -r --if-present test` runs each package’s smoke or unit suite; CI reports per-package pass/fail.
 
 ---
 
@@ -230,14 +218,18 @@ apps/worker-financial-layer: 2/2 passed
 
 ### GitHub Actions
 
-Tests run on every PR via `.github/workflows/ci.yml`:
+CI provisions PostgreSQL 16, runs Prisma migrations, then executes both integration and smoke suites:
 
 ```yaml
-- name: Run tests
+- name: Prisma migrate deploy
+  run: pnpm --filter @magnus/db prisma:deploy
+- name: Run integration tests
+  run: pnpm test
+- name: Run package smoke tests
   run: pnpm -r --if-present test
 ```
 
-**Merge Blocker:** Tests must pass before PR can merge.
+**Merge Blocker:** Any failing step blocks merge.
 
 ---
 
