@@ -5,7 +5,7 @@
  */
 
 import axios, { AxiosInstance } from 'axios';
-import { CandidAPIError } from '../utils/errors';
+import { CandidAPIError, MagnusError } from '../utils/errors';
 import { calculateGrantMatchScore } from '../utils/calculators';
 import { formatCurrency } from '../utils/formatters';
 
@@ -91,8 +91,11 @@ export class GrantService {
   private readonly candidClient: AxiosInstance;
   private readonly cache = new Map<string, { data: unknown; expiresAt: number }>();
   private readonly cacheTTL = 7200 * 1000; // 2 hours (grant data changes less often)
+  private readonly candidConfigured: boolean;
+  private readonly fixtureNotice = 'Deterministic fixture grant dataset — configure CANDID_API_KEY for live Candid data.';
 
   constructor() {
+    this.candidConfigured = Boolean(process.env['CANDID_API_KEY']);
     this.candidClient = axios.create({
       baseURL: process.env['CANDID_BASE_URL'] ?? 'https://api.candid.org/v3',
       headers: {
@@ -118,18 +121,25 @@ export class GrantService {
     if (cached) return cached;
 
     try {
-      // Try Candid API first; fall back to curated seed data for dev/demo
+      // Try Candid API first; fall back to curated seed data for explicit non-production mode
       let opportunities: GrantOpportunity[];
-      try {
-        const response = await this.candidClient.post('/grants/search', {
-          ntee_codes: [params.nteeCode],
-          states: [params.state],
-          min_grant: params.minGrantAmount ?? 5000,
-          limit: params.maxResults ?? 20,
-        });
-        opportunities = (response.data?.grants ?? []).map(this.mapCandidGrant.bind(this));
-      } catch {
+      let usedFixtureData = false;
+      if (this.candidConfigured) {
+        try {
+          const response = await this.candidClient.post('/grants/search', {
+            ntee_codes: [params.nteeCode],
+            states: [params.state],
+            min_grant: params.minGrantAmount ?? 5000,
+            limit: params.maxResults ?? 20,
+          });
+          opportunities = (response.data?.grants ?? []).map(this.mapCandidGrant.bind(this));
+        } catch {
+          opportunities = this.getSeedOpportunities(params.nteeCode, params.state);
+          usedFixtureData = true;
+        }
+      } else {
         opportunities = this.getSeedOpportunities(params.nteeCode, params.state);
+        usedFixtureData = true;
       }
 
       const matches: GrantMatch[] = opportunities.map(opp => {
@@ -159,12 +169,20 @@ export class GrantService {
             ? 'high'
             : daysUntilDeadline !== null && daysUntilDeadline < 90
               ? 'medium'
-              : 'low',
+            : 'low',
           recommendedAction: opp.requiresLetterOfInquiry
             ? 'Submit Letter of Inquiry before applying'
             : `Apply directly at ${opp.applicationUrl ?? 'funder website'}`,
         };
       });
+
+      if (usedFixtureData) {
+        matches.forEach(match => {
+          if (!match.matchReasons.includes(this.fixtureNotice)) {
+            match.matchReasons.push(this.fixtureNotice);
+          }
+        });
+      }
 
       const sorted = matches
         .filter(m => m.matchScore > 40)
@@ -233,6 +251,7 @@ export class GrantService {
   }
 
   async getGrantHistory(ein: string): Promise<GrantHistoryRecord[]> {
+    this.ensureCandidConfigured('getGrantHistory');
     const cleanEIN = ein.replace(/\D/g, '');
     const cacheKey = `grant-history:${cleanEIN}`;
     const cached = this.fromCache<GrantHistoryRecord[]>(cacheKey);
@@ -265,6 +284,7 @@ export class GrantService {
   }
 
   async getFunderResearch(funderEIN: string): Promise<FunderProfile> {
+    this.ensureCandidConfigured('getFunderResearch');
     const cleanEIN = funderEIN.replace(/\D/g, '');
     const cacheKey = `funder:${cleanEIN}`;
     const cached = this.fromCache<FunderProfile>(cacheKey);
@@ -307,7 +327,11 @@ export class GrantService {
     const deadlineRaw = g['deadline'];
     const applyUrlRaw = g['apply_url'];
     return {
-      id: String(g['id'] ?? Math.random().toString(36).slice(2)),
+      id: String(
+        g['id']
+        ?? funderEinRaw
+        ?? `${String(g['funder_name'] ?? 'unknown')}-${String(g['program_name'] ?? 'general')}`
+      ),
       funderName: String(g['funder_name'] ?? ''),
       ...(funderEinRaw ? { funderEIN: String(funderEinRaw) } : {}),
       programName: String(g['program_name'] ?? ''),
@@ -331,6 +355,8 @@ export class GrantService {
 
   private getSeedOpportunities(nteeCode: string, state: string): GrantOpportunity[] {
     // Curated fallback data for development — replace with full Candid API in production
+    const defaultDeadline = '2024-12-31';
+    const lastUpdated = '2024-01-01T00:00:00.000Z';
     return [
       {
         id: 'seed-001',
@@ -344,12 +370,12 @@ export class GrantService {
         maxGrantAmount: 50000,
         totalGiving: 2500000,
         isRollingDeadline: false,
-        applicationDeadline: new Date(Date.now() + 90 * 86400000).toISOString().split('T')[0]!,
+        applicationDeadline: defaultDeadline,
         requiresLetterOfInquiry: true,
         averageGrantSize: 25000,
         grantCount: 40,
         acceptsUnsolicited: false,
-        lastUpdated: new Date().toISOString(),
+        lastUpdated,
       },
     ];
   }
@@ -369,6 +395,18 @@ export class GrantService {
   }
   private toCache(key: string, data: unknown): void {
     this.cache.set(key, { data, expiresAt: Date.now() + this.cacheTTL });
+  }
+
+  private ensureCandidConfigured(operation: string): void {
+    if (!this.candidConfigured) {
+      throw new MagnusError(
+        'Candid grant intelligence is not configured in this environment',
+        'NOT_CONFIGURED',
+        503,
+        true,
+        { operation, requiredEnv: 'CANDID_API_KEY' }
+      );
+    }
   }
 }
 

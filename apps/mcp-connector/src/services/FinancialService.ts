@@ -104,8 +104,11 @@ export class FinancialService {
   private readonly plaidClient: AxiosInstance;
   private readonly cache = new Map<string, { data: unknown; expiresAt: number }>();
   private readonly cacheTTL = 900 * 1000; // 15 minutes (financial data changes frequently)
+  private readonly plaidConfigured: boolean;
+  private readonly fixtureNotice = 'Deterministic fixture data — configure PLAID_CLIENT_ID and PLAID_SECRET for live analytics.';
 
   constructor() {
+    this.plaidConfigured = Boolean(process.env['PLAID_CLIENT_ID'] && process.env['PLAID_SECRET']);
     this.plaidClient = axios.create({
       baseURL: process.env['PLAID_BASE_URL'] ?? 'https://sandbox.plaid.com',
       headers: {
@@ -120,6 +123,7 @@ export class FinancialService {
   // ─── Revenue Breakdown ───────────────────────────────────────────────────────
 
   async getRevenueBreakdown(ein: string, taxYear?: number, accessToken?: string): Promise<RevenueBreakdown> {
+    this.assertPlaidConfigured(accessToken);
     const cacheKey = `revenue:${ein}:${taxYear ?? 'latest'}`;
     const cached = this.fromCache<RevenueBreakdown>(cacheKey);
     if (cached) return cached;
@@ -144,6 +148,7 @@ export class FinancialService {
     if (concentrationRisk > 40) insights.push(`⚠️ High revenue concentration — top source accounts for ${concentrationRisk.toFixed(0)}% of total`);
     if (recurringPct < 50) insights.push('Consider building recurring revenue streams for stability');
     if (recurringPct > 70) insights.push('✅ Strong recurring revenue base (>70%)');
+    if (!accessToken) this.appendFixtureNotice(insights);
 
     const result: RevenueBreakdown = {
       ein,
@@ -164,6 +169,7 @@ export class FinancialService {
   // ─── Expense Allocation ──────────────────────────────────────────────────────
 
   async getExpenseAllocation(ein: string, taxYear?: number, accessToken?: string): Promise<ExpenseAllocation> {
+    this.assertPlaidConfigured(accessToken);
     const cacheKey = `expenses:${ein}:${taxYear ?? 'latest'}`;
     const cached = this.fromCache<ExpenseAllocation>(cacheKey);
     if (cached) return cached;
@@ -186,6 +192,7 @@ export class FinancialService {
     const programRatio = totalExpenses > 0 ? (programExp / totalExpenses) * 100 : 0;
     if (programRatio < 65) insights.push(`⚠️ Program ratio ${programRatio.toFixed(1)}% is below the 65% minimum benchmark`);
     if (programRatio >= 80) insights.push(`✅ Excellent program ratio ${programRatio.toFixed(1)}% — exceeds 80% excellence threshold`);
+    if (!accessToken) this.appendFixtureNotice(insights);
 
     const result: ExpenseAllocation = {
       ein,
@@ -208,6 +215,7 @@ export class FinancialService {
   // ─── Income Summary ───────────────────────────────────────────────────────────
 
   async getIncomeSummary(ein: string, months = 12, accessToken?: string): Promise<IncomeSummary> {
+    this.assertPlaidConfigured(accessToken);
     const cacheKey = `income:${ein}:${months}`;
     const cached = this.fromCache<IncomeSummary>(cacheKey);
     if (cached) return cached;
@@ -224,6 +232,7 @@ export class FinancialService {
     const insights: string[] = [];
     if (volatility > 30) insights.push('⚠️ High revenue volatility — consider building a 6-month reserve fund');
     if (totalRevenue < totalExpenses) insights.push('⚠️ Expenses exceed revenue — review budget immediately');
+    if (!accessToken) this.appendFixtureNotice(insights);
 
     const endDate = new Date();
     const startDate = new Date();
@@ -258,6 +267,12 @@ export class FinancialService {
     const year = taxYear ?? new Date().getFullYear();
     const filingDue = new Date(year + 1, 4, 15); // May 15 following year
     const extensionDue = new Date(year + 1, 10, 15); // Nov 15 with extension
+    const notes = [
+      'Most 501(c)(3) organizations owe no federal income tax on exempt activities',
+      'Unrelated Business Income Tax (UBIT) applies to activities unrelated to exempt purpose',
+      'Consult a CPA for state-specific filing requirements in your state(s) of operation',
+    ];
+    this.appendFixtureNotice(notes);
 
     return {
       taxYear: year,
@@ -272,11 +287,7 @@ export class FinancialService {
         { quarter: 'Q3', dueDate: `${year}-09-15`, estimatedAmount: 0 },
         { quarter: 'Q4', dueDate: `${year + 1}-01-15`, estimatedAmount: 0 },
       ],
-      notes: [
-        'Most 501(c)(3) organizations owe no federal income tax on exempt activities',
-        'Unrelated Business Income Tax (UBIT) applies to activities unrelated to exempt purpose',
-        'Consult a CPA for state-specific filing requirements in your state(s) of operation',
-      ],
+      notes,
     };
   }
 
@@ -361,15 +372,23 @@ export class FinancialService {
   private generateEstimatedMonthlyData(months: number): MonthlyIncome[] {
     const data: MonthlyIncome[] = [];
     let cumulative = 0;
-    for (let i = months - 1; i >= 0; i--) {
+    for (let offset = months - 1; offset >= 0; offset--) {
       const d = new Date();
-      d.setMonth(d.getMonth() - i);
+      d.setMonth(d.getMonth() - offset);
       const month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      const revenue = 75000 + Math.floor(Math.random() * 30000);
-      const expenses = 70000 + Math.floor(Math.random() * 20000);
+      const sequenceIndex = months - 1 - offset;
+      const revenue = 65000 + sequenceIndex * 1250;
+      const expenses = 60000 + sequenceIndex * 975 + (sequenceIndex % 2 === 0 ? 400 : -400);
       const net = revenue - expenses;
       cumulative += net;
-      data.push({ month, totalRevenue: revenue, totalExpenses: expenses, netIncome: net, cumulativeNet: cumulative, categories: {} });
+      data.push({
+        month,
+        totalRevenue: revenue,
+        totalExpenses: expenses,
+        netIncome: net,
+        cumulativeNet: cumulative,
+        categories: {},
+      });
     }
     return data;
   }
@@ -391,6 +410,20 @@ export class FinancialService {
   }
   private toCache(key: string, data: unknown): void {
     this.cache.set(key, { data, expiresAt: Date.now() + this.cacheTTL });
+  }
+
+  private assertPlaidConfigured(accessToken?: string): void {
+    if (accessToken && !this.plaidConfigured) {
+      throw new PlaidAPIError(
+        'Plaid credentials missing — set PLAID_CLIENT_ID and PLAID_SECRET to enable live MCP financial analytics.'
+      );
+    }
+  }
+
+  private appendFixtureNotice(collection: string[]): void {
+    if (!collection.includes(this.fixtureNotice)) {
+      collection.unshift(this.fixtureNotice);
+    }
   }
 }
 

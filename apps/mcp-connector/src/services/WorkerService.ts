@@ -4,7 +4,7 @@
  * Called by: get-multi-org-profile, get-income-summary, get-tax-estimates
  */
 
-import { NotFoundError } from '../utils/errors';
+import { MagnusError, NotFoundError } from '../utils/errors';
 import { formatCurrency } from '../utils/formatters';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -65,8 +65,14 @@ export interface WorkerPayrollSummary {
 export class WorkerService {
   // In production these come from Prisma / DB; using in-memory store for dev
   private orgRegistry = new Map<string, OrgProfile[]>(); // userId → orgs
+  private readonly fixturesEnabled: boolean;
+
+  constructor() {
+    this.fixturesEnabled = (process.env['MCP_ENABLE_WORKER_TOOLS'] ?? '').toLowerCase() === 'true';
+  }
 
   async getMultiOrgProfile(userId: string, eins?: string[]): Promise<MultiOrgProfile> {
+    this.ensureFixturesEnabled();
     const orgs = await this.getOrgsForUser(userId, eins);
     if (!orgs.length) {
       throw new NotFoundError('Organizations', userId, {
@@ -107,6 +113,7 @@ export class WorkerService {
   }
 
   async getPayrollSummary(ein: string, taxYear?: number): Promise<WorkerPayrollSummary> {
+    this.ensureFixturesEnabled();
     const year = taxYear ?? new Date().getFullYear() - 1;
     // In production: pull from Plaid payroll integration or manual upload
     return {
@@ -202,6 +209,7 @@ export class WorkerService {
 
   private getSeedOrgs(userId: string): OrgProfile[] {
     void userId;
+    const lastSynced = new Date('2024-10-01T00:00:00.000Z');
     return [
       {
         ein: '12-3456789',
@@ -218,9 +226,21 @@ export class WorkerService {
         programRatio: 78.4,
         filingStatus: 'current',
         healthScore: 74,
-        lastSynced: new Date(),
+        lastSynced,
       },
     ];
+  }
+
+  private ensureFixturesEnabled(): void {
+    if (!this.fixturesEnabled) {
+      throw new MagnusError(
+        'Worker analytics are not available — enable MCP_ENABLE_WORKER_TOOLS for deterministic fixture data.',
+        'NOT_CONFIGURED',
+        503,
+        true,
+        { requiredEnv: 'MCP_ENABLE_WORKER_TOOLS' }
+      );
+    }
   }
 }
 

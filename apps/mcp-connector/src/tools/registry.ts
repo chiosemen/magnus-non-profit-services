@@ -29,21 +29,42 @@ export interface MCPTool {
 // Registry map
 const TOOL_REGISTRY: Map<string, MCPTool> = new Map();
 
-// Register all tools
-const tools: MCPTool[] = [
-  { ...getFilingHistory, category: 'compliance', description: 'Get 990 filing history for a nonprofit' },
-  { ...getStateRegistrations, category: 'compliance', description: 'Get state charity registrations' },
-  { ...getExpenseAllocation, category: 'financials', description: 'Get expense allocation breakdown' },
-  { ...getRevenueBreakdown, category: 'financials', description: 'Get revenue breakdown by source' },
-  { ...getFunderResearch, category: 'grants', description: 'Research potential funders' },
-  { ...getGrantHistory, category: 'grants', description: 'Get grant history for an org' },
-  { ...getIncomeSummary, category: 'workers', description: 'Get income summary with volatility analysis' },
-  { ...getMultiOrgProfile, category: 'workers', description: 'Get worker profile across multiple orgs' },
-  { ...getTaxEstimates, category: 'workers', description: 'Get quarterly tax estimates' },
+// Feature flag helpers
+const isEnabled = (flag?: string): boolean => {
+  if (!flag) return true;
+  return (process.env[flag] ?? '').toLowerCase() === 'true';
+};
+
+interface ToolDefinition {
+  tool: MCPTool;
+  flagEnv?: string;
+}
+
+// Register all tools with optional flags
+const toolDefinitions: ToolDefinition[] = [
+  { tool: { ...getFilingHistory, category: 'compliance', description: 'Get 990 filing history for a nonprofit' } },
+  { tool: { ...getStateRegistrations, category: 'compliance', description: 'Get state charity registrations' } },
+  { tool: { ...getExpenseAllocation, category: 'financials', description: 'Get expense allocation breakdown' } },
+  { tool: { ...getRevenueBreakdown, category: 'financials', description: 'Get revenue breakdown by source' } },
+  { tool: { ...getFunderResearch, category: 'grants', description: 'Research potential funders' } },
+  { tool: { ...getGrantHistory, category: 'grants', description: 'Get grant history for an org' } },
+  {
+    tool: { ...getIncomeSummary, category: 'workers', description: 'Get income summary with volatility analysis' },
+    flagEnv: 'MCP_ENABLE_WORKER_TOOLS',
+  },
+  {
+    tool: { ...getMultiOrgProfile, category: 'workers', description: 'Get worker profile across multiple orgs' },
+    flagEnv: 'MCP_ENABLE_WORKER_TOOLS',
+  },
+  {
+    tool: { ...getTaxEstimates, category: 'workers', description: 'Get quarterly tax estimates' },
+    flagEnv: 'MCP_ENABLE_WORKER_TOOLS',
+  },
 ];
 
-for (const tool of tools) {
-  TOOL_REGISTRY.set(tool.name, tool);
+for (const entry of toolDefinitions) {
+  if (!isEnabled(entry.flagEnv)) continue;
+  TOOL_REGISTRY.set(entry.tool.name, entry.tool);
 }
 
 // Public API
