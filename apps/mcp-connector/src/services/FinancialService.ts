@@ -11,6 +11,12 @@ import {
   calculateConcentrationRisk,
 } from '../utils/calculators';
 
+type PlaidTransaction = {
+  amount?: number;
+  date?: string;
+  category?: string[];
+};
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface RevenueStream {
@@ -102,16 +108,20 @@ export interface TaxEstimate {
 
 export class FinancialService {
   private readonly plaidClient: AxiosInstance;
+  private readonly plaidConfigured: boolean;
   private readonly cache = new Map<string, { data: unknown; expiresAt: number }>();
   private readonly cacheTTL = 900 * 1000; // 15 minutes (financial data changes frequently)
 
   constructor() {
+    const plaidClientId = process.env['PLAID_CLIENT_ID'] ?? '';
+    const plaidSecret = process.env['PLAID_SECRET'] ?? '';
+    this.plaidConfigured = Boolean(plaidClientId && plaidSecret);
     this.plaidClient = axios.create({
       baseURL: process.env['PLAID_BASE_URL'] ?? 'https://sandbox.plaid.com',
       headers: {
         'Content-Type': 'application/json',
-        'PLAID-CLIENT-ID': process.env['PLAID_CLIENT_ID'] ?? '',
-        'PLAID-SECRET': process.env['PLAID_SECRET'] ?? '',
+        'PLAID-CLIENT-ID': plaidClientId,
+        'PLAID-SECRET': plaidSecret,
       },
       timeout: 15000,
     });
@@ -120,14 +130,12 @@ export class FinancialService {
   // ─── Revenue Breakdown ───────────────────────────────────────────────────────
 
   async getRevenueBreakdown(ein: string, taxYear?: number, accessToken?: string): Promise<RevenueBreakdown> {
+    this.ensurePlaidAccess(accessToken);
     const cacheKey = `revenue:${ein}:${taxYear ?? 'latest'}`;
     const cached = this.fromCache<RevenueBreakdown>(cacheKey);
     if (cached) return cached;
 
-    // If Plaid access token provided, pull live transactions; otherwise use 990 data
-    const streams = accessToken
-      ? await this.getPlaidRevenueStreams(accessToken, taxYear)
-      : this.getEstimatedRevenueStreams(taxYear);
+    const streams = await this.getPlaidRevenueStreams(accessToken!, taxYear);
 
     const totalRevenue = streams.reduce((s, r) => s + r.amount, 0);
     const streamsWithPct = streams.map(s => ({
@@ -164,13 +172,12 @@ export class FinancialService {
   // ─── Expense Allocation ──────────────────────────────────────────────────────
 
   async getExpenseAllocation(ein: string, taxYear?: number, accessToken?: string): Promise<ExpenseAllocation> {
+    this.ensurePlaidAccess(accessToken);
     const cacheKey = `expenses:${ein}:${taxYear ?? 'latest'}`;
     const cached = this.fromCache<ExpenseAllocation>(cacheKey);
     if (cached) return cached;
 
-    const categories = accessToken
-      ? await this.getPlaidExpenseCategories(accessToken, taxYear)
-      : this.getEstimatedExpenseCategories();
+    const categories = await this.getPlaidExpenseCategories(accessToken!, taxYear);
 
     const totalExpenses = categories.reduce((s, c) => s + c.amount, 0);
     const withPct = categories.map(c => ({
@@ -208,13 +215,12 @@ export class FinancialService {
   // ─── Income Summary ───────────────────────────────────────────────────────────
 
   async getIncomeSummary(ein: string, months = 12, accessToken?: string): Promise<IncomeSummary> {
+    this.ensurePlaidAccess(accessToken);
     const cacheKey = `income:${ein}:${months}`;
     const cached = this.fromCache<IncomeSummary>(cacheKey);
     if (cached) return cached;
 
-    const monthly = accessToken
-      ? await this.getPlaidMonthlyData(accessToken, months)
-      : this.generateEstimatedMonthlyData(months);
+    const monthly = await this.getPlaidMonthlyData(accessToken!, months);
 
     const totalRevenue = monthly.reduce((s, m) => s + m.totalRevenue, 0);
     const totalExpenses = monthly.reduce((s, m) => s + m.totalExpenses, 0);
@@ -318,60 +324,84 @@ export class FinancialService {
         end_date: new Date().toISOString().split('T')[0],
       });
       return this.aggregateByMonth(response.data?.transactions ?? [], months);
-    } catch {
-      return this.generateEstimatedMonthlyData(months);
+    } catch (err) {
+      throw new PlaidAPIError('Failed to fetch monthly transactions', err instanceof Error ? err : undefined);
     }
   }
 
   // ─── Data Helpers ─────────────────────────────────────────────────────────────
 
-  private categorizeTransactionsAsRevenue(_transactions: unknown[]): RevenueStream[] {
-    return this.getEstimatedRevenueStreams();
-  }
-
-  private categorizeTransactionsAsExpenses(_transactions: unknown[]): ExpenseCategory[] {
-    return this.getEstimatedExpenseCategories();
-  }
-
-  private aggregateByMonth(_transactions: unknown[], months: number): MonthlyIncome[] {
-    return this.generateEstimatedMonthlyData(months);
-  }
-
-  private getEstimatedRevenueStreams(taxYear?: number): RevenueStream[] {
-    void taxYear;
-    return [
-      { category: 'Contributions & Grants', amount: 450000, percentage: 0, isRestricted: false, isRecurring: false },
-      { category: 'Government Grants', amount: 200000, percentage: 0, isRestricted: true, isRecurring: true },
-      { category: 'Program Service Revenue', amount: 120000, percentage: 0, isRestricted: false, isRecurring: true },
-      { category: 'Individual Donations', amount: 80000, percentage: 0, isRestricted: false, isRecurring: true },
-      { category: 'Special Events', amount: 50000, percentage: 0, isRestricted: false, isRecurring: false },
-      { category: 'Investment Income', amount: 25000, percentage: 0, isRestricted: false, isRecurring: true },
-    ];
-  }
-
-  private getEstimatedExpenseCategories(): ExpenseCategory[] {
-    return [
-      { category: 'Program', programArea: 'Direct Services', amount: 520000, percentage: 0, isFixed: false, benchmarkPercentage: 75 },
-      { category: 'Program', programArea: 'Education', amount: 130000, percentage: 0, isFixed: false, benchmarkPercentage: 75 },
-      { category: 'Administration', amount: 110000, percentage: 0, isFixed: true, benchmarkPercentage: 15 },
-      { category: 'Fundraising', amount: 65000, percentage: 0, isFixed: false, benchmarkPercentage: 10 },
-    ];
-  }
-
-  private generateEstimatedMonthlyData(months: number): MonthlyIncome[] {
-    const data: MonthlyIncome[] = [];
-    let cumulative = 0;
-    for (let i = months - 1; i >= 0; i--) {
-      const d = new Date();
-      d.setMonth(d.getMonth() - i);
-      const month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      const revenue = 75000 + Math.floor(Math.random() * 30000);
-      const expenses = 70000 + Math.floor(Math.random() * 20000);
-      const net = revenue - expenses;
-      cumulative += net;
-      data.push({ month, totalRevenue: revenue, totalExpenses: expenses, netIncome: net, cumulativeNet: cumulative, categories: {} });
+  private categorizeTransactionsAsRevenue(transactions: PlaidTransaction[]): RevenueStream[] {
+    const groups = new Map<string, number>();
+    for (const tx of transactions) {
+      const amount = Number(tx.amount ?? 0);
+      if (amount <= 0) continue;
+      const category = Array.isArray(tx.category) && tx.category.length > 0
+        ? tx.category[0]!
+        : 'Uncategorized';
+      groups.set(category, (groups.get(category) ?? 0) + amount);
     }
-    return data;
+    return Array.from(groups.entries()).map(([category, amount]) => ({
+      category,
+      amount,
+      percentage: 0,
+      isRestricted: false,
+      isRecurring: false,
+    }));
+  }
+
+  private categorizeTransactionsAsExpenses(transactions: PlaidTransaction[]): ExpenseCategory[] {
+    const groups = new Map<string, number>();
+    for (const tx of transactions) {
+      const amount = Math.abs(Number(tx.amount ?? 0));
+      if (amount <= 0) continue;
+      const category = Array.isArray(tx.category) && tx.category.length > 0
+        ? tx.category[0]!
+        : 'Uncategorized';
+      groups.set(category, (groups.get(category) ?? 0) + amount);
+    }
+    return Array.from(groups.entries()).map(([category, amount]) => ({
+      category,
+      amount,
+      percentage: 0,
+      isFixed: false,
+    }));
+  }
+
+  private aggregateByMonth(transactions: PlaidTransaction[], months: number): MonthlyIncome[] {
+    const cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() - months);
+    const buckets = new Map<string, { revenue: number; expenses: number }>();
+    for (const tx of transactions) {
+      if (!tx.date) continue;
+      const txDate = new Date(tx.date);
+      if (Number.isNaN(txDate.getTime()) || txDate < cutoff) continue;
+      const month = tx.date.slice(0, 7);
+      const bucket = buckets.get(month) ?? { revenue: 0, expenses: 0 };
+      const amount = Number(tx.amount ?? 0);
+      if (amount >= 0) {
+        bucket.revenue += amount;
+      } else {
+        bucket.expenses += Math.abs(amount);
+      }
+      buckets.set(month, bucket);
+    }
+
+    const sortedMonths = Array.from(buckets.keys()).sort();
+    let cumulative = 0;
+    return sortedMonths.map(month => {
+      const bucket = buckets.get(month)!;
+      const netIncome = bucket.revenue - bucket.expenses;
+      cumulative += netIncome;
+      return {
+        month,
+        totalRevenue: bucket.revenue,
+        totalExpenses: bucket.expenses,
+        netIncome,
+        cumulativeNet: cumulative,
+        categories: {},
+      };
+    });
   }
 
   private getYearStart(taxYear?: number): string {
@@ -391,6 +421,15 @@ export class FinancialService {
   }
   private toCache(key: string, data: unknown): void {
     this.cache.set(key, { data, expiresAt: Date.now() + this.cacheTTL });
+  }
+
+  private ensurePlaidAccess(accessToken?: string): void {
+    if (!accessToken) {
+      throw new PlaidAPIError('PLAID_ACCESS_TOKEN_REQUIRED');
+    }
+    if (!this.plaidConfigured) {
+      throw new PlaidAPIError('PLAID_NOT_CONFIGURED');
+    }
   }
 }
 

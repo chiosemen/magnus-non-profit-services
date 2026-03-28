@@ -29,20 +29,26 @@ export interface MCPTool {
 // Registry map
 const TOOL_REGISTRY: Map<string, MCPTool> = new Map();
 
-// Register all tools
-const tools: MCPTool[] = [
+const workerToolsEnabled = (process.env['MCP_ENABLE_WORKER_ANALYTICS'] ?? '').toLowerCase() === 'true';
+
+const baseTools: MCPTool[] = [
   { ...getFilingHistory, category: 'compliance', description: 'Get 990 filing history for a nonprofit' },
   { ...getStateRegistrations, category: 'compliance', description: 'Get state charity registrations' },
   { ...getExpenseAllocation, category: 'financials', description: 'Get expense allocation breakdown' },
   { ...getRevenueBreakdown, category: 'financials', description: 'Get revenue breakdown by source' },
   { ...getFunderResearch, category: 'grants', description: 'Research potential funders' },
   { ...getGrantHistory, category: 'grants', description: 'Get grant history for an org' },
-  { ...getIncomeSummary, category: 'workers', description: 'Get income summary with volatility analysis' },
-  { ...getMultiOrgProfile, category: 'workers', description: 'Get worker profile across multiple orgs' },
-  { ...getTaxEstimates, category: 'workers', description: 'Get quarterly tax estimates' },
 ];
 
-for (const tool of tools) {
+const workerTools: MCPTool[] = workerToolsEnabled
+  ? [
+    { ...getIncomeSummary, category: 'workers', description: 'Get income summary with volatility analysis' },
+    { ...getMultiOrgProfile, category: 'workers', description: 'Get worker profile across multiple orgs' },
+    { ...getTaxEstimates, category: 'workers', description: 'Get quarterly tax estimates' },
+  ]
+  : [];
+
+for (const tool of [...baseTools, ...workerTools]) {
   TOOL_REGISTRY.set(tool.name, tool);
 }
 

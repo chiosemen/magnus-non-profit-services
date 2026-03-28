@@ -4,7 +4,7 @@
  * Called by: get-multi-org-profile, get-income-summary, get-tax-estimates
  */
 
-import { NotFoundError } from '../utils/errors';
+import { MagnusError, NotFoundError } from '../utils/errors';
 import { formatCurrency } from '../utils/formatters';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -65,8 +65,14 @@ export interface WorkerPayrollSummary {
 export class WorkerService {
   // In production these come from Prisma / DB; using in-memory store for dev
   private orgRegistry = new Map<string, OrgProfile[]>(); // userId → orgs
+  private readonly fixturesEnabled: boolean;
+
+  constructor() {
+    this.fixturesEnabled = (process.env['MCP_ENABLE_WORKER_ANALYTICS'] ?? '').toLowerCase() === 'true';
+  }
 
   async getMultiOrgProfile(userId: string, eins?: string[]): Promise<MultiOrgProfile> {
+    this.assertFixturesEnabled();
     const orgs = await this.getOrgsForUser(userId, eins);
     if (!orgs.length) {
       throw new NotFoundError('Organizations', userId, {
@@ -107,6 +113,7 @@ export class WorkerService {
   }
 
   async getPayrollSummary(ein: string, taxYear?: number): Promise<WorkerPayrollSummary> {
+    this.assertFixturesEnabled();
     const year = taxYear ?? new Date().getFullYear() - 1;
     // In production: pull from Plaid payroll integration or manual upload
     return {
@@ -133,6 +140,7 @@ export class WorkerService {
   }
 
   async registerOrg(userId: string, org: OrgProfile): Promise<void> {
+    this.assertFixturesEnabled();
     const existing = this.orgRegistry.get(userId) ?? [];
     const idx = existing.findIndex(o => o.ein === org.ein);
     if (idx >= 0) {
@@ -144,6 +152,7 @@ export class WorkerService {
   }
 
   async removeOrg(userId: string, ein: string): Promise<void> {
+    this.assertFixturesEnabled();
     const existing = this.orgRegistry.get(userId) ?? [];
     this.orgRegistry.set(userId, existing.filter(o => o.ein !== ein));
   }
@@ -221,6 +230,16 @@ export class WorkerService {
         lastSynced: new Date(),
       },
     ];
+  }
+
+  private assertFixturesEnabled(): void {
+    if (!this.fixturesEnabled) {
+      throw new MagnusError(
+        'Worker analytics tools are not enabled in this environment',
+        'NOT_CONFIGURED',
+        503
+      );
+    }
   }
 }
 

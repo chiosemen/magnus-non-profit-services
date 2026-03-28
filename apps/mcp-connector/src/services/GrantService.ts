@@ -89,10 +89,12 @@ export interface FunderProfile {
 
 export class GrantService {
   private readonly candidClient: AxiosInstance;
+  private readonly candidConfigured: boolean;
   private readonly cache = new Map<string, { data: unknown; expiresAt: number }>();
   private readonly cacheTTL = 7200 * 1000; // 2 hours (grant data changes less often)
 
   constructor() {
+    this.candidConfigured = Boolean(process.env['CANDID_API_KEY']);
     this.candidClient = axios.create({
       baseURL: process.env['CANDID_BASE_URL'] ?? 'https://api.candid.org/v3',
       headers: {
@@ -113,24 +115,19 @@ export class GrantService {
     minGrantAmount?: number;
     maxResults?: number;
   }): Promise<GrantMatch[]> {
+    this.ensureCandidConfigured('grant opportunities');
     const cacheKey = `opportunities:${params.nteeCode}:${params.state}:${params.annualBudget}`;
     const cached = this.fromCache<GrantMatch[]>(cacheKey);
     if (cached) return cached;
 
     try {
-      // Try Candid API first; fall back to curated seed data for dev/demo
-      let opportunities: GrantOpportunity[];
-      try {
-        const response = await this.candidClient.post('/grants/search', {
-          ntee_codes: [params.nteeCode],
-          states: [params.state],
-          min_grant: params.minGrantAmount ?? 5000,
-          limit: params.maxResults ?? 20,
-        });
-        opportunities = (response.data?.grants ?? []).map(this.mapCandidGrant.bind(this));
-      } catch {
-        opportunities = this.getSeedOpportunities(params.nteeCode, params.state);
-      }
+      const response = await this.candidClient.post('/grants/search', {
+        ntee_codes: [params.nteeCode],
+        states: [params.state],
+        min_grant: params.minGrantAmount ?? 5000,
+        limit: params.maxResults ?? 20,
+      });
+      const opportunities: GrantOpportunity[] = (response.data?.grants ?? []).map(this.mapCandidGrant.bind(this));
 
       const matches: GrantMatch[] = opportunities.map(opp => {
         const { score, reasons } = calculateGrantMatchScore({
@@ -234,6 +231,7 @@ export class GrantService {
 
   async getGrantHistory(ein: string): Promise<GrantHistoryRecord[]> {
     const cleanEIN = ein.replace(/\D/g, '');
+    this.ensureCandidConfigured('grant history');
     const cacheKey = `grant-history:${cleanEIN}`;
     const cached = this.fromCache<GrantHistoryRecord[]>(cacheKey);
     if (cached) return cached;
@@ -265,6 +263,7 @@ export class GrantService {
   }
 
   async getFunderResearch(funderEIN: string): Promise<FunderProfile> {
+    this.ensureCandidConfigured('funder research');
     const cleanEIN = funderEIN.replace(/\D/g, '');
     const cacheKey = `funder:${cleanEIN}`;
     const cached = this.fromCache<FunderProfile>(cacheKey);
@@ -307,7 +306,7 @@ export class GrantService {
     const deadlineRaw = g['deadline'];
     const applyUrlRaw = g['apply_url'];
     return {
-      id: String(g['id'] ?? Math.random().toString(36).slice(2)),
+      id: String(g['id'] ?? 'unknown-opportunity'),
       funderName: String(g['funder_name'] ?? ''),
       ...(funderEinRaw ? { funderEIN: String(funderEinRaw) } : {}),
       programName: String(g['program_name'] ?? ''),
@@ -329,31 +328,6 @@ export class GrantService {
     };
   }
 
-  private getSeedOpportunities(nteeCode: string, state: string): GrantOpportunity[] {
-    // Curated fallback data for development — replace with full Candid API in production
-    return [
-      {
-        id: 'seed-001',
-        funderName: 'Community Foundation of America',
-        programName: 'Nonprofit Capacity Building Grant',
-        description: 'Supports organizational development for established nonprofits serving local communities.',
-        focusAreas: ['Community Development', 'Capacity Building'],
-        eligibleNTEECodes: [nteeCode.slice(0, 1)],
-        eligibleStates: [state, 'All'],
-        minGrantAmount: 10000,
-        maxGrantAmount: 50000,
-        totalGiving: 2500000,
-        isRollingDeadline: false,
-        applicationDeadline: new Date(Date.now() + 90 * 86400000).toISOString().split('T')[0]!,
-        requiresLetterOfInquiry: true,
-        averageGrantSize: 25000,
-        grantCount: 40,
-        acceptsUnsolicited: false,
-        lastUpdated: new Date().toISOString(),
-      },
-    ];
-  }
-
   private inferFunderType(data: Record<string, unknown>): FunderProfile['type'] {
     const ntee = String(data['ntee_code'] ?? '');
     if (ntee.startsWith('T20')) return 'private_foundation';
@@ -369,6 +343,12 @@ export class GrantService {
   }
   private toCache(key: string, data: unknown): void {
     this.cache.set(key, { data, expiresAt: Date.now() + this.cacheTTL });
+  }
+
+  private ensureCandidConfigured(feature: string): void {
+    if (!this.candidConfigured) {
+      throw new CandidAPIError(`${feature} requires CANDID_API_KEY to be configured`);
+    }
   }
 }
 
