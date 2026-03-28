@@ -8,8 +8,10 @@ import cors from 'cors';
 import { z } from 'zod';
 import { createLogger, getLogger, requestContextMiddleware } from '@magnus/logging';
 import { getTokenValidator, TokenPayload } from './auth/TokenValidator';
+import { getSessionManager } from './auth/SessionManager';
 import { getTool, getAllTools, hasTool } from './tools/registry';
-import { isMagnusError } from './utils/errors';
+import auditMiddleware from './audit/AuditMiddleware';
+import { isMagnusError, SessionExpiredError } from './utils/errors';
 import {
   enforceFeature,
   FeatureNotEnabledError,
@@ -41,7 +43,7 @@ app.get('/health', (_req, res) => res.json({ ok: true }));
 
 // ─── Auth Middleware ─────────────────────────────────────────────────────────
 
-function authMiddleware(req: Request, res: Response, next: NextFunction): void {
+async function authMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
   const authHeader = req.headers.authorization;
   if (!authHeader) {
     res.status(401).json({ error: 'AUTH_REQUIRED', message: 'Authorization header required' });
@@ -51,6 +53,25 @@ function authMiddleware(req: Request, res: Response, next: NextFunction): void {
   try {
     const validator = getTokenValidator();
     const payload = validator.validate(authHeader);
+    const sessionManager = getSessionManager();
+    try {
+      const session = await sessionManager.validateSession(payload.sessionId);
+      if (session.userId !== payload.sub || session.orgId !== payload.orgId) {
+        await sessionManager.invalidateSession(session.id);
+        res.status(401).json({
+          error: 'SESSION_MISMATCH',
+          message: 'Session data does not match token claims',
+        });
+        return;
+      }
+    } catch (sessionErr) {
+      if (sessionErr instanceof SessionExpiredError) {
+        res.status(sessionErr.statusCode).json({ error: sessionErr.code, message: sessionErr.message });
+        return;
+      }
+      res.status(401).json({ error: 'SESSION_INVALID', message: 'Session validation failed' });
+      return;
+    }
     req.auth = payload;
     next();
   } catch (err) {
@@ -81,7 +102,7 @@ app.get('/api/tools', authMiddleware, (_req: Request, res: Response) => {
 });
 
 // POST /api/tools/:toolName - Execute a tool (authenticated)
-app.post('/api/tools/:toolName', authMiddleware, async (req: Request, res: Response) => {
+app.post('/api/tools/:toolName', authMiddleware, auditMiddleware, async (req: Request, res: Response) => {
   const toolName = req.params['toolName']!;
   const auth = req.auth!;
 

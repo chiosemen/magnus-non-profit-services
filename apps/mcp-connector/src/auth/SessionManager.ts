@@ -5,6 +5,8 @@
  */
 
 import { randomUUID } from 'crypto';
+import Redis from 'ioredis';
+import { createLogger, getLogger } from '@magnus/logging';
 import { SessionExpiredError } from '../utils/errors';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -66,6 +68,41 @@ class InMemoryStore implements SessionStore {
   }
 }
 
+class RedisStore implements SessionStore {
+  private readonly client: Redis;
+
+  constructor() {
+    const redisUrl = process.env['REDIS_URL'];
+    if (!redisUrl) throw new Error('REDIS_URL must be set to use Redis session store');
+    this.client = new Redis(redisUrl, {
+      password: process.env['REDIS_PASSWORD'] || undefined,
+      db: process.env['REDIS_DB'] ? parseInt(process.env['REDIS_DB']!, 10) : undefined,
+      enableReadyCheck: false,
+    });
+    this.client.on('error', err => {
+      getLogger(sessionLogger).error(
+        { err, event: 'redis_session_store_error' },
+        'Redis session store error'
+      );
+    });
+  }
+
+  async get(key: string): Promise<string | null> {
+    return this.client.get(key);
+  }
+  async set(key: string, value: string, ttlSeconds: number): Promise<void> {
+    await this.client.set(key, value, 'EX', ttlSeconds);
+  }
+  async del(key: string): Promise<void> {
+    await this.client.del(key);
+  }
+  async keys(pattern: string): Promise<string[]> {
+    return this.client.keys(pattern);
+  }
+}
+
+const sessionLogger = createLogger({ service: 'mcp-connector', component: 'session-manager' });
+
 // ─── Session Manager ──────────────────────────────────────────────────────────
 
 export class SessionManager {
@@ -76,7 +113,17 @@ export class SessionManager {
   private readonly userIndexPrefix = 'magnus:user-sessions:';
 
   constructor(store?: SessionStore) {
-    this.store = store ?? new InMemoryStore();
+    if (store) {
+      this.store = store;
+    } else if (process.env['REDIS_URL']) {
+      this.store = new RedisStore();
+    } else {
+      getLogger(sessionLogger).warn(
+        { event: 'session_store_fallback' },
+        'Using in-memory session store — not durable for production'
+      );
+      this.store = new InMemoryStore();
+    }
     this.ttlSeconds = parseInt(process.env['SESSION_TTL_SECONDS'] ?? '3600', 10);
     this.maxSessionsPerUser = parseInt(process.env['SESSION_MAX_PER_USER'] ?? '5', 10);
   }

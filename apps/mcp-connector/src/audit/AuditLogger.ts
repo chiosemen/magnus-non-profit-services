@@ -1,8 +1,11 @@
 /**
  * Minimal AuditLogger used by AuditMiddleware.
- * Stores entries in-memory via AuditQueryService (dev-friendly).
+ * Persists entries via AuditQueryService + append-only JSONL log.
  */
 
+import { promises as fs } from 'fs';
+import { dirname, resolve } from 'path';
+import { createLogger, getLogger } from '@magnus/logging';
 import AuditQueryService, { AuditEntry } from './AuditQueryService';
 
 export interface ToolCallLog {
@@ -30,9 +33,13 @@ export interface ToolResultLog {
 
 export class AuditLogger {
   private readonly store: AuditQueryService;
+  private readonly logFilePath: string;
+  private logDirEnsured = false;
+  private readonly logger = createLogger({ service: 'mcp-connector', component: 'audit-logger' });
 
-  constructor(store?: AuditQueryService) {
+  constructor(store?: AuditQueryService, logFilePath?: string) {
     this.store = store ?? new AuditQueryService();
+    this.logFilePath = logFilePath ?? resolve(process.cwd(), 'logs', 'mcp-audit.log');
   }
 
   async logToolCall(call: ToolCallLog): Promise<void> {
@@ -50,7 +57,7 @@ export class AuditLogger {
       ...(call.ipAddress !== undefined ? { ipAddress: call.ipAddress } : {}),
       resultSummary: 'Started',
     };
-    this.store.ingest(entry);
+    await this.record(entry);
   }
 
   async logToolResult(result: ToolResultLog): Promise<void> {
@@ -66,7 +73,34 @@ export class AuditLogger {
       requestId: result.requestId,
       ...(result.resultSummary !== undefined ? { resultSummary: result.resultSummary } : {}),
     };
+    await this.record(entry);
+  }
+
+  private async record(entry: AuditEntry): Promise<void> {
     this.store.ingest(entry);
+    try {
+      await this.persist(entry);
+    } catch (err) {
+      getLogger(this.logger).error(
+        { err, event: 'audit_log_persist_failed', toolName: entry.toolName },
+        'Failed to persist audit log entry'
+      );
+    }
+  }
+
+  private async persist(entry: AuditEntry): Promise<void> {
+    await this.ensureLogDir();
+    const serialized = JSON.stringify({
+      ...entry,
+      timestamp: entry.timestamp.toISOString(),
+    });
+    await fs.appendFile(this.logFilePath, `${serialized}\n`, 'utf8');
+  }
+
+  private async ensureLogDir(): Promise<void> {
+    if (this.logDirEnsured) return;
+    await fs.mkdir(dirname(this.logFilePath), { recursive: true });
+    this.logDirEnsured = true;
   }
 }
 
