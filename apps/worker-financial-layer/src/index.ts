@@ -14,6 +14,15 @@ import { prisma } from './db';
 import { buildRoutes } from './api/routes';
 
 async function main(): Promise<void> {
+  if ((process.env['ALLOW_WORKER_FINANCIAL_LAYER'] ?? '').toLowerCase() !== 'true') {
+    // eslint-disable-next-line no-console
+    console.error(
+      'apps/worker-financial-layer is excluded from the current release scope. ' +
+      'Set ALLOW_WORKER_FINANCIAL_LAYER=true to run it locally.'
+    );
+    process.exit(1);
+  }
+
   validateEnv('worker-financial-layer');
   const env = loadEnv();
 

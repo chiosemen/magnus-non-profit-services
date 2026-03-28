@@ -9,6 +9,14 @@ This runbook defines how to stand up and operate a staging environment for the M
 - pnpm monorepo builds
 - One or more deployed services (API and/or web)
 
+Excluded from current staging scope:
+- `apps/mobile` is not deployed to staging and is not part of the current release scope.
+- `apps/worker-financial-layer` is not deployed to staging and is not part of the current release scope.
+
+Runtime guards:
+- `apps/mobile` commands now require `ALLOW_MOBILE_PREVIEW=true` to run. Without the flag the Expo CLI exits immediately.
+- `apps/worker-financial-layer` refuses to start unless `ALLOW_WORKER_FINANCIAL_LAYER=true` is set (local dev override only).
+
 ## Environment Variables
 Start from `.env.staging.template`.
 
@@ -52,7 +60,6 @@ Known health routes in this repo (service-dependent):
 - `@magnus/mcp-connector`: `GET /health`
 - `@magnus/billing`: `GET /health`
 - `@magnus/claude-partner`: `GET /health`
-- `@magnus/worker-financial-layer`: `GET /health`
 
 ## Deployment Options
 

@@ -4,10 +4,10 @@
   "private": true,
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
-    "start": "pnpm exec expo start",
-    "ios": "pnpm exec expo start --ios",
-    "android": "pnpm exec expo start --android",
-    "web": "pnpm exec expo start --web",
+    "start": "node scripts/enforceScope.js && pnpm exec expo start",
+    "ios": "node scripts/enforceScope.js && pnpm exec expo start --ios",
+    "android": "node scripts/enforceScope.js && pnpm exec expo start --android",
+    "web": "node scripts/enforceScope.js && pnpm exec expo start --web",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
