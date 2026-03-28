@@ -1,89 +1,7 @@
 import jwt from 'jsonwebtoken';
 import request from 'supertest';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-
-vi.mock('@magnus/subscription', () => {
-  class FeatureNotEnabledError extends Error {
-    featureKey?: string;
-    code?: string;
-  }
-
-  class SubscriptionNotActiveError extends Error {
-    code?: string;
-  }
-
-  return {
-    enforceFeature: vi.fn().mockResolvedValue(undefined),
-    FeatureNotEnabledError,
-    SubscriptionNotActiveError,
-  };
-});
-
-vi.mock('@magnus/db/client', () => {
-  const prisma = {
-    organization: {
-      findUnique: vi.fn(async ({ where }: { where: { id?: string } }) => {
-        if (where.id === 'org-123') {
-          return {
-            id: 'org-123',
-            subscriptionTier: 'ENTERPRISE',
-            subscriptionStatus: 'ACTIVE',
-          };
-        }
-
-        return null;
-      }),
-    },
-  };
-
-  return {
-    __esModule: true,
-    default: prisma,
-    prisma,
-  };
-});
-
-vi.mock('@magnus/db', () => {
-  const prisma = {
-    organization: {
-      findUnique: vi.fn(async ({ where }: { where: { ein?: string } }) => {
-        if (where.ein === '123456789') {
-          return { id: 'org-123' };
-        }
-        if (where.ein === '987654321') {
-          return { id: 'other-org' };
-        }
-        return null;
-      }),
-    },
-    workerOrgRelationship: {
-      findFirst: vi.fn().mockResolvedValue(null),
-    },
-    worker: {
-      findUnique: vi.fn().mockResolvedValue(null),
-    },
-  };
-
-  return {
-    __esModule: true,
-    default: prisma,
-    prisma,
-  };
-});
-
-vi.mock('../../apps/mcp-connector/src/security/validateOrgOwnership', () => ({
-  validateOrgOwnership: vi.fn(async (ein: string, orgId: string) => {
-    if (ein === '987654321') {
-      const { MagnusError } = await import('../../apps/mcp-connector/src/utils/errors');
-      throw new MagnusError('Forbidden: EIN does not belong to authenticated organization', 'FORBIDDEN', 403);
-    }
-    if (ein !== '123456789' || orgId !== 'org-123') {
-      const { MagnusError } = await import('../../apps/mcp-connector/src/utils/errors');
-      throw new MagnusError('Organization with EIN not found', 'ORG_NOT_FOUND', 404);
-    }
-  }),
-  validateWorkerAccess: vi.fn().mockResolvedValue(undefined),
-}));
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { cleanupIntegrationData, createOrganizationFixture } from './dbTestUtils.ts';
 
 vi.mock('../../apps/mcp-connector/src/tools/registry', () => {
   const tool = {
@@ -105,7 +23,12 @@ vi.mock('../../apps/mcp-connector/src/tools/registry', () => {
 
 const { app } = await import('../../apps/mcp-connector/src/server');
 
-function createMcpJwt(orgId = 'org-123'): string {
+const AUTH_ORG_ID = '22222222-2222-4222-8222-222222222222';
+const OTHER_ORG_ID = '33333333-3333-4333-8333-333333333333';
+const AUTH_ORG_EIN = '123456789';
+const OTHER_ORG_EIN = '987654321';
+
+function createMcpJwt(orgId = AUTH_ORG_ID): string {
   return jwt.sign(
     {
       sub: 'user-123',
@@ -126,14 +49,31 @@ function createMcpJwt(orgId = 'org-123'): string {
 }
 
 describe('mcp-connector integration', () => {
-  afterEach(() => {
+  beforeEach(async () => {
+    await cleanupIntegrationData([AUTH_ORG_ID, OTHER_ORG_ID]);
+    await createOrganizationFixture({
+      id: AUTH_ORG_ID,
+      ein: AUTH_ORG_EIN,
+      name: 'Authorized Org',
+      subscriptionTier: 'ENTERPRISE',
+    });
+    await createOrganizationFixture({
+      id: OTHER_ORG_ID,
+      ein: OTHER_ORG_EIN,
+      name: 'Other Org',
+      subscriptionTier: 'ENTERPRISE',
+    });
+  });
+
+  afterEach(async () => {
+    await cleanupIntegrationData([AUTH_ORG_ID, OTHER_ORG_ID]);
     vi.clearAllMocks();
   });
 
   it('POST /api/tools/compliance returns 401 without JWT', async () => {
     const response = await request(app)
       .post('/api/tools/compliance')
-      .send({ input: { ein: '123456789' } });
+      .send({ input: { ein: AUTH_ORG_EIN } });
 
     expect(response.status).toBe(401);
     expect(response.body.error).toBe('AUTH_REQUIRED');
@@ -142,8 +82,8 @@ describe('mcp-connector integration', () => {
   it('POST /api/tools/compliance returns 403 for cross-org access', async () => {
     const response = await request(app)
       .post('/api/tools/compliance')
-      .set('Authorization', `Bearer ${createMcpJwt('org-123')}`)
-      .send({ input: { ein: '987654321' } });
+      .set('Authorization', `Bearer ${createMcpJwt(AUTH_ORG_ID)}`)
+      .send({ input: { ein: OTHER_ORG_EIN } });
 
     expect(response.status).toBe(403);
     expect(response.body.error).toBe('FORBIDDEN');
@@ -152,8 +92,8 @@ describe('mcp-connector integration', () => {
   it('POST /api/tools/compliance returns 200 with a valid JWT', async () => {
     const response = await request(app)
       .post('/api/tools/compliance')
-      .set('Authorization', `Bearer ${createMcpJwt('org-123')}`)
-      .send({ input: { ein: '123456789' } });
+      .set('Authorization', `Bearer ${createMcpJwt(AUTH_ORG_ID)}`)
+      .send({ input: { ein: AUTH_ORG_EIN } });
 
     expect(response.status).toBe(200);
     expect(response.body).toMatchObject({
