@@ -2,8 +2,8 @@
 
 This document tracks critical smoke test coverage across all Magnus services.
 
-**Last Updated:** 2026-03-08
-**Coverage Status:** ✅ All core services have smoke tests
+**Last Updated:** 2026-03-28
+**Coverage Status:** 🟡 Backend smoke suites + integration tests (`pnpm test:integration` + `pnpm -r --if-present test`)
 
 ---
 
@@ -17,12 +17,14 @@ This document tracks critical smoke test coverage across all Magnus services.
 | **grant-generator** | ✅ 25 | ✅ | ✅ | ✅ | N/A | ✅ |
 | **mcp-connector** | ✅ 20 | ✅ | ✅ | ✅ | N/A | ✅ |
 | **org-dashboard-api** | ✅ 10 | ✅ | ✅ | ✅ | N/A | ✅ |
-| **worker-financial-layer** | ✅ 2 | N/A | N/A | N/A | N/A | ✅ |
+| **worker-financial-layer** | ⚠️ Excluded | N/A | N/A | N/A | N/A | N/A |
 | **web** | ⚠️ 0 | N/A | N/A | N/A | N/A | N/A |
 | **mobile** | ⚠️ 0 | N/A | N/A | N/A | N/A | N/A |
 
 **Total Tests:** 113
 **Apps with Tests:** 7/9
+
+**Release Scope Note:** `apps/mobile` and `apps/worker-financial-layer` are listed here for repository inventory only and are explicitly excluded from current production and staging scope. They are not part of the current release-readiness claim.
 
 ---
 
@@ -172,13 +174,8 @@ This document tracks critical smoke test coverage across all Magnus services.
 
 ### apps/worker-financial-layer
 
-**Test Count:** 2 tests
-**Test File:** `src/tests/workerTierGuard.test.ts`
-
-**Coverage:**
-- ✅ Worker tier guard logic
-
-**Run:** `pnpm --filter @magnus/worker-financial-layer test`
+**Status:** Excluded from current production and staging scope
+**Note:** The app remains outside the current release even though repository tests exist. No release-readiness claim should be inferred from its presence in the monorepo.
 
 ---
 
@@ -203,7 +200,10 @@ This document tracks critical smoke test coverage across all Magnus services.
 ### Run All Tests
 
 ```bash
-# Run all service tests in parallel
+# Run integration suite (org-dashboard-api, grant-generator, mcp-connector)
+pnpm test:integration
+
+# Run all package smoke suites in parallel
 pnpm -r --if-present test
 
 # Run specific service
@@ -212,7 +212,8 @@ pnpm --filter @magnus/<service> test
 
 ### Expected Output
 
-All tests should pass with **0 failures**:
+- `pnpm test:integration` exercises the combined grant-generator, org-dashboard-api, and mcp-connector HTTP stacks (3 Vitest suites).
+- `pnpm -r --if-present test` runs each package/service smoke suite and should report **0 failures**:
 
 ```
 apps/agents: 39/39 passed
@@ -221,7 +222,7 @@ apps/claude-partner: 6/6 passed
 apps/grant-generator: 25/25 passed
 apps/mcp-connector: 20/20 passed
 apps/org-dashboard-api: 10/10 passed
-apps/worker-financial-layer: 2/2 passed
+apps/worker-financial-layer: excluded from current release scope
 ```
 
 ---
@@ -233,7 +234,9 @@ apps/worker-financial-layer: 2/2 passed
 Tests run on every PR via `.github/workflows/ci.yml`:
 
 ```yaml
-- name: Run tests
+- name: Run integration tests
+  run: pnpm test:integration
+- name: Run package smoke tests
   run: pnpm -r --if-present test
 ```
 

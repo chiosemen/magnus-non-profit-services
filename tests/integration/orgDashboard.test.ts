@@ -1,82 +1,49 @@
 import jwt from 'jsonwebtoken';
 import request from 'supertest';
-import { describe, expect, it, vi } from 'vitest';
-
-vi.mock('@magnus/subscription', () => {
-  class FeatureNotEnabledError extends Error {
-    featureKey?: string;
-    code?: string;
-  }
-
-  class AuthRequiredError extends Error {
-    code?: string;
-  }
-
-  class InvalidTokenError extends Error {
-    code?: string;
-  }
-
-  class SubscriptionNotActiveError extends Error {
-    code?: string;
-  }
-
-  return {
-    requireFeature: () => (_req: unknown, _res: unknown, next: (err?: unknown) => void) => next(),
-    FeatureNotEnabledError,
-    AuthRequiredError,
-    InvalidTokenError,
-    SubscriptionNotActiveError,
-  };
-});
-
-vi.mock('@magnus/db/client', () => {
-  const prisma = {
-    organization: {
-      findUnique: vi.fn().mockResolvedValue({
-        id: 'org-123',
-        ein: '123456789',
-        name: 'Test Org',
-        annualRevenue: null,
-        fiscalYearEnd: null,
-        subscriptionTier: 'ENTERPRISE',
-        subscriptionStatus: 'ACTIVE',
-        stripeAccountId: null,
-        createdAt: new Date('2026-03-09T00:00:00.000Z'),
-        updatedAt: new Date('2026-03-09T00:00:00.000Z'),
-        _count: {
-          complianceCalendar: 0,
-          grants: 0,
-          workerRelationships: 0,
-          incomeTransactions: 0,
-        },
-      }),
-    },
-    complianceCalendar: {
-      findMany: vi.fn().mockResolvedValue([]),
-    },
-    grant: {
-      findMany: vi.fn().mockResolvedValue([]),
-    },
-  };
-
-  return {
-    __esModule: true,
-    default: prisma,
-    prisma,
-  };
-});
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  cleanupIntegrationData,
+  createComplianceCalendarFixture,
+  createGrantFixture,
+  createOrganizationFixture,
+} from './dbTestUtils';
 
 const { app } = await import('../../apps/org-dashboard-api/src/server');
 
+const DASHBOARD_ORG_ID = '44444444-4444-4444-8444-444444444444';
+const DASHBOARD_ORG_EIN = '123450001';
+
 function createDashboardJwt(): string {
   return jwt.sign(
-    { orgId: 'org-123', role: 'user', sub: 'user-123' },
+    { orgId: DASHBOARD_ORG_ID, role: 'user', sub: 'user-123' },
     process.env.JWT_SECRET!,
     { algorithm: 'HS256', expiresIn: '1h' }
   );
 }
 
 describe('org-dashboard-api integration', () => {
+  beforeEach(async () => {
+    await cleanupIntegrationData([DASHBOARD_ORG_ID], {
+      complianceCalendar: true,
+      grant: true,
+    });
+    await createOrganizationFixture({
+      id: DASHBOARD_ORG_ID,
+      ein: DASHBOARD_ORG_EIN,
+      name: 'Dashboard Test Org',
+    });
+    await createComplianceCalendarFixture(DASHBOARD_ORG_ID);
+    await createGrantFixture(DASHBOARD_ORG_ID);
+  });
+
+  afterEach(async () => {
+    await cleanupIntegrationData([DASHBOARD_ORG_ID], {
+      complianceCalendar: true,
+      grant: true,
+    });
+    vi.clearAllMocks();
+  });
+
   it('GET /api/org/overview returns 200 with a valid JWT', async () => {
     const response = await request(app)
       .get('/api/org/overview')
@@ -85,8 +52,15 @@ describe('org-dashboard-api integration', () => {
     expect(response.status).toBe(200);
     expect(response.body).toMatchObject({
       organization: {
-        id: 'org-123',
-        name: 'Test Org',
+        id: DASHBOARD_ORG_ID,
+        ein: DASHBOARD_ORG_EIN,
+        name: 'Dashboard Test Org',
+        _count: {
+          complianceCalendar: 1,
+          grants: 1,
+          workerRelationships: 0,
+          incomeTransactions: 0,
+        },
       },
     });
   });

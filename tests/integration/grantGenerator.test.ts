@@ -1,76 +1,8 @@
 import jwt from 'jsonwebtoken';
+import { prisma } from '@magnus/db/client';
 import request from 'supertest';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-
-vi.mock('@magnus/subscription', () => {
-  class FeatureNotEnabledError extends Error {
-    featureKey?: string;
-    code?: string;
-  }
-
-  class AuthRequiredError extends Error {
-    code?: string;
-  }
-
-  class InvalidTokenError extends Error {
-    code?: string;
-  }
-
-  class SubscriptionNotActiveError extends Error {
-    code?: string;
-  }
-
-  return {
-    requireFeature: () => (_req: unknown, _res: unknown, next: (err?: unknown) => void) => next(),
-    FeatureNotEnabledError,
-    AuthRequiredError,
-    InvalidTokenError,
-    SubscriptionNotActiveError,
-  };
-});
-
-vi.mock('@magnus/db/client', () => {
-  const prisma = {
-    organization: {
-      findUnique: vi.fn().mockResolvedValue({
-        id: 'org-123',
-        name: 'Test Org',
-        ein: '123456789',
-        subscriptionTier: 'GROWTH',
-        subscriptionStatus: 'ACTIVE',
-      }),
-    },
-    grantProposal: {
-      create: vi.fn().mockResolvedValue({
-        id: 'grant-123',
-      }),
-      update: vi.fn().mockResolvedValue({
-        id: 'grant-123',
-        status: 'COMPLETE',
-        funderName: 'Test Foundation',
-        programName: 'Community Program',
-        requestedAmount: 50000,
-        qualityScore: 95,
-        sections: {
-          executive_summary: {
-            title: 'Executive Summary',
-            content: 'Generated content',
-            wordCount: 120,
-            qualityScore: 95,
-          },
-        },
-        generatedAt: new Date('2026-03-09T00:00:00.000Z'),
-        createdAt: new Date('2026-03-09T00:00:00.000Z'),
-      }),
-    },
-  };
-
-  return {
-    __esModule: true,
-    default: prisma,
-    prisma,
-  };
-});
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { cleanupIntegrationData, createOrganizationFixture } from './dbTestUtils';
 
 vi.mock('@anthropic-ai/sdk', () => ({
   default: class Anthropic {
@@ -111,16 +43,30 @@ vi.mock('../../apps/grant-generator/services/QualityValidator', () => ({
 
 const { app } = await import('../../apps/grant-generator/src/index');
 
+const TEST_ORG_ID = '11111111-1111-4111-8111-111111111111';
+const TEST_ORG_EIN = '123456789';
+
 function createGrantJwt(): string {
   return jwt.sign(
-    { orgId: 'org-123', role: 'user', sub: 'user-123' },
+    { orgId: TEST_ORG_ID, role: 'user', sub: 'user-123' },
     process.env.JWT_SECRET!,
     { algorithm: 'HS256', expiresIn: '1h' }
   );
 }
 
 describe('grant-generator integration', () => {
-  afterEach(() => {
+  beforeEach(async () => {
+    await cleanupIntegrationData([TEST_ORG_ID], { grantProposal: true });
+    await createOrganizationFixture({
+      id: TEST_ORG_ID,
+      ein: TEST_ORG_EIN,
+      name: 'Grant Test Org',
+      subscriptionTier: 'GROWTH',
+    });
+  });
+
+  afterEach(async () => {
+    await cleanupIntegrationData([TEST_ORG_ID], { grantProposal: true });
     vi.clearAllMocks();
   });
 
@@ -155,8 +101,37 @@ describe('grant-generator integration', () => {
 
     expect(response.status).toBe(201);
     expect(response.body).toMatchObject({
-      id: 'grant-123',
       status: 'COMPLETE',
+      funderName: 'Test Foundation',
+      programName: 'Community Program',
+      requestedAmount: 50000,
+      qualityScore: 95,
+      sections: {
+        executive_summary: {
+          title: 'Executive Summary',
+          qualityScore: 95,
+        },
+      },
+    });
+
+    expect(response.body.id).toMatch(/^[0-9a-f-]{36}$/i);
+
+    const storedProposal = await prisma.grantProposal.findUnique({
+      where: { id: response.body.id },
+    });
+
+    expect(storedProposal).not.toBeNull();
+    expect(storedProposal?.orgId).toBe(TEST_ORG_ID);
+    expect(storedProposal?.status).toBe('COMPLETE');
+    expect(storedProposal?.funderName).toBe('Test Foundation');
+    expect(storedProposal?.programName).toBe('Community Program');
+    expect(Number(storedProposal?.requestedAmount)).toBe(50000);
+    expect(storedProposal?.qualityScore).toBe(95);
+    expect(storedProposal?.sections).toMatchObject({
+      executive_summary: {
+        title: 'Executive Summary',
+        qualityScore: 95,
+      },
     });
   });
 });
