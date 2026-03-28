@@ -61,6 +61,8 @@ This document maps all premium routes to their required subscription features an
 
 ### worker-financial-layer
 
+`apps/worker-financial-layer` is excluded from the current production and staging release scope. The routes below are not part of the current release-readiness claim and are documented here for repository reference only.
+
 | Route | Method | Feature | Tier | Worker Tier |
 |-------|--------|---------|------|-------------|
 | `/health` | GET | None | Public | - |

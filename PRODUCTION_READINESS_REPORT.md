@@ -2,7 +2,10 @@
 
 **Latest Update:** 2026-03-09 (Phase 12)
 **Previous Phase:** Phase 11 (2026-03-08)
-**Status:** ✅ PRODUCTION READY
+**Status:** ✅ PRODUCTION READY (current release scope)
+**Scope:** This report covers the currently released Magnus backend/service surfaces verified below.
+**Mobile:** `apps/mobile` is explicitly excluded from current production readiness and release scope until it is implemented beyond its current MVP/placeholder state.
+**Worker Financial Layer:** `apps/worker-financial-layer` is explicitly excluded from current production readiness and release scope until it is implemented beyond its current stubbed state.
 
 ---
 
@@ -17,10 +20,10 @@ Phase 12 focused exclusively on implementing the 2 critical production blockers 
 - ✅ **Field-Level Encryption (BLOCKER #1)** - AES-256-GCM implementation complete
 - ✅ **Session Cleanup Cron (BLOCKER #2)** - Automated cleanup scheduled at 3 AM UTC daily
 
-**Production Readiness: 100%** (up from 90% in Phase 11)
+**Production Readiness (current release scope): 100%** (up from 90% in Phase 11)
 **Blockers for Day-1 Production: 0** (all resolved)
 
-**Magnus Accord is now PRODUCTION READY**
+**Current Magnus Accord release scope is now PRODUCTION READY**
 
 ---
 
@@ -49,6 +52,9 @@ Phase 12 focused exclusively on implementing the 2 critical production blockers 
   - grantGeneratorSchema (grant-generator)
 - Key format validation: 64 hex characters (32 bytes) enforced via regex
 - Fail-closed: Apps won't start without valid ENCRYPTION_KEY
+
+Release-scope note:
+- `apps/worker-financial-layer` remains excluded from the current release scope even though the shared environment validation supports it.
 
 **Files Changed:**
 ```
@@ -412,7 +418,7 @@ apps/claude-partner:          6/6 passed
 apps/grant-generator:        25/25 passed
 apps/mcp-connector:          20/20 passed
 apps/org-dashboard-api:      10/10 passed
-apps/worker-financial-layer:  2/2 passed
+apps/worker-financial-layer:  2/2 passed (excluded from current release scope)
 ```
 
 ### ✅ Migration Validation
