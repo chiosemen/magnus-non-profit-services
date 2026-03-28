@@ -1,7 +1,8 @@
--- AlterTable - Add orgId to Session (required, non-nullable)
--- NOTE: This migration requires all existing Session rows to have an orgId.
--- If there are existing rows, you may need to backfill before applying.
-ALTER TABLE "Session" ADD COLUMN "orgId" UUID NOT NULL;
+-- This migration originally attempted to add Session.orgId + FK, but the
+-- authoritative Session definition in 20260215202040_add_sessions already
+-- provides the column and constraint. The duplicate DDL broke clean deploys.
+--
+-- To maintain migration ordering without breaking deploy, the operations are
+-- now a documented no-op.
 
--- AddForeignKey
-ALTER TABLE "Session" ADD CONSTRAINT "Session_orgId_fkey" FOREIGN KEY ("orgId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+-- No operations performed (duplicate column + FK neutralized)
