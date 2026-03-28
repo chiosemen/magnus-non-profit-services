@@ -16,6 +16,7 @@ import {
   SubscriptionNotActiveError,
 } from '@magnus/subscription';
 import { validateOrgOwnership, validateWorkerAccess } from './security/validateOrgOwnership';
+import { auditMiddleware } from './audit/AuditMiddleware';
 
 // Extend Express Request type
 declare global {
@@ -81,7 +82,7 @@ app.get('/api/tools', authMiddleware, (_req: Request, res: Response) => {
 });
 
 // POST /api/tools/:toolName - Execute a tool (authenticated)
-app.post('/api/tools/:toolName', authMiddleware, async (req: Request, res: Response) => {
+app.post('/api/tools/:toolName', authMiddleware, auditMiddleware, async (req: Request, res: Response) => {
   const toolName = req.params['toolName']!;
   const auth = req.auth!;
 
