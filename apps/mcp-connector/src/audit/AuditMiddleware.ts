@@ -5,10 +5,9 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { createLogger, getLogger } from '@magnus/logging';
-import { AuditLogger } from './AuditLogger';
+import { getAuditLogger } from './AuditLogger';
 import { TokenPayload } from '../auth/TokenValidator';
 
-const logger = new AuditLogger();
 const appLogger = createLogger({ service: 'mcp-connector', component: 'audit-middleware' });
 
 type AuditRequest = Request & {
@@ -18,6 +17,7 @@ type AuditRequest = Request & {
 
 export function auditMiddleware(req: AuditRequest, res: Response, next: NextFunction): void {
   const startTime = Date.now();
+  const logger = getAuditLogger();
   const auth = req.auth;
   const toolName = req.params?.toolName ?? req.body?.method ?? req.path.split('/').pop() ?? 'unknown';
   const userId = auth?.sub ?? 'anonymous';

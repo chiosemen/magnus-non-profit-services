@@ -1,8 +1,3 @@
-/**
- * Minimal AuditLogger used by AuditMiddleware.
- * Stores entries in-memory via AuditQueryService (dev-friendly).
- */
-
 import { promises as fs } from 'fs';
 import { dirname, join } from 'path';
 import AuditQueryService, { AuditEntry } from './AuditQueryService';
@@ -32,13 +27,21 @@ export interface ToolResultLog {
   resultSummary?: string;
 }
 
-export class AuditLogger {
-  private readonly store: AuditQueryService;
-  private readonly durablePath: string;
+export interface AuditSink {
+  readonly kind: 'durable' | 'file';
+  write(record: DurableAuditRecord): Promise<void>;
+}
 
-  constructor(store?: AuditQueryService, durablePath?: string) {
+export class AuditLogger {
+  readonly sinkKind: AuditSink['kind'];
+
+  private readonly store: AuditQueryService;
+  private readonly sink: AuditSink;
+
+  constructor(store?: AuditQueryService, sink?: AuditSink) {
     this.store = store ?? new AuditQueryService();
-    this.durablePath = durablePath ?? process.env['MCP_AUDIT_LOG_PATH'] ?? join(process.cwd(), 'storage', 'mcp-audit-log.ndjson');
+    this.sink = sink ?? createDefaultSink();
+    this.sinkKind = this.sink.kind;
   }
 
   async logToolCall(call: ToolCallLog): Promise<void> {
@@ -55,10 +58,12 @@ export class AuditLogger {
       ...(call.ipAddress !== undefined ? { ipAddress: call.ipAddress } : {}),
       resultSummary: 'Started',
     };
+
     this.store.ingest(entry);
-    await this.persist({
+    await this.sink.write({
       ...entry,
       event: 'call',
+      status: 'started',
       ...(call.sessionId ? { sessionId: call.sessionId } : {}),
       ...(call.params !== undefined ? { params: call.params } : {}),
       ...(call.userAgent ? { userAgent: call.userAgent } : {}),
@@ -78,29 +83,67 @@ export class AuditLogger {
       requestId: result.requestId,
       ...(result.resultSummary !== undefined ? { resultSummary: result.resultSummary } : {}),
     };
+
     this.store.ingest(entry);
-    await this.persist({
+    await this.sink.write({
       ...entry,
       event: 'result',
+      status: result.success ? 'success' : 'error',
       ...(result.sessionId ? { sessionId: result.sessionId } : {}),
     });
   }
+}
 
-  private async persist(record: DurableAuditRecord): Promise<void> {
-    await ensureDirectory(this.durablePath);
+export class FileAuditSink implements AuditSink {
+  readonly kind = 'file' as const;
+
+  private readonly filePath: string;
+
+  constructor(filePath?: string) {
+    this.filePath = filePath ?? process.env['MCP_AUDIT_LOG_PATH'] ?? join(process.cwd(), 'storage', 'mcp-audit-log.ndjson');
+  }
+
+  async write(record: DurableAuditRecord): Promise<void> {
+    await ensureDirectory(this.filePath);
     const payload = {
       ...record,
       timestamp: record.timestamp.toISOString(),
     };
-    await fs.appendFile(this.durablePath, `${JSON.stringify(payload)}\n`, 'utf8');
+    await fs.appendFile(this.filePath, `${JSON.stringify(payload)}\n`, 'utf8');
   }
 }
 
 interface DurableAuditRecord extends AuditEntry {
   event: 'call' | 'result';
+  status: 'started' | 'success' | 'error';
   sessionId?: string;
   params?: unknown;
   userAgent?: string;
+}
+
+let auditLogger: AuditLogger | null = null;
+
+export function configureAuditLogger(logger: AuditLogger): void {
+  auditLogger = logger;
+}
+
+export function getAuditLogger(): AuditLogger {
+  auditLogger ??= new AuditLogger();
+  return auditLogger;
+}
+
+function createDefaultSink(): AuditSink {
+  if (isProduction()) {
+    throw new Error(
+      'Production MCP audit logging requires a durable audit sink. Local NDJSON file logging is disabled in production; inject a durable AuditSink before startup.',
+    );
+  }
+
+  return new FileAuditSink();
+}
+
+function isProduction(): boolean {
+  return process.env['NODE_ENV'] === 'production';
 }
 
 async function ensureDirectory(filePath: string): Promise<void> {
