@@ -8,6 +8,7 @@ import { z } from 'zod';
 // Tool imports
 import getFilingHistory from './compliance/get-filing-history';
 import getStateRegistrations from './compliance/get-state-registrations';
+import get990HealthScore from './financials/get-990-health-score';
 import getExpenseAllocation from './financials/get-expense-allocation';
 import getRevenueBreakdown from './financials/get-revenue-breakdown';
 import getFunderResearch from './grants/get-funder-research';
@@ -34,6 +35,7 @@ const workerToolsEnabled = (process.env['MCP_ENABLE_WORKER_ANALYTICS'] ?? '').to
 const baseTools: MCPTool[] = [
   { ...getFilingHistory, category: 'compliance', description: 'Get 990 filing history for a nonprofit' },
   { ...getStateRegistrations, category: 'compliance', description: 'Get state charity registrations' },
+  { ...get990HealthScore, category: 'financials', description: 'Score a nonprofit using structured Form 990 health metrics' },
   { ...getExpenseAllocation, category: 'financials', description: 'Get expense allocation breakdown' },
   { ...getRevenueBreakdown, category: 'financials', description: 'Get revenue breakdown by source' },
   { ...getFunderResearch, category: 'grants', description: 'Research potential funders' },
