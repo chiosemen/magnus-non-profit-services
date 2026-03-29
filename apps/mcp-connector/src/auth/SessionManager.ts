@@ -71,11 +71,8 @@ class InMemoryStore implements SessionStore {
 class RedisStore implements SessionStore {
   private readonly client: Redis;
 
-  constructor() {
-    const url = process.env['REDIS_URL'];
-    if (!url) {
-      throw new Error('REDIS_URL must be configured to use RedisSessionStore');
-    }
+  constructor(url: string) {
+    validateRedisUrl(url);
     this.client = new Redis(url, {
       password: process.env['REDIS_PASSWORD'] || undefined,
       db: parseInt(process.env['REDIS_DB'] ?? '0', 10),
@@ -108,14 +105,25 @@ class RedisStore implements SessionStore {
 }
 
 function createSessionStore(): SessionStore {
-  if (process.env['REDIS_URL']) {
+  const redisUrl = process.env['REDIS_URL']?.trim();
+  if (redisUrl) {
     try {
-      return new RedisStore();
+      return new RedisStore(redisUrl);
     } catch (err) {
-      // eslint-disable-next-line no-console
-      console.warn('Failed to initialize Redis session store, falling back to in-memory store', err);
+      if (isProduction()) {
+        throw new Error(
+          `Production MCP sessions require Redis-backed durability; failed to initialize Redis session store from REDIS_URL: ${formatErrorMessage(err)}`,
+        );
+      }
+      warnInMemoryFallback('Failed to initialize Redis session store from REDIS_URL', err);
     }
   }
+
+  if (isProduction()) {
+    throw new Error('Production MCP sessions require REDIS_URL; in-memory session fallback is disabled.');
+  }
+
+  warnInMemoryFallback('REDIS_URL is not configured; using in-memory session store');
   return new InMemoryStore();
 }
 
@@ -123,6 +131,7 @@ function createSessionStore(): SessionStore {
 
 export class SessionManager {
   private store: SessionStore;
+  readonly storeKind: 'redis' | 'memory';
   private readonly ttlSeconds: number;
   private readonly maxSessionsPerUser: number;
   private readonly keyPrefix = 'magnus:session:';
@@ -130,6 +139,7 @@ export class SessionManager {
 
   constructor(store?: SessionStore) {
     this.store = store ?? createSessionStore();
+    this.storeKind = this.store instanceof RedisStore ? 'redis' : 'memory';
     this.ttlSeconds = parseInt(process.env['SESSION_TTL_SECONDS'] ?? '3600', 10);
     this.maxSessionsPerUser = parseInt(process.env['SESSION_MAX_PER_USER'] ?? '5', 10);
   }
@@ -260,6 +270,40 @@ let _manager: SessionManager | null = null;
 export function getSessionManager(): SessionManager {
   if (!_manager) _manager = new SessionManager();
   return _manager;
+}
+
+function validateRedisUrl(url: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error('REDIS_URL must be a valid redis:// or rediss:// URL');
+  }
+
+  if (parsed.protocol !== 'redis:' && parsed.protocol !== 'rediss:') {
+    throw new Error('REDIS_URL must use redis:// or rediss://');
+  }
+
+  if (!parsed.hostname) {
+    throw new Error('REDIS_URL must include a hostname');
+  }
+}
+
+function warnInMemoryFallback(reason: string, err?: unknown): void {
+  // eslint-disable-next-line no-console
+  if (err !== undefined) {
+    console.warn(`${reason}. Falling back to in-memory MCP session store.`, err);
+    return;
+  }
+  console.warn(`${reason}. Falling back to in-memory MCP session store.`);
+}
+
+function isProduction(): boolean {
+  return process.env['NODE_ENV'] === 'production';
+}
+
+function formatErrorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
 }
 
 export default SessionManager;
