@@ -17,6 +17,7 @@ import {
 } from '@magnus/subscription';
 import { validateOrgOwnership, validateWorkerAccess } from './security/validateOrgOwnership';
 import { auditMiddleware } from './audit/AuditMiddleware';
+import { getAuditLogger } from './audit/AuditLogger';
 import { getSessionManager } from './auth/SessionManager';
 
 // Extend Express Request type
@@ -31,6 +32,7 @@ declare global {
 const app: Express = express();
 const logger = createLogger({ service: 'mcp-connector' });
 const sessionManager = getSessionManager();
+const auditLogger = getAuditLogger();
 
 app.disable('x-powered-by');
 app.use(requestContextMiddleware(logger));
@@ -228,7 +230,12 @@ export { app };
 if (require.main === module) {
   app.listen(port, () => {
     logger.info(
-      { event: 'mcp_connector_server_started', port, toolsRegistered: getAllTools().length },
+      {
+        event: 'mcp_connector_server_started',
+        port,
+        toolsRegistered: getAllTools().length,
+        auditSink: auditLogger.sinkKind,
+      },
       'MCP connector server started'
     );
   });
