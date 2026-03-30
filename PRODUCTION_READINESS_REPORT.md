@@ -623,3 +623,27 @@ Phase 11 production-hardening sweep:
 **Next Audit:** Post-launch operational review (est. 2026-04-01)
 **Contact:** security@magnus-compliance.com
 
+---
+
+## Post-Phase-12 Additions (Wave 2 Feature Surfaces) — Truthful Scope Notes
+
+Wave 2 features were added after the Phase 12 hardening work. They increase product surface area and should be treated as **additive capabilities** with explicit constraints (not as proof of additional security readiness).
+
+### Wave 2 Feature 7 — LOI Generator
+
+- **Surface**: `apps/grant-generator` → `POST /api/loi/generate`
+- **Truth constraint**: grounded output with refusal behavior (designed to avoid unsupported claims)
+- **Readiness note**: treat as **beta** until route-level smoke/integration coverage exists for `/api/loi/generate`
+
+### Wave 2 Feature 8 — Grant Prospect Matching
+
+- **Surface**: `apps/mcp-connector` tool `get-grant-prospect-matches`
+- **Truth constraint**: deterministic explainable scoring with truthful fallback when data is missing/not configured
+- **Readiness note**: dependent on real upstream grant opportunity data being configured (e.g., Candid); do not claim “recommendation intelligence” without that configuration
+
+### Wave 2 Feature 9 — Restricted Fund Tracking
+
+- **Surface**: `apps/org-dashboard-api` → `/api/org/restricted-funds*` and `apps/mcp-connector` tool `get-restricted-fund-tracking`
+- **Truth constraint**: deterministic tracking ledger based on entered usage events; **not GAAP-complete fund accounting**
+- **Readiness note**: accounting precision claims must remain explicitly bounded to “tracking” and “risk flags,” not audit-grade books
+
