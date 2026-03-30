@@ -2,15 +2,15 @@
 
 This document tracks critical smoke test coverage across all Magnus services.
 
-**Last Updated:** 2026-03-28
+**Last Updated:** 2026-03-29
 **Coverage Status:** 🟡 CI runs Postgres-backed integration tests (`pnpm test`) plus workspace smoke suites (`pnpm -r --if-present test`)
 
 ---
 
 ## Coverage Summary
 
-| Service | Tests | Health | Auth | Protected Routes | Webhooks | In-Process |
-|---------|-------|--------|------|------------------|----------|------------|
+| Service | Package Tests | Health | Auth | Protected Routes | Webhooks | In-Process |
+|---------|---------------|--------|------|------------------|----------|------------|
 | **agents** | ✅ 39 | N/A | N/A | N/A | N/A | ✅ |
 | **billing** | ✅ 11 | ✅ | N/A | N/A | ✅ | ✅ |
 | **claude-partner** | ✅ 6 | N/A | N/A | N/A | N/A | ✅ |
@@ -21,8 +21,31 @@ This document tracks critical smoke test coverage across all Magnus services.
 | **web** | ⚠️ 0 | N/A | N/A | N/A | N/A | N/A |
 | **mobile** | ⚠️ 0 | N/A | N/A | N/A | N/A | N/A |
 
-**Total Tests:** 113
-**Apps with Tests:** 7/9
+Package counts above reflect app-local smoke/unit suites. Additional workspace integration tests in `tests/integration` cover the Wave 1 Accord release subset listed below.
+
+### Wave 1 Accord Release Subset In Scope
+
+- `mcp-connector`
+  - `get-990-health-score`
+  - `get-funder-readiness-report` (HTML print-ready renderer seam)
+  - `get-cash-flow-forecast`
+- `org-dashboard-api`
+  - `GET /api/org/governance`
+  - `PUT /api/org/governance/policies`
+  - `POST /api/org/governance/board-members`
+  - `PATCH /api/org/governance/board-members/:memberId`
+  - `DELETE /api/org/governance/board-members/:memberId`
+  - `GET /api/org/state-registrations`
+  - `PUT /api/org/state-registrations/:stateCode`
+  - `DELETE /api/org/state-registrations/:stateCode`
+
+### Still Excluded From Current Release Subset
+
+- `worker-financial-layer`
+- Mobile release surfaces
+- Binary PDF generation beyond the HTML print-ready report artifact
+- Bank-sync or Plaid-dependent cash forecasting
+- Filing automation or 50-state legal rules engine behavior
 
 ---
 
@@ -127,6 +150,11 @@ This document tracks critical smoke test coverage across all Magnus services.
 **Test Count:** 20 tests
 **Test File:** `__tests__/smoke.test.js`
 
+**Additional Wave 1 Integration Coverage:**
+- `tests/integration/form990HealthScore.test.ts` (3 tests)
+- `tests/integration/funderReadinessReport.test.ts` (3 tests)
+- `tests/integration/cashFlowForecast.test.ts` (4 tests)
+
 **Coverage:**
 - ✅ Health endpoint (public)
 - ✅ TokenValidator (expired, invalid, missing tokens)
@@ -134,6 +162,9 @@ This document tracks critical smoke test coverage across all Magnus services.
 - ✅ Tool registry (naming, categories)
 - ✅ Request validation
 - ✅ Error responses (401, 403, 404)
+- ✅ Deterministic 990 Health Score tool contract
+- ✅ Deterministic funder readiness report mapping and HTML renderer contract
+- ✅ Deterministic 13-week cash flow forecast and low-cash alert contract
 
 **Critical Paths:**
 - `GET /health` → 200 (unauthenticated)
@@ -141,6 +172,11 @@ This document tracks critical smoke test coverage across all Magnus services.
 - `POST /api/tools/:toolName` → 401 (no token)
 - `POST /api/tools/:toolName` → 403 (insufficient permissions)
 - `POST /api/tools/:toolName` → 404 (unknown tool)
+
+**Wave 1 Release Surfaces Present:**
+- `POST /api/tools/get-990-health-score`
+- `POST /api/tools/get-funder-readiness-report`
+- `POST /api/tools/get-cash-flow-forecast`
 
 **App Export:** ✅ Exports `app` from `src/server.ts`
 **Run:** `pnpm --filter @magnus/mcp-connector test`
@@ -152,18 +188,37 @@ This document tracks critical smoke test coverage across all Magnus services.
 **Test Count:** 10 tests
 **Test File:** `__tests__/smoke.test.js`
 
+**Additional Wave 1 Integration Coverage:**
+- `tests/integration/governanceReadiness.test.ts` (1 test)
+- `tests/integration/orgGovernanceApi.test.ts` (3 tests)
+- `tests/integration/stateRegistrationRisk.test.ts` (2 tests)
+- `tests/integration/orgStateRegistrationService.test.ts` (3 tests)
+
 **Coverage:**
 - ✅ Health endpoint (public)
 - ✅ JWT auth middleware
 - ✅ Protected routes (GET /api/org/overview, /api/org/compliance, /api/org/grants)
 - ✅ Subscription feature checks (compliance_calendar, grant_generator)
 - ✅ Error responses (401, 403, 404)
+- ✅ Governance readiness summary logic
+- ✅ Board governance policy and roster CRUD flows
+- ✅ Multi-state registration tracking and deterministic risk flags
 
 **Critical Paths:**
 - `GET /health` → 200 (unauthenticated)
 - `GET /api/org/overview` → 401 (no token)
 - `GET /api/org/overview` → 403 (feature not enabled)
 - `GET /api/org/compliance` → 200 (valid token + feature)
+
+**Wave 1 Release Surfaces Present:**
+- `GET /api/org/governance`
+- `PUT /api/org/governance/policies`
+- `POST /api/org/governance/board-members`
+- `PATCH /api/org/governance/board-members/:memberId`
+- `DELETE /api/org/governance/board-members/:memberId`
+- `GET /api/org/state-registrations`
+- `PUT /api/org/state-registrations/:stateCode`
+- `DELETE /api/org/state-registrations/:stateCode`
 
 **App Export:** ✅ Exports `app` from `src/server.ts`
 **Run:** `pnpm --filter @magnus/org-dashboard-api test`

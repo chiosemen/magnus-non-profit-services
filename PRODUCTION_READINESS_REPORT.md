@@ -1,8 +1,41 @@
 # Magnus Accord — Production Readiness Report
 
-**Latest Update:** 2026-03-09 (Phase 12)
+**Latest Update:** 2026-03-29 (Wave 1 subset alignment)
 **Previous Phase:** Phase 11 (2026-03-08)
 **Status:** ✅ PRODUCTION READY
+
+---
+
+## Wave 1 Release Subset Alignment (2026-03-29)
+
+This update narrows the truthful Magnus Accord release subset to the Wave 1 surfaces now implemented in code. It does not broaden the overall product claim beyond what is already wired and tested in this repository.
+
+### Included In Current Accord Release Subset
+
+- **990 Health Score** via MCP tool `get-990-health-score`
+- **Funder Readiness Report** via MCP tool `get-funder-readiness-report`
+  - Current renderer is **HTML print-ready**, not a binary PDF export
+- **Simple 13-week Cash Flow Forecast** via MCP tool `get-cash-flow-forecast`
+- **Board Governance Tracker** via `org-dashboard-api` governance routes and Prisma persistence
+- **Multi-State Registration Manager** via `org-dashboard-api` state-registration routes and Prisma persistence
+
+### Truthful Implementation Notes
+
+- The new Wave 1 financial surfaces are backend and MCP-tool first. No broad UI, portal, or generic report builder was added in this pass.
+- Governance and state-registration tracking are real persistent backend features with Prisma models and migrations in-repo. Deployment still requires running the included Prisma migrations in the target environment.
+- The release subset is deterministic and rule-based. None of the Wave 1 features rely on black-box scoring or unsupported AI-generated financial claims.
+
+### Explicitly Still Excluded
+
+- Donor intelligence or prospecting automation
+- Grantmaker portal workflows
+- Full board portal, calendar rewrite, or generic task management
+- Broad document-management or report-builder platform work
+- Binary PDF engine beyond the current HTML print-ready report seam
+- Plaid or bank-sync requirements for cash flow forecasting
+- 50-state legal rules automation or filing submission workflows
+- Worker financial layer surfaces
+- Mobile release surfaces
 
 ---
 
@@ -622,4 +655,3 @@ Phase 11 production-hardening sweep:
 **Original Report:** 2026-03-08 (Phase 11)
 **Next Audit:** Post-launch operational review (est. 2026-04-01)
 **Contact:** security@magnus-compliance.com
-
