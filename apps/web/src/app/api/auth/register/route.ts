@@ -4,7 +4,7 @@ import { signAccessToken } from '@/lib/auth/tokens';
 import { generateRefreshToken, hashRefreshToken } from '@/lib/auth/refresh';
 import { setAccessCookie, setRefreshCookie } from '@/lib/auth/cookies';
 import { hashPassword } from '@/lib/auth/password';
-import type { AuthPayload } from '@/lib/auth/types';
+import { buildWebAuthPayload } from '@/lib/auth/partnerClaims';
 
 export const runtime = 'nodejs';
 
@@ -88,7 +88,7 @@ export async function POST(req: Request) {
       },
     });
 
-    const payload: AuthPayload = { userId: user.id, orgId: org.id, role: 'user' };
+    const payload = await buildWebAuthPayload(user.id, org.id);
     const accessToken = signAccessToken(payload);
 
     const res = NextResponse.json({ ok: true });

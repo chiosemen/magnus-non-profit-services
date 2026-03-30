@@ -46,6 +46,7 @@ import {
   getPartnerPortfolioSummary,
   linkManagedOrganization,
   parseLinkManagedOrgBody,
+  parsePartnerPortfolioListFiltersFromQuery,
   parseUpdateManagedOrgBody,
   PartnerPortfolioInputError,
   PartnerPortfolioNotFoundError,
@@ -244,9 +245,11 @@ app.get(
       const partner = (req as any).partner as { partnerId: string; role: PartnerUserRole };
       const includeInactive =
         partner.role === 'PARTNER_ADMIN' && String(req.query['includeInactive'] ?? '') === 'true';
+      const filters = parsePartnerPortfolioListFiltersFromQuery(req.query as Record<string, unknown>);
       const summary = await getPartnerPortfolioSummary(partner.partnerId, {
         role: partner.role,
         includeInactive,
+        filters,
       });
       return res.json(summary);
     } catch (err) {

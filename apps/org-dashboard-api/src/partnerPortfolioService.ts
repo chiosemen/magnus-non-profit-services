@@ -1,6 +1,7 @@
 import { Prisma } from '@magnus/db/types';
 import prisma from '@magnus/db/client';
 import type { PartnerUserRole } from '@magnus/db/types';
+import type { AuditPrepOverallStatus } from './orgAuditPrepService';
 import { getOrgAuditPrepSnapshot } from './orgAuditPrepService';
 import { getOrgGovernanceSnapshot } from './orgGovernanceService';
 import type { StateRegistrationSummary } from './orgStateRegistrationService';
@@ -8,6 +9,20 @@ import { getOrgStateRegistrationSnapshot } from './orgStateRegistrationService';
 
 export const PARTNER_PORTFOLIO_DISCLAIMER =
   'Portfolio data is aggregated from each organization’s own internal readiness and compliance trackers. It is not an audit opinion, certification, or compliance guarantee.';
+
+export const MAX_PARTNER_TAGS = 20;
+export const MAX_PARTNER_TAG_LENGTH = 64;
+export const MAX_PARTNER_NOTES_LENGTH = 4000;
+
+const AUDIT_PREP_STATUSES: readonly AuditPrepOverallStatus[] = [
+  'no_items',
+  'blocked',
+  'overdue',
+  'all_complete',
+  'in_progress',
+];
+
+const SUBSCRIPTION_STATUSES = ['ACTIVE', 'PAST_DUE', 'CANCELED'] as const;
 
 export class PartnerPortfolioInputError extends Error {
   constructor(message: string) {
@@ -23,7 +38,17 @@ export class PartnerPortfolioNotFoundError extends Error {
   }
 }
 
+export interface PartnerPortfolioListFilters {
+  isActive?: boolean;
+  cohortLabel?: string;
+  subscriptionStatus?: string;
+  auditPrepOverallStatus?: AuditPrepOverallStatus;
+  governanceComplete?: boolean;
+  stateRegHasOverdueRenewal?: boolean;
+}
+
 export interface PartnerPortfolioOrgRow {
+  membershipId: string;
   orgId: string;
   name: string;
   ein: string;
@@ -31,6 +56,8 @@ export interface PartnerPortfolioOrgRow {
   subscriptionStatus: string;
   cohortLabel: string | null;
   isActive: boolean;
+  partnerNotes: string | null;
+  partnerTags: string[];
   governance: {
     complete: boolean;
     issueCount: number;
@@ -52,20 +79,166 @@ export interface PartnerPortfolioSummaryResult {
   partnerId: string;
   disclaimer: string;
   organizations: PartnerPortfolioOrgRow[];
+  filtersApplied: PartnerPortfolioListFilters;
+  resultCount: number;
+}
+
+export type PartnerMembershipPublic = {
+  id: string;
+  orgId: string;
+  cohortLabel: string | null;
+  isActive: boolean;
+  partnerNotes: string | null;
+  partnerTags: string[];
+};
+
+function firstQueryValue(v: unknown): string | undefined {
+  if (v === undefined || v === null) return undefined;
+  if (Array.isArray(v)) {
+    const x = v[0];
+    return typeof x === 'string' ? x : undefined;
+  }
+  return String(v);
+}
+
+/**
+ * Parse GET /api/partner/portfolio/summary query into list filters.
+ * Throws PartnerPortfolioInputError on unknown enum values.
+ */
+export function parsePartnerPortfolioListFiltersFromQuery(q: Record<string, unknown>): PartnerPortfolioListFilters {
+  const out: PartnerPortfolioListFilters = {};
+  const g = (k: string) => firstQueryValue(q[k]);
+
+  const isActiveStr = g('isActive');
+  if (isActiveStr === 'true') out.isActive = true;
+  else if (isActiveStr === 'false') out.isActive = false;
+  else if (isActiveStr !== undefined && isActiveStr !== '') {
+    throw new PartnerPortfolioInputError('isActive_invalid');
+  }
+
+  const cohort = g('cohortLabel');
+  if (cohort !== undefined && cohort !== '') out.cohortLabel = cohort;
+
+  const sub = g('subscriptionStatus');
+  if (sub) {
+    if (!(SUBSCRIPTION_STATUSES as readonly string[]).includes(sub)) {
+      throw new PartnerPortfolioInputError('subscriptionStatus_invalid');
+    }
+    out.subscriptionStatus = sub;
+  }
+
+  const audit = g('auditPrepOverallStatus');
+  if (audit) {
+    if (!(AUDIT_PREP_STATUSES as readonly string[]).includes(audit)) {
+      throw new PartnerPortfolioInputError('auditPrepOverallStatus_invalid');
+    }
+    out.auditPrepOverallStatus = audit as AuditPrepOverallStatus;
+  }
+
+  const gc = g('governanceComplete');
+  if (gc === 'true') out.governanceComplete = true;
+  else if (gc === 'false') out.governanceComplete = false;
+  else if (gc !== undefined && gc !== '') throw new PartnerPortfolioInputError('governanceComplete_invalid');
+
+  const sr = g('stateRegHasOverdueRenewal');
+  if (sr === 'true') out.stateRegHasOverdueRenewal = true;
+  else if (sr === 'false') out.stateRegHasOverdueRenewal = false;
+  else if (sr !== undefined && sr !== '') throw new PartnerPortfolioInputError('stateRegHasOverdueRenewal_invalid');
+
+  return out;
+}
+
+/** Normalize filters for response echo: viewers never get isActive: false. */
+function normalizeFiltersApplied(
+  role: PartnerUserRole,
+  includeInactive: boolean,
+  filters: PartnerPortfolioListFilters
+): PartnerPortfolioListFilters {
+  const applied: PartnerPortfolioListFilters = { ...filters };
+  if (role === 'PARTNER_VIEWER') {
+    delete applied.isActive;
+  } else if (!includeInactive && applied.isActive === false) {
+    delete applied.isActive;
+  }
+  return applied;
+}
+
+export function normalizePartnerTagsInput(raw: string[]): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const s of raw) {
+    const t = s.trim();
+    if (!t) continue;
+    if (t.length > MAX_PARTNER_TAG_LENGTH) {
+      throw new PartnerPortfolioInputError('partnerTags_tag_too_long');
+    }
+    const key = t.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(t);
+    if (out.length > MAX_PARTNER_TAGS) {
+      throw new PartnerPortfolioInputError('partnerTags_too_many');
+    }
+  }
+  return out;
+}
+
+function readOptionalPartnerTags(o: Record<string, unknown>, key: string): string[] | undefined {
+  if (!Object.prototype.hasOwnProperty.call(o, key)) return undefined;
+  const val = o[key];
+  if (!Array.isArray(val)) throw new PartnerPortfolioInputError(`${key}_invalid`);
+  for (const x of val) {
+    if (typeof x !== 'string') throw new PartnerPortfolioInputError(`${key}_invalid`);
+  }
+  return normalizePartnerTagsInput(val as string[]);
+}
+
+function readOptionalPartnerNotes(o: Record<string, unknown>): string | null | undefined {
+  if (!Object.prototype.hasOwnProperty.call(o, 'partnerNotes')) return undefined;
+  const val = o['partnerNotes'];
+  if (val === null) return null;
+  if (val === undefined) return undefined;
+  if (typeof val !== 'string') throw new PartnerPortfolioInputError('partnerNotes_invalid');
+  const t = val.trim();
+  if (t.length > MAX_PARTNER_NOTES_LENGTH) throw new PartnerPortfolioInputError('partnerNotes_too_long');
+  return t.length === 0 ? null : t;
 }
 
 export async function getPartnerPortfolioSummary(
   partnerId: string,
-  params: { role: PartnerUserRole; includeInactive: boolean; now?: Date }
+  params: {
+    role: PartnerUserRole;
+    includeInactive: boolean;
+    filters?: PartnerPortfolioListFilters;
+    now?: Date;
+  }
 ): Promise<PartnerPortfolioSummaryResult> {
   const now = params.now ?? new Date();
+  const userFilters = params.filters ?? {};
   const viewerOnlyActive = params.role === 'PARTNER_VIEWER' || !params.includeInactive;
 
+  const filtersApplied = normalizeFiltersApplied(params.role, params.includeInactive, userFilters);
+
+  const where: Prisma.PartnerOrgMembershipWhereInput = { partnerId };
+
+  if (viewerOnlyActive) {
+    where.isActive = true;
+  } else if (typeof userFilters.isActive === 'boolean') {
+    where.isActive = userFilters.isActive;
+  }
+
+  if (userFilters.cohortLabel !== undefined && userFilters.cohortLabel !== '') {
+    where.cohortLabel = userFilters.cohortLabel;
+  }
+
+  if (userFilters.subscriptionStatus) {
+    where.org = {
+      subscriptionStatus: userFilters.subscriptionStatus as (typeof SUBSCRIPTION_STATUSES)[number],
+    };
+  }
+
   const memberships = await prisma.partnerOrgMembership.findMany({
-    where: {
-      partnerId,
-      ...(viewerOnlyActive ? { isActive: true } : {}),
-    },
+    where,
     include: {
       org: {
         select: {
@@ -90,7 +263,23 @@ export async function getPartnerPortfolioSummary(
       getOrgAuditPrepSnapshot(orgId, now),
     ]);
 
+    const overdueRenewals = stateReg.summary.overdueRenewals;
+    const govComplete = gov.readiness.complete;
+    const auditStatus = audit.summary.overallStatus;
+
+    if (userFilters.auditPrepOverallStatus !== undefined && auditStatus !== userFilters.auditPrepOverallStatus) {
+      continue;
+    }
+    if (userFilters.governanceComplete !== undefined && govComplete !== userFilters.governanceComplete) {
+      continue;
+    }
+    if (userFilters.stateRegHasOverdueRenewal !== undefined) {
+      const hasOverdue = overdueRenewals > 0;
+      if (hasOverdue !== userFilters.stateRegHasOverdueRenewal) continue;
+    }
+
     organizations.push({
+      membershipId: row.id,
       orgId: row.org.id,
       name: row.org.name,
       ein: row.org.ein,
@@ -98,14 +287,16 @@ export async function getPartnerPortfolioSummary(
       subscriptionStatus: row.org.subscriptionStatus,
       cohortLabel: row.cohortLabel,
       isActive: row.isActive,
+      partnerNotes: row.partnerNotes,
+      partnerTags: [...row.partnerTags],
       governance: {
-        complete: gov.readiness.complete,
+        complete: govComplete,
         issueCount: gov.readiness.issueCount,
         completionRate: gov.readiness.completionRate,
       },
       stateRegistrations: { summary: stateReg.summary },
       auditPrep: {
-        overallStatus: audit.summary.overallStatus,
+        overallStatus: auditStatus,
         openItems: audit.summary.openItems,
         blockedItems: audit.summary.blockedItems,
         overdueItems: audit.summary.overdueItems,
@@ -118,30 +309,46 @@ export async function getPartnerPortfolioSummary(
     partnerId,
     disclaimer: PARTNER_PORTFOLIO_DISCLAIMER,
     organizations,
+    filtersApplied,
+    resultCount: organizations.length,
   };
 }
 
 export async function linkManagedOrganization(
   partnerId: string,
-  input: { orgId: string; cohortLabel?: string | null }
-): Promise<{ id: string; orgId: string; cohortLabel: string | null; isActive: boolean }> {
+  input: {
+    orgId: string;
+    cohortLabel?: string | null;
+    partnerNotes?: string | null;
+    partnerTags?: string[];
+  }
+): Promise<PartnerMembershipPublic> {
   const org = await prisma.organization.findUnique({ where: { id: input.orgId }, select: { id: true } });
   if (!org) throw new PartnerPortfolioNotFoundError('ORG_NOT_FOUND');
 
+  const data: Prisma.PartnerOrgMembershipCreateInput = {
+    partner: { connect: { id: partnerId } },
+    org: { connect: { id: input.orgId } },
+    cohortLabel: input.cohortLabel ?? null,
+  };
+  if (Object.prototype.hasOwnProperty.call(input, 'partnerNotes')) {
+    if (input.partnerNotes === null || input.partnerNotes === undefined) {
+      data.partnerNotes = null;
+    } else {
+      const t = input.partnerNotes.trim();
+      if (t.length > MAX_PARTNER_NOTES_LENGTH) throw new PartnerPortfolioInputError('partnerNotes_too_long');
+      data.partnerNotes = t.length === 0 ? null : t;
+    }
+  }
+  if (input.partnerTags !== undefined) {
+    data.partnerTags = normalizePartnerTagsInput(input.partnerTags);
+  }
+
   try {
     const created = await prisma.partnerOrgMembership.create({
-      data: {
-        partnerId,
-        orgId: input.orgId,
-        cohortLabel: input.cohortLabel ?? null,
-      },
+      data,
     });
-    return {
-      id: created.id,
-      orgId: created.orgId,
-      cohortLabel: created.cohortLabel,
-      isActive: created.isActive,
-    };
+    return membershipToPublic(created);
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
       throw new PartnerPortfolioInputError('PARTNER_ORG_ALREADY_LINKED');
@@ -150,37 +357,72 @@ export async function linkManagedOrganization(
   }
 }
 
+function membershipToPublic(m: {
+  id: string;
+  orgId: string;
+  cohortLabel: string | null;
+  isActive: boolean;
+  partnerNotes: string | null;
+  partnerTags: string[];
+}): PartnerMembershipPublic {
+  return {
+    id: m.id,
+    orgId: m.orgId,
+    cohortLabel: m.cohortLabel,
+    isActive: m.isActive,
+    partnerNotes: m.partnerNotes,
+    partnerTags: [...m.partnerTags],
+  };
+}
+
 export async function updateManagedOrganization(
   partnerId: string,
   orgId: string,
-  patch: { cohortLabel?: string | null; isActive?: boolean }
-): Promise<{ id: string; orgId: string; cohortLabel: string | null; isActive: boolean }> {
+  patch: {
+    cohortLabel?: string | null;
+    isActive?: boolean;
+    partnerNotes?: string | null;
+    partnerTags?: string[];
+  }
+): Promise<PartnerMembershipPublic> {
   const membership = await prisma.partnerOrgMembership.findFirst({
     where: { partnerId, orgId },
   });
   if (!membership) throw new PartnerPortfolioNotFoundError('PARTNER_MEMBERSHIP_NOT_FOUND');
 
-  const data: { cohortLabel?: string | null; isActive?: boolean } = {};
+  const data: Prisma.PartnerOrgMembershipUpdateInput = {};
   if (Object.prototype.hasOwnProperty.call(patch, 'cohortLabel')) {
     data.cohortLabel = patch.cohortLabel ?? null;
   }
   if (Object.prototype.hasOwnProperty.call(patch, 'isActive') && typeof patch.isActive === 'boolean') {
     data.isActive = patch.isActive;
   }
+  if (Object.prototype.hasOwnProperty.call(patch, 'partnerNotes')) {
+    if (patch.partnerNotes === null) {
+      data.partnerNotes = null;
+    } else if (typeof patch.partnerNotes === 'string') {
+      const t = patch.partnerNotes.trim();
+      if (t.length > MAX_PARTNER_NOTES_LENGTH) throw new PartnerPortfolioInputError('partnerNotes_too_long');
+      data.partnerNotes = t.length === 0 ? null : t;
+    }
+  }
+  if (Object.prototype.hasOwnProperty.call(patch, 'partnerTags') && patch.partnerTags !== undefined) {
+    data.partnerTags = { set: normalizePartnerTagsInput(patch.partnerTags) };
+  }
 
   const updated = await prisma.partnerOrgMembership.update({
     where: { id: membership.id },
     data,
   });
-  return {
-    id: updated.id,
-    orgId: updated.orgId,
-    cohortLabel: updated.cohortLabel,
-    isActive: updated.isActive,
-  };
+  return membershipToPublic(updated);
 }
 
-export function parseLinkManagedOrgBody(body: unknown): { orgId: string; cohortLabel?: string | null } {
+export function parseLinkManagedOrgBody(body: unknown): {
+  orgId: string;
+  cohortLabel?: string | null;
+  partnerNotes?: string | null;
+  partnerTags?: string[];
+} {
   if (typeof body !== 'object' || body === null || Array.isArray(body)) {
     throw new PartnerPortfolioInputError('object_body_required');
   }
@@ -188,7 +430,12 @@ export function parseLinkManagedOrgBody(body: unknown): { orgId: string; cohortL
   if (typeof o['orgId'] !== 'string' || o['orgId'].trim().length === 0) {
     throw new PartnerPortfolioInputError('orgId_required');
   }
-  const result: { orgId: string; cohortLabel?: string | null } = { orgId: o['orgId'].trim() };
+  const result: {
+    orgId: string;
+    cohortLabel?: string | null;
+    partnerNotes?: string | null;
+    partnerTags?: string[];
+  } = { orgId: o['orgId'].trim() };
   if (Object.prototype.hasOwnProperty.call(o, 'cohortLabel')) {
     if (o['cohortLabel'] === null || o['cohortLabel'] === undefined) {
       result.cohortLabel = null;
@@ -198,15 +445,29 @@ export function parseLinkManagedOrgBody(body: unknown): { orgId: string; cohortL
       throw new PartnerPortfolioInputError('cohortLabel_invalid');
     }
   }
+  const notes = readOptionalPartnerNotes(o);
+  if (notes !== undefined) result.partnerNotes = notes;
+  const tags = readOptionalPartnerTags(o, 'partnerTags');
+  if (tags !== undefined) result.partnerTags = tags;
   return result;
 }
 
-export function parseUpdateManagedOrgBody(body: unknown): { cohortLabel?: string | null; isActive?: boolean } {
+export function parseUpdateManagedOrgBody(body: unknown): {
+  cohortLabel?: string | null;
+  isActive?: boolean;
+  partnerNotes?: string | null;
+  partnerTags?: string[];
+} {
   if (typeof body !== 'object' || body === null || Array.isArray(body)) {
     throw new PartnerPortfolioInputError('object_body_required');
   }
   const o = body as Record<string, unknown>;
-  const result: { cohortLabel?: string | null; isActive?: boolean } = {};
+  const result: {
+    cohortLabel?: string | null;
+    isActive?: boolean;
+    partnerNotes?: string | null;
+    partnerTags?: string[];
+  } = {};
   if (Object.prototype.hasOwnProperty.call(o, 'cohortLabel')) {
     if (o['cohortLabel'] === null) result.cohortLabel = null;
     else if (typeof o['cohortLabel'] === 'string') result.cohortLabel = o['cohortLabel'].trim() || null;
@@ -216,6 +477,10 @@ export function parseUpdateManagedOrgBody(body: unknown): { cohortLabel?: string
     if (typeof o['isActive'] !== 'boolean') throw new PartnerPortfolioInputError('isActive_invalid');
     result.isActive = o['isActive'];
   }
+  const notes = readOptionalPartnerNotes(o);
+  if (notes !== undefined) result.partnerNotes = notes;
+  const tags = readOptionalPartnerTags(o, 'partnerTags');
+  if (tags !== undefined) result.partnerTags = tags;
   if (Object.keys(result).length === 0) throw new PartnerPortfolioInputError('no_updatable_fields');
   return result;
 }

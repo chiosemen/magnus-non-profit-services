@@ -5,7 +5,7 @@ import { consumeRefreshAttempt } from '@magnus/security';
 import { signAccessToken } from '@/lib/auth/tokens';
 import { generateRefreshToken, hashRefreshToken } from '@/lib/auth/refresh';
 import { setAccessCookie, setRefreshCookie, clearAuthCookies } from '@/lib/auth/cookies';
-import type { AuthPayload } from '@/lib/auth/types';
+import { buildWebAuthPayload } from '@/lib/auth/partnerClaims';
 
 export const runtime = 'nodejs';
 
@@ -80,7 +80,7 @@ export async function POST() {
     }),
   ]);
 
-  const payload: AuthPayload = { userId: session.userId, orgId: session.orgId, role: 'user' };
+  const payload = await buildWebAuthPayload(session.userId, session.orgId);
   const accessToken = signAccessToken(payload);
 
   const res = NextResponse.json({ ok: true });
