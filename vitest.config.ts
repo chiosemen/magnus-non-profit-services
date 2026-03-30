@@ -11,6 +11,7 @@ export default defineConfig({
       { find: '@magnus/db/client', replacement: path.resolve(__dirname, 'packages/db/src/client.ts') },
       { find: '@magnus/db/types', replacement: path.resolve(__dirname, 'packages/db/src/types.ts') },
       { find: '@magnus/db', replacement: path.resolve(__dirname, 'packages/db/src/client.ts') },
+      { find: '@magnus/grants', replacement: path.resolve(__dirname, 'packages/grants/src/index.ts') },
       { find: '@magnus/subscription', replacement: path.resolve(__dirname, 'packages/subscription/src/index.ts') },
     ],
   },

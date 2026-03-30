@@ -152,6 +152,9 @@ importers:
       '@magnus/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@magnus/grants':
+        specifier: workspace:*
+        version: link:../../packages/grants
       '@magnus/logging':
         specifier: workspace:*
         version: link:../../packages/logging
@@ -249,6 +252,9 @@ importers:
       '@magnus/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@magnus/grants':
+        specifier: workspace:*
+        version: link:../../packages/grants
       '@magnus/logging':
         specifier: workspace:*
         version: link:../../packages/logging
@@ -581,6 +587,19 @@ importers:
       prisma:
         specifier: ^5.22.0
         version: 5.22.0
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+
+  packages/grants:
+    dependencies:
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^22.5.0
+        version: 22.19.11
       typescript:
         specifier: ^5.5.4
         version: 5.9.3
