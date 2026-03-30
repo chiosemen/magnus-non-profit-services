@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanupIntegrationData, createOrganizationFixture } from './dbTestUtils.ts';
+import { getSessionManager } from '../../apps/mcp-connector/src/auth/SessionManager';
 
 vi.mock('../../apps/mcp-connector/src/tools/registry', () => {
   const tool = {
@@ -28,6 +29,9 @@ const OTHER_ORG_ID = '33333333-3333-4333-8333-333333333333';
 const AUTH_ORG_EIN = '123456789';
 const OTHER_ORG_EIN = '987654321';
 
+/** Real MCP session id created in beforeEach — must match JWT and SessionManager store (see server authMiddleware). */
+let mcpAuthSessionId = '';
+
 function createMcpJwt(orgId = AUTH_ORG_ID): string {
   return jwt.sign(
     {
@@ -36,7 +40,7 @@ function createMcpJwt(orgId = AUTH_ORG_ID): string {
       email: 'user@example.com',
       roles: ['admin'],
       permissions: ['tool:compliance'],
-      sessionId: 'session-123',
+      sessionId: mcpAuthSessionId,
     },
     process.env.JWT_SECRET!,
     {
@@ -63,6 +67,17 @@ describe('mcp-connector integration', () => {
       name: 'Other Org',
       subscriptionTier: 'ENTERPRISE',
     });
+
+    const sessionManager = getSessionManager();
+    const session = await sessionManager.createSession({
+      userId: 'user-123',
+      orgId: AUTH_ORG_ID,
+      email: 'user@example.com',
+      roles: ['admin'],
+      permissions: ['tool:compliance'],
+      clientId: 'integration-test-client',
+    });
+    mcpAuthSessionId = session.id;
   });
 
   afterEach(async () => {
