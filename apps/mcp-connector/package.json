@@ -29,6 +29,7 @@
     "@magnus/config": "workspace:*",
     "@magnus/db": "workspace:*",
     "@magnus/logging": "workspace:*",
+    "@magnus/reports": "workspace:*",
     "@magnus/subscription": "workspace:*",
     "express": "^4.19.2",
     "cors": "^2.8.5",
