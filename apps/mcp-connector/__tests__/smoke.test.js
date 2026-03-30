@@ -208,7 +208,10 @@ describe('tool registry', () => {
     const validNames = [
       'get-filing-history',
       'get-state-registrations',
+      'get-990-health-score',
+      'get-cash-flow-forecast',
       'get-expense-allocation',
+      'get-funder-readiness-report',
       'get-revenue-breakdown',
       'get-funder-research',
       'get-grant-history',

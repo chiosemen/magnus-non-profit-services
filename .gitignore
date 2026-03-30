@@ -17,6 +17,9 @@ pnpm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# Local git worktrees (not part of the canonical tree)
+.worktrees/
+
 # OS / Editor
 .DS_Store
 .idea/

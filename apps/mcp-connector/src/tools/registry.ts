@@ -9,7 +9,9 @@ import { z } from 'zod';
 import getFilingHistory from './compliance/get-filing-history';
 import getStateRegistrations from './compliance/get-state-registrations';
 import get990HealthScore from './financials/get-990-health-score';
+import getCashFlowForecast from './financials/get-cash-flow-forecast';
 import getExpenseAllocation from './financials/get-expense-allocation';
+import getFunderReadinessReport from './financials/get-funder-readiness-report';
 import getRevenueBreakdown from './financials/get-revenue-breakdown';
 import getFunderResearch from './grants/get-funder-research';
 import getGrantHistory from './grants/get-grant-history';
@@ -36,7 +38,9 @@ const baseTools: MCPTool[] = [
   { ...getFilingHistory, category: 'compliance', description: 'Get 990 filing history for a nonprofit' },
   { ...getStateRegistrations, category: 'compliance', description: 'Get state charity registrations' },
   { ...get990HealthScore, category: 'financials', description: 'Score a nonprofit using structured Form 990 health metrics' },
+  { ...getCashFlowForecast, category: 'financials', description: 'Build a deterministic 13-week cash flow forecast from manual inputs' },
   { ...getExpenseAllocation, category: 'financials', description: 'Get expense allocation breakdown' },
+  { ...getFunderReadinessReport, category: 'financials', description: 'Generate a print-ready funder readiness report from Form 990 data' },
   { ...getRevenueBreakdown, category: 'financials', description: 'Get revenue breakdown by source' },
   { ...getFunderResearch, category: 'grants', description: 'Research potential funders' },
   { ...getGrantHistory, category: 'grants', description: 'Get grant history for an org' },
