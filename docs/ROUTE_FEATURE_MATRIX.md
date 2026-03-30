@@ -8,7 +8,7 @@ This document maps all premium routes to their required subscription features an
 |------|----------|
 | STARTER | `compliance_calendar` |
 | GROWTH | `compliance_calendar`, `grant_generator` |
-| ENTERPRISE | All features |
+| ENTERPRISE | All keys in `@magnus/subscription` `FeatureKey` (includes `institutional_partner`) |
 
 ## Feature Keys
 
@@ -17,17 +17,39 @@ This document maps all premium routes to their required subscription features an
 - `claude_partner` - Claude AI integration and prompt management
 - `worker_financial_layer` - Worker financial tools and analysis
 - `agents_layer` - MCP tools and agent integrations
+- `institutional_partner` - Institutional partner portfolio, programs, and export (ENTERPRISE; partner JWT context required on partner routes)
 
 ## Route Matrix
 
 ### org-dashboard-api
 
-| Route | Method | Feature | Tier |
-|-------|--------|---------|------|
-| `/health` | GET | None | Public |
-| `/api/org/overview` | GET | `compliance_calendar` | STARTER+ |
-| `/api/org/compliance` | GET | `compliance_calendar` | STARTER+ |
-| `/api/org/grants` | GET | `grant_generator` | GROWTH+ |
+Org-scoped routes use an org JWT (`orgId` in token). Partner routes additionally require `institutional_partner` on the org subscription and a valid partner context on the JWT (`partnerId`, partner role).
+
+| Route | Method | Feature | Tier | Notes |
+|-------|--------|---------|------|-------|
+| `/health` | GET | None | Public | |
+| `/api/org/overview` | GET | `compliance_calendar` | STARTER+ | Org JWT |
+| `/api/org/compliance` | GET | `compliance_calendar` | STARTER+ | Org JWT |
+| `/api/org/grants` | GET | `grant_generator` | GROWTH+ | Org JWT |
+| `/api/org/governance` | GET | `compliance_calendar` | STARTER+ | Org JWT |
+| `/api/org/state-registrations` | GET | `compliance_calendar` | STARTER+ | Org JWT |
+| `/api/org/state-registrations/:stateCode` | PUT | `compliance_calendar` | STARTER+ | Org JWT |
+| `/api/org/state-registrations/:stateCode` | DELETE | `compliance_calendar` | STARTER+ | Org JWT |
+| `/api/org/governance/policies` | PUT | `compliance_calendar` | STARTER+ | Org JWT |
+| `/api/org/governance/board-members` | POST | `compliance_calendar` | STARTER+ | Org JWT |
+| `/api/org/governance/board-members/:memberId` | PATCH | `compliance_calendar` | STARTER+ | Org JWT |
+| `/api/org/governance/board-members/:memberId` | DELETE | `compliance_calendar` | STARTER+ | Org JWT |
+| `/api/org/audit-prep` | GET | `compliance_calendar` | STARTER+ | Org JWT |
+| `/api/org/audit-prep/apply-template` | POST | `compliance_calendar` | STARTER+ | Org JWT |
+| `/api/org/audit-prep/items/:itemId` | PATCH | `compliance_calendar` | STARTER+ | Org JWT |
+| `/api/partner/portfolio/summary` | GET | `institutional_partner` | ENTERPRISE | Partner JWT + partner context |
+| `/api/partner/portfolio/export.csv` | GET | `institutional_partner` | ENTERPRISE | Partner JWT + partner context |
+| `/api/partner/portfolio/orgs` | POST | `institutional_partner` | ENTERPRISE | Partner JWT; `PARTNER_ADMIN` only |
+| `/api/partner/portfolio/orgs/:orgId` | PATCH | `institutional_partner` | ENTERPRISE | Partner JWT; `PARTNER_ADMIN` only |
+| `/api/partner/programs` | GET | `institutional_partner` | ENTERPRISE | Partner JWT + partner context |
+| `/api/partner/programs` | POST | `institutional_partner` | ENTERPRISE | Partner JWT; `PARTNER_ADMIN` only |
+| `/api/partner/programs/:programId` | PATCH | `institutional_partner` | ENTERPRISE | Partner JWT; `PARTNER_ADMIN` only |
+| `/api/partner/programs/:programId/summary` | GET | `institutional_partner` | ENTERPRISE | Partner JWT + partner context |
 
 ### grant-generator
 
@@ -72,12 +94,17 @@ This document maps all premium routes to their required subscription features an
 
 ### web (Next.js)
 
-| Route | Method | Feature | Tier |
-|-------|--------|---------|------|
-| `/api/health` | GET | None | Public |
-| `/api/auth/*` | * | None | Public |
-| `/api/me` | GET | Auth only | Authenticated |
-| `/api/dashboard/summary` | GET | Auth only | Authenticated |
+Dashboard pages rely on session/cookies; BFF routes may proxy to backend services. Partner UI is minimal and requires the same subscription and JWT shape as the API.
+
+| Route | Method | Feature | Tier | Notes |
+|-------|--------|---------|------|-------|
+| `/api/health` | GET | None | Public | |
+| `/api/auth/*` | * | None | Public | |
+| `/api/me` | GET | Auth only | Authenticated | |
+| `/api/dashboard/summary` | GET | Auth only | Authenticated | |
+| `/api/partner/portfolio/export` | GET | `institutional_partner` | ENTERPRISE | Proxies CSV from org-dashboard-api; session auth |
+| `/dashboard/partner/portfolio` | GET | `institutional_partner` | ENTERPRISE | Thin UI; session auth |
+| `/dashboard/partner/programs` | GET | `institutional_partner` | ENTERPRISE | Thin UI; session auth |
 
 ## Error Codes
 
@@ -101,8 +128,11 @@ app.get('/api/route', authMiddleware, requireFeature('feature_key'), handler);
 ```
 
 The middleware:
+
 1. Validates JWT from Authorization header
 2. Extracts `orgId` from verified token payload
 3. Looks up org's `subscriptionTier` and `subscriptionStatus`
-4. Checks if feature is enabled for that tier and status is ACTIVE
+4. Checks if the feature is enabled for that org (tier gate, optional program-level feature grants for managed orgs, and status ACTIVE — see org feature resolution in `@magnus/subscription`)
 5. Returns 401/403 on failure, calls `next()` on success
+
+Program cohorts can attach **narrow** feature packaging to managed memberships; this is not a separate public product surface beyond the partner program and portfolio APIs above.

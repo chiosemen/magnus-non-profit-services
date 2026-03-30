@@ -1,6 +1,6 @@
 # Magnus Accord — Production Readiness Report
 
-**Latest Update:** 2026-03-29 (Wave 1 subset alignment)
+**Latest Update:** 2026-03-30 (Wave 3 institutional channel alignment)
 **Previous Phase:** Phase 11 (2026-03-08)
 **Status:** ✅ PRODUCTION READY
 
@@ -34,8 +34,40 @@ This update narrows the truthful Magnus Accord release subset to the Wave 1 surf
 - Binary PDF engine beyond the current HTML print-ready report seam
 - Plaid or bank-sync requirements for cash flow forecasting
 - 50-state legal rules automation or filing submission workflows
-- Worker financial layer surfaces
+- Worker financial layer surfaces (including workforce compensation benchmarking endpoints that exist in-repo but are **not** part of the Magnus Accord release subset)
 - Mobile release surfaces
+
+---
+
+## Wave 3 Institutional Channel Alignment (2026-03-30)
+
+This update extends the truthful Magnus Accord story to **Wave 3 institutional partner** surfaces that are implemented and tested in this repository. It does not imply readiness for donor CRM, grantmaker workflows, or worker-marketplace features.
+
+### Included In Current Accord Release Subset (Wave 3 Additions)
+
+- **Institutional partner portfolio** via `org-dashboard-api`: filtered portfolio summary, optional partner notes/tags on memberships, link managed org (`POST /api/partner/portfolio/orgs`), update managed org metadata (`PATCH /api/partner/portfolio/orgs/:orgId`); `PARTNER_ADMIN` required for mutating portfolio membership routes.
+- **Portfolio CSV export** via `GET /api/partner/portfolio/export.csv` (same auth and filter semantics as summary; optional sort query); thin Next.js proxy at `GET /api/partner/portfolio/export` and a **Download CSV** affordance on the partner portfolio page.
+- **Partner programs (narrow packaging)** via `org-dashboard-api`: list/create/patch programs, program summary for cohorts; program definitions can enable a constrained set of feature keys for managed orgs through `@magnus/subscription` resolution (packaging channel, not a full product catalog).
+- **Minimal web surfacing**: dashboard pages at `/dashboard/partner/portfolio` and `/dashboard/partner/programs` (session-based auth; no broad institutional portal beyond these screens).
+
+Integration coverage for the above includes `tests/integration/partnerPortfolioService.test.ts`, `tests/integration/partnerProgramService.test.ts`, and `tests/integration/partnerPortfolioExport.test.ts`.
+
+### Truthful Implementation Notes (Wave 3)
+
+- Partner APIs are **ENTERPRISE** and require the `institutional_partner` feature plus partner claims on the JWT; they are not a separate tier table entry.
+- Web UI remains intentionally thin; operations teams should expect API-first workflows for anything beyond the listed pages.
+
+### Explicitly Still Excluded (Reaffirmed For Wave 3)
+
+The following remain **out of scope** for Magnus Accord as documented here (whether or not unrelated code exists elsewhere in the monorepo):
+
+- Donor intelligence
+- Wealth screening
+- Volunteer management
+- Broad CRM
+- Workforce compensation benchmarking (Accord subset; see also worker-financial-layer exclusion above)
+- Full federal indirect cost tooling
+- Grantmaker portal
 
 ---
 
