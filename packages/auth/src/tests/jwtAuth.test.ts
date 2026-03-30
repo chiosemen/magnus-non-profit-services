@@ -50,3 +50,32 @@ test('valid token attaches req.auth', async () => {
   assert.deepEqual(req.auth, { orgId: 'org1', workerId: 'w1', role: 'user' });
 });
 
+test('valid token with partner claims attaches partnerId and partnerRole', async () => {
+  const secret = 'x'.repeat(32);
+  const token = jwt.sign(
+    {
+      orgId: 'billing-org',
+      role: 'user',
+      sub: 'user-uuid',
+      partnerId: 'partner-uuid',
+      partnerRole: 'PARTNER_VIEWER',
+    },
+    secret,
+    { algorithm: 'HS256', expiresIn: '1h' }
+  );
+
+  const mw = createJwtAuthMiddleware({ jwtSecret: secret });
+  const req: any = { headers: { authorization: `Bearer ${token}` } };
+  const res: any = { status: () => res, json: () => res };
+
+  await mw(req, res, () => {});
+
+  assert.deepEqual(req.auth, {
+    orgId: 'billing-org',
+    role: 'user',
+    sub: 'user-uuid',
+    partnerId: 'partner-uuid',
+    partnerRole: 'PARTNER_VIEWER',
+  });
+});
+

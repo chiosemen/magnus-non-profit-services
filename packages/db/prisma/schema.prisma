@@ -101,7 +101,8 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  sessions Session[]
+  sessions     Session[]
+  partnerUsers PartnerUser[]
 }
 
 model Organization {
@@ -121,6 +122,10 @@ model Organization {
   updatedAt       DateTime         @updatedAt
 
   complianceCalendar ComplianceCalendar[]
+  governanceProfile  GovernanceProfile?
+  boardGovernanceMembers BoardGovernanceMember[]
+  stateRegistrations OrgStateRegistration[]
+  auditPrepItems     OrgAuditPrepItem[]
   grants             Grant[]
   grantProposals     GrantProposal[]
   restrictedFunds    RestrictedFund[]
@@ -133,6 +138,57 @@ model Organization {
   claudeConfig       OrgClaudeConfig?
   promptLibraries    OrgPromptLibrary[]
   claudeUsageLogs    ClaudeUsageLog[]
+
+  institutionalPartnersBilling InstitutionalPartner[] @relation("InstitutionalPartnerBilling")
+  partnerOrgMemberships        PartnerOrgMembership[]
+}
+
+model GovernanceProfile {
+  id                       String   @id @default(uuid()) @db.Uuid
+  orgId                    String   @unique @db.Uuid
+  conflictOfInterestPolicy Boolean  @default(false)
+  whistleblowerPolicy      Boolean  @default(false)
+  documentRetentionPolicy  Boolean  @default(false)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  organization Organization @relation(fields: [orgId], references: [id])
+}
+
+model BoardGovernanceMember {
+  id                         String                @id @default(uuid()) @db.Uuid
+  orgId                      String                @db.Uuid
+  name                       String
+  officerRole                GovernanceOfficerRole?
+  termStart                  DateTime?
+  termEnd                    DateTime?
+  conflictDisclosureSignedAt DateTime?
+  meetingsHeld               Int?
+  meetingsAttended           Int?
+  createdAt                  DateTime              @default(now())
+  updatedAt                  DateTime              @updatedAt
+
+  organization Organization @relation(fields: [orgId], references: [id])
+
+  @@index([orgId, termEnd])
+  @@index([orgId, name])
+}
+
+model OrgStateRegistration {
+  id               String                  @id @default(uuid()) @db.Uuid
+  orgId            String                  @db.Uuid
+  stateCode        String                  @db.Char(2)
+  status           StateRegistrationStatus
+  solicitsDonations Boolean                @default(true)
+  renewalDueDate   DateTime?
+  renewalNotes     String?
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+
+  organization Organization @relation(fields: [orgId], references: [id])
+
+  @@unique([orgId, stateCode])
+  @@index([orgId, renewalDueDate])
 }
 
 model Session {
@@ -222,6 +278,137 @@ enum GrantProposalStatus {
   GENERATING
   COMPLETE
   FAILED
+}
+
+enum GovernanceOfficerRole {
+  CHAIR
+  VICE_CHAIR
+  TREASURER
+  SECRETARY
+  PRESIDENT
+  MEMBER_AT_LARGE
+  OTHER
+}
+
+enum StateRegistrationStatus {
+  ACTIVE
+  PENDING
+  NOT_REGISTERED
+  UNKNOWN
+}
+
+enum AuditPrepCategory {
+  GOVERNANCE_BOARD_MINUTES
+  BANK_CASH_RECONCILIATIONS
+  PAYROLL_COMPENSATION
+  GRANT_RESTRICTED_FUNDS
+  CONTRACTS_LEASES_AGREEMENTS
+  PRIOR_YEAR_FINDING_REMEDIATION
+}
+
+enum AuditPrepItemStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETE
+  BLOCKED
+}
+
+enum PartnerUserRole {
+  PARTNER_ADMIN
+  PARTNER_VIEWER
+}
+
+model OrgAuditPrepItem {
+  id                 String              @id @default(uuid()) @db.Uuid
+  orgId              String              @db.Uuid
+  templateItemKey    String
+  category           AuditPrepCategory
+  title              String
+  status             AuditPrepItemStatus @default(NOT_STARTED)
+  targetDate         DateTime?
+  assignee           String?
+  notes              String?
+  evidenceReference  String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  organization Organization @relation(fields: [orgId], references: [id])
+
+  @@unique([orgId, templateItemKey])
+  @@index([orgId])
+  @@index([orgId, category])
+  @@index([orgId, status])
+}
+
+model InstitutionalPartner {
+  id             String   @id @default(uuid()) @db.Uuid
+  billingOrgId   String   @db.Uuid
+  displayName    String
+  slug           String?  @unique
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  billingOrganization Organization         @relation("InstitutionalPartnerBilling", fields: [billingOrgId], references: [id])
+  memberships         PartnerOrgMembership[]
+  partnerUsers        PartnerUser[]
+  programs            PartnerProgram[]
+
+  @@index([billingOrgId])
+}
+
+model PartnerProgram {
+  id              String   @id @default(uuid()) @db.Uuid
+  partnerId       String   @db.Uuid
+  label           String
+  slug            String?
+  isActive        Boolean  @default(true)
+  notes           String?
+  enabledFeatures String[] @default([])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  partner     InstitutionalPartner     @relation(fields: [partnerId], references: [id])
+  memberships PartnerOrgMembership[]
+
+  @@unique([partnerId, slug])
+  @@index([partnerId])
+}
+
+model PartnerUser {
+  id        String          @id @default(uuid()) @db.Uuid
+  partnerId String          @db.Uuid
+  userId    String          @db.Uuid
+  role      PartnerUserRole
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  partner InstitutionalPartner @relation(fields: [partnerId], references: [id])
+  user    User                 @relation(fields: [userId], references: [id])
+
+  @@unique([partnerId, userId])
+  @@index([userId])
+}
+
+model PartnerOrgMembership {
+  id            String   @id @default(uuid()) @db.Uuid
+  partnerId     String   @db.Uuid
+  orgId         String   @db.Uuid
+  programId     String?  @db.Uuid
+  cohortLabel   String?
+  isActive      Boolean  @default(true)
+  partnerNotes  String?
+  partnerTags   String[] @default([])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  partner InstitutionalPartner @relation(fields: [partnerId], references: [id])
+  org     Organization         @relation(fields: [orgId], references: [id])
+  program PartnerProgram?      @relation(fields: [programId], references: [id])
+
+  @@unique([partnerId, orgId])
+  @@index([partnerId])
+  @@index([orgId])
+  @@index([programId])
 }
 
 model Worker {

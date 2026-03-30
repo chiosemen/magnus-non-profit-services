@@ -56,8 +56,28 @@ describe('protected routes', () => {
     // - GET /api/org/overview
     // - GET /api/org/compliance
     // - GET /api/org/grants
-    const protectedRoutes = ['/api/org/overview', '/api/org/compliance', '/api/org/grants'];
-    assert.equal(protectedRoutes.length, 3, 'should have 3 protected routes');
+    // - GET /api/org/governance
+    // - GET /api/org/state-registrations
+    // - GET /api/org/audit-prep
+    // - POST /api/org/audit-prep/apply-template
+    // - PATCH /api/org/audit-prep/items/:itemId
+    // - GET /api/partner/portfolio/summary
+    // - POST /api/partner/portfolio/orgs
+    // - PATCH /api/partner/portfolio/orgs/:orgId
+    const protectedRoutes = [
+      '/api/org/overview',
+      '/api/org/compliance',
+      '/api/org/grants',
+      '/api/org/governance',
+      '/api/org/state-registrations',
+      '/api/org/audit-prep',
+      '/api/org/audit-prep/apply-template',
+      '/api/org/audit-prep/items/:itemId',
+      '/api/partner/portfolio/summary',
+      '/api/partner/portfolio/orgs',
+      '/api/partner/portfolio/orgs/:orgId',
+    ];
+    assert.equal(protectedRoutes.length, 11, 'should have 11 protected routes');
   });
 
   test('feature flags control route access', () => {
@@ -65,12 +85,22 @@ describe('protected routes', () => {
     // - /api/org/overview -> compliance_calendar
     // - /api/org/compliance -> compliance_calendar
     // - /api/org/grants -> grant_generator
+    // - /api/org/governance -> compliance_calendar
+    // - /api/org/state-registrations -> compliance_calendar
     const features = {
       '/api/org/overview': 'compliance_calendar',
       '/api/org/compliance': 'compliance_calendar',
       '/api/org/grants': 'grant_generator',
+      '/api/org/governance': 'compliance_calendar',
+      '/api/org/state-registrations': 'compliance_calendar',
+      '/api/org/audit-prep': 'compliance_calendar',
+      '/api/org/audit-prep/apply-template': 'compliance_calendar',
+      '/api/org/audit-prep/items/:itemId': 'compliance_calendar',
+      '/api/partner/portfolio/summary': 'institutional_partner',
+      '/api/partner/portfolio/orgs': 'institutional_partner',
+      '/api/partner/portfolio/orgs/:orgId': 'institutional_partner',
     };
-    assert.equal(Object.keys(features).length, 3, 'feature flags configured');
+    assert.equal(Object.keys(features).length, 11, 'feature flags configured');
   });
 });
 

@@ -10,7 +10,9 @@ import getFilingHistory from './compliance/get-filing-history';
 import get990Narrative from './compliance/get-990-narrative';
 import getStateRegistrations from './compliance/get-state-registrations';
 import get990HealthScore from './financials/get-990-health-score';
+import getCashFlowForecast from './financials/get-cash-flow-forecast';
 import getExpenseAllocation from './financials/get-expense-allocation';
+import getFunderReadinessReport from './financials/get-funder-readiness-report';
 import getRevenueBreakdown from './financials/get-revenue-breakdown';
 import getRestrictedFundTracking from './financials/get-restricted-fund-tracking';
 import getFunderResearch from './grants/get-funder-research';
@@ -41,7 +43,9 @@ const baseTools: MCPTool[] = [
   { ...get990Narrative, category: 'compliance', description: 'Generate a grounded Form 990 Part III-style program narrative from provided inputs' },
   { ...getStateRegistrations, category: 'compliance', description: 'Get state charity registrations' },
   { ...get990HealthScore, category: 'financials', description: 'Score a nonprofit using structured Form 990 health metrics' },
+  { ...getCashFlowForecast, category: 'financials', description: 'Build a deterministic 13-week cash flow forecast from manual inputs' },
   { ...getExpenseAllocation, category: 'financials', description: 'Get expense allocation breakdown' },
+  { ...getFunderReadinessReport, category: 'financials', description: 'Generate a print-ready funder readiness report from Form 990 data' },
   { ...getRevenueBreakdown, category: 'financials', description: 'Get revenue breakdown by source' },
   { ...getRestrictedFundTracking, category: 'financials', description: 'Track restricted funds with deterministic balance and risk flags (truthful; not GAAP accounting)' },
   { ...getFunderResearch, category: 'grants', description: 'Research potential funders' },

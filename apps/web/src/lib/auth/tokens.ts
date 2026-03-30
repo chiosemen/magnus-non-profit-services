@@ -23,15 +23,17 @@ export function signAccessToken(payload: AuthPayload): string {
   assertAuthPayload(payload);
   const secret = getJwtSecret();
 
-  return jwt.sign(
-    { orgId: payload.orgId, role: payload.role },
-    secret,
-    {
-      algorithm: 'HS256',
-      expiresIn: ACCESS_TOKEN_EXPIRES_IN,
-      subject: payload.userId,
-    },
-  );
+  const body: Record<string, unknown> = { orgId: payload.orgId, role: payload.role };
+  if (payload.partnerId && payload.partnerRole) {
+    body['partnerId'] = payload.partnerId;
+    body['partnerRole'] = payload.partnerRole;
+  }
+
+  return jwt.sign(body, secret, {
+    algorithm: 'HS256',
+    expiresIn: ACCESS_TOKEN_EXPIRES_IN,
+    subject: payload.userId,
+  });
 }
 
 export function verifyAccessToken(token: string): AuthPayload {
@@ -41,12 +43,20 @@ export function verifyAccessToken(token: string): AuthPayload {
   const decoded = jwt.verify(token, secret, { algorithms: ['HS256'] });
   if (!decoded || typeof decoded !== 'object') throw new Error('Invalid token');
 
-  const p = decoded as JwtPayload & Partial<{ orgId: unknown; role: unknown }>;
+  const p = decoded as JwtPayload &
+    Partial<{ orgId: unknown; role: unknown; partnerId: unknown; partnerRole: unknown }>;
   const userId = typeof p.sub === 'string' ? p.sub : '';
   const orgId = typeof p.orgId === 'string' ? p.orgId : '';
   const role = typeof p.role === 'string' ? p.role : '';
 
   if (!userId || !orgId || !role) throw new Error('Invalid token');
-  return { userId, orgId, role };
+  const out: AuthPayload = { userId, orgId, role };
+  const partnerId = typeof p.partnerId === 'string' ? p.partnerId.trim() : '';
+  const pr = p.partnerRole;
+  if (partnerId && (pr === 'PARTNER_ADMIN' || pr === 'PARTNER_VIEWER')) {
+    out.partnerId = partnerId;
+    out.partnerRole = pr;
+  }
+  return out;
 }
 
