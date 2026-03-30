@@ -2,8 +2,8 @@
 
 This document tracks critical smoke test coverage across all Magnus services.
 
-**Last Updated:** 2026-03-29
-**Coverage Status:** 🟡 CI runs Postgres-backed integration tests (`pnpm test`) plus workspace smoke suites (`pnpm -r --if-present test`)
+**Last Updated:** 2026-03-30
+**Coverage Status:** 🟡 CI runs Postgres-backed integration tests (`pnpm test`) plus workspace smoke suites (`pnpm -r --if-present test`). **MCP** integration tests exercise the real session-bound contract (JWT + `SessionManager`); local runs need a DB migrated to the current Prisma head.
 
 ---
 
@@ -20,6 +20,9 @@ This document tracks critical smoke test coverage across all Magnus services.
 | **worker-financial-layer** | ⚠️ Excluded | N/A | N/A | N/A | N/A | N/A |
 | **web** | ⚠️ 0 | N/A | N/A | N/A | N/A | N/A |
 | **mobile** | ⚠️ 0 | N/A | N/A | N/A | N/A | N/A |
+
+**Worker financial layer:** HTTP routes and subscription gating exist; numeric outputs are largely **stub/placeholder** — not treated as release-ready financial product logic.  
+**Mobile:** **No** automated tests under `apps/mobile`; treat as **manual QA only**.
 
 Package counts above reflect app-local smoke/unit suites. Additional workspace integration tests in `tests/integration` cover the Wave 1 Accord release subset listed below.
 

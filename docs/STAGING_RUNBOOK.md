@@ -1,6 +1,7 @@
 # Staging Runbook
 
-Branch: `feat/platform-unification`  
+**Primary integration branch (Wave 2 + Wave 3 + MCP test contract):** `integration/wave3-canonicalize` (or `docs/release-truth-tightening` if docs-only delta is merged).  
+Legacy reference: `feat/platform-unification` remains the historical base; staging should track the **latest integrated** branch your team promotes.  
 Service env: `staging`
 
 ## Scope
@@ -46,6 +47,8 @@ Examples (adjust hostnames/ports as deployed):
 curl -fsS https://<staging-host>/health
 ```
 
+**MCP connector (`apps/mcp-connector`):** in production (`NODE_ENV=production`), set **`REDIS_URL`** for session durability; in-memory sessions are disabled in production.
+
 Known health routes in this repo (service-dependent):
 - `@magnus/org-dashboard-api`: `GET /health`
 - `@magnus/grant-generator`: `GET /health`
@@ -61,7 +64,7 @@ Use this if you have a Next.js app in the monorepo (for example `apps/web` when 
 
 Steps:
 1. Create a new Vercel project named `staging`.
-2. Connect it to this repo and set the production branch to `feat/platform-unification` (staging branch).
+2. Connect it to this repo and set the production branch to your promoted integration branch (e.g. `integration/wave3-canonicalize`).
 3. Configure the monorepo root / app root directory as appropriate for the Next.js app.
 4. Set environment variables for the project (staging values).
 5. Deploy.
@@ -70,7 +73,7 @@ Steps:
 Steps:
 1. Create a new Render service:
    - Service name: `magnus-staging`
-   - Branch: `feat/platform-unification`
+   - Branch: `integration/wave3-canonicalize` (or current promoted integration branch)
 2. Build command:
 ```bash
 pnpm install && pnpm build

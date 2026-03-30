@@ -1,8 +1,24 @@
 # Magnus Accord — Production Readiness Report
 
-**Latest Update:** 2026-03-30 (Wave 3 institutional channel alignment)
+**Latest Update:** 2026-03-30 (Wave 2/3 integration + doc truth pass)
 **Previous Phase:** Phase 11 (2026-03-08)
-**Status:** ✅ PRODUCTION READY
+**Status:** **Integration / staging candidate** — Phase 12 metrics below reflect a **security hardening checklist**, not an unconditional end-to-end product GO. Use the [Evidence-based status](#evidence-based-status-post-wave-23-integration) section for what is implemented vs verified on the canonical integration line.
+
+---
+
+## Evidence-based status (post Wave 2/3 integration)
+
+This report mixes **historical Phase 11–12 security work** with **newer product surfaces**. After merging Wave 2 (narrative, LOI, prospect matching, restricted funds) and Wave 3 (governance, state registration, audit prep, institutional partner/MCP tools), the following distinctions apply:
+
+| Area | Implemented in code | Verified by automated tests in-repo | Notes |
+|------|--------------------|-------------------------------------|--------|
+| MCP connector (tools + session JWT) | Yes | **Partial** — integration tests require a real `SessionManager` session; production needs `REDIS_URL` | Do not run MCP in `NODE_ENV=production` without Redis-backed sessions |
+| `apps/worker-financial-layer` | Routes + tier gates | **No meaningful product tests** | Responses are largely **placeholder / stub** until real financial pipelines land — **not** a full compensation or tax product |
+| `apps/mobile` | Expo client shell | **No** automated tests in `apps/mobile` | Treat as **manual-QA only** until a test strategy exists |
+| Wave 2 surfaces (LOI, prospect match, restricted funds) | Yes | **Partial** — see `tests/integration/` | Prospect matching depends on upstream data configuration; restricted funds are **tracking**, not GAAP books |
+| Wave 3 org-dashboard + partner APIs | Yes | **Partial** — see partner and audit-prep integration tests | Requires migrations through `20260330180000_partner_program` |
+
+**Do not** read “100% production ready” elsewhere in this document as overriding the table above without environment-specific migration deploy, Redis for MCP, and explicit QA of mobile/worker surfaces.
 
 ---
 

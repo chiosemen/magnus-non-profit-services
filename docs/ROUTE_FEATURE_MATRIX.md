@@ -99,6 +99,8 @@ Org-scoped routes use an org JWT (`orgId` in token). Partner routes additionally
 | `/api/worker/compensation-benchmark` | GET | `worker_financial_layer` | ENTERPRISE | PREMIUM |
 | `/api/worker/volatility-analysis` | GET | `worker_financial_layer` | ENTERPRISE | PREMIUM |
 
+**Truth note:** Responses are currently **stub/placeholder** (wiring + tier gates only), not full financial engines. No automated product tests cover numerical correctness.
+
 ### web (Next.js)
 
 Dashboard pages rely on session/cookies; BFF routes may proxy to backend services. Partner UI is minimal and requires the same subscription and JWT shape as the API.
