@@ -252,6 +252,9 @@ importers:
       '@magnus/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@magnus/financial':
+        specifier: workspace:*
+        version: link:../../packages/financial
       '@magnus/grants':
         specifier: workspace:*
         version: link:../../packages/grants
@@ -422,6 +425,9 @@ importers:
       '@magnus/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@magnus/financial':
+        specifier: workspace:*
+        version: link:../../packages/financial
       '@magnus/reports':
         specifier: workspace:*
         version: link:../../packages/reports
@@ -440,6 +446,9 @@ importers:
       helmet:
         specifier: ^7.1.0
         version: 7.2.0
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
     devDependencies:
       '@types/cors':
         specifier: ^2.8.17
@@ -596,6 +605,19 @@ importers:
       prisma:
         specifier: ^5.22.0
         version: 5.22.0
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+
+  packages/financial:
+    dependencies:
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^22.5.0
+        version: 22.19.11
       typescript:
         specifier: ^5.5.4
         version: 5.9.3

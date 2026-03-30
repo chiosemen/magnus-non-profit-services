@@ -195,6 +195,7 @@ export function rankGrantProspects(params: {
 
   const ranked = matches
     .filter(m => m.excluded_reasons.length === 0)
+    .filter(m => m.match_score >= 50)
     .sort((a, b) => b.match_score - a.match_score)
     .slice(0, input.maxResults);
 

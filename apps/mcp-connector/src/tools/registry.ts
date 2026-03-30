@@ -12,6 +12,7 @@ import getStateRegistrations from './compliance/get-state-registrations';
 import get990HealthScore from './financials/get-990-health-score';
 import getExpenseAllocation from './financials/get-expense-allocation';
 import getRevenueBreakdown from './financials/get-revenue-breakdown';
+import getRestrictedFundTracking from './financials/get-restricted-fund-tracking';
 import getFunderResearch from './grants/get-funder-research';
 import getGrantHistory from './grants/get-grant-history';
 import getLoiDraft from './grants/get-loi-draft';
@@ -42,6 +43,7 @@ const baseTools: MCPTool[] = [
   { ...get990HealthScore, category: 'financials', description: 'Score a nonprofit using structured Form 990 health metrics' },
   { ...getExpenseAllocation, category: 'financials', description: 'Get expense allocation breakdown' },
   { ...getRevenueBreakdown, category: 'financials', description: 'Get revenue breakdown by source' },
+  { ...getRestrictedFundTracking, category: 'financials', description: 'Track restricted funds with deterministic balance and risk flags (truthful; not GAAP accounting)' },
   { ...getFunderResearch, category: 'grants', description: 'Research potential funders' },
   { ...getGrantHistory, category: 'grants', description: 'Get grant history for an org' },
   { ...getLoiDraft, category: 'grants', description: 'Generate a grounded letter of inquiry (LOI) draft from provided inputs' },

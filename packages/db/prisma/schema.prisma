@@ -123,6 +123,8 @@ model Organization {
   complianceCalendar ComplianceCalendar[]
   grants             Grant[]
   grantProposals     GrantProposal[]
+  restrictedFunds    RestrictedFund[]
+  restrictedFundUsageEvents RestrictedFundUsageEvent[]
   workerRelationships WorkerOrgRelationship[]
   incomeTransactions  IncomeTransaction[]
   sessions           Session[]
@@ -382,4 +384,46 @@ model ClaudeUsageLog {
 
   @@index([orgId, timestamp])
   @@index([orgId, promptType, timestamp])
+}
+
+// ─── Restricted Fund Tracking (v1) ────────────────────────────────────────────
+//
+// IMPORTANT: This is NOT full GAAP fund accounting. These records are a narrow,
+// auditable tracking ledger for restricted funds (grants and donor-restricted).
+
+model RestrictedFund {
+  id                     String   @id @default(uuid()) @db.Uuid
+  orgId                  String   @db.Uuid
+  name                   String
+  sourceName             String
+  totalRestrictedAmount  Decimal  @db.Decimal(12, 2)
+  restrictionPurpose     String
+  startDate              DateTime
+  endDate                DateTime
+  allowableSpendCategories Json    // array of { code, label }
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  organization Organization @relation(fields: [orgId], references: [id])
+  usageEvents  RestrictedFundUsageEvent[]
+
+  @@index([orgId, endDate])
+  @@index([orgId, createdAt])
+}
+
+model RestrictedFundUsageEvent {
+  id               String   @id @default(uuid()) @db.Uuid
+  restrictedFundId String   @db.Uuid
+  orgId            String   @db.Uuid
+  occurredAt       DateTime
+  amount           Decimal  @db.Decimal(12, 2)
+  categoryCode     String?
+  memo             String?
+  createdAt        DateTime @default(now())
+
+  restrictedFund RestrictedFund @relation(fields: [restrictedFundId], references: [id])
+  organization   Organization   @relation(fields: [orgId], references: [id])
+
+  @@index([orgId, occurredAt])
+  @@index([restrictedFundId, occurredAt])
 }

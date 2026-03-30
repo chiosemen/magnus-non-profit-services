@@ -79,6 +79,7 @@ export const LoiRequestSchema = z.object({
 export type LoiRequest = z.infer<typeof LoiRequestSchema>;
 
 export type LoiRefusalReason =
+  | 'VALIDATION_ERROR'
   | 'INSUFFICIENT_PROGRAM_DETAIL'
   | 'MISSING_ASK_AMOUNT'
   | 'MISSING_INTENDED_USE'
@@ -116,7 +117,29 @@ export type LoiLlm = (prompt: string) => Promise<{ text: string }>;
 
 export class LoiGeneratorService {
   async generate(params: { input: LoiRequest; llm: LoiLlm }): Promise<LoiResult> {
-    const parsed = LoiRequestSchema.parse(params.input);
+    const parsedResult = LoiRequestSchema.safeParse(params.input);
+    if (!parsedResult.success) {
+      const paths = parsedResult.error.issues.map(i => i.path.join('.'));
+      const reason: LoiRefusalReason =
+        paths.some(p => p === 'ask.amountUsd') ? 'MISSING_ASK_AMOUNT'
+          : paths.some(p => p === 'ask.intendedUseOfFunds') ? 'MISSING_INTENDED_USE'
+            : paths.some(p => p === 'program.summary') ? 'INSUFFICIENT_PROGRAM_DETAIL'
+              : 'VALIDATION_ERROR';
+      const warnings = [
+        'Input did not satisfy the LOI contract; refusing to generate to avoid ungrounded output.',
+        ...paths.slice(0, 8).map(p => `Invalid/missing field: ${p || '(root)'}`),
+      ];
+      return {
+        refused: true,
+        refusal_reason: reason,
+        warnings,
+        loi_draft: '',
+        grounding: [],
+        facts_vs_phrasing: { facts_used: [], generated_phrasing_only: [] },
+      };
+    }
+
+    const parsed = parsedResult.data;
     const constraints = LoiConstraintsSchema.parse(parsed.constraints ?? {});
 
     const pre = validateOrRefuse(parsed, constraints);
@@ -364,10 +387,6 @@ function looksLikeOutcomeClaim(text: string): boolean {
   const phrases = [
     'increased by',
     'decreased by',
-    'reduced',
-    'improved',
-    'impact',
-    'outcome',
     '%',
     'percent',
     'resulted in',
