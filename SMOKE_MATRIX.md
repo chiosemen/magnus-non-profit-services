@@ -111,6 +111,9 @@ This document tracks critical smoke test coverage across all Magnus services.
 - ✅ Protected routes (POST /api/generate, GET /api/proposals, POST /api/status/:id)
 - ✅ Error responses (401, 403, 404, 500)
 
+**Wave 2 surfaces (status):**
+- ⚠️ `POST /api/loi/generate` exists, but is not explicitly covered by the current smoke suite (add route smoke before claiming coverage).
+
 **Critical Paths:**
 - `GET /health` → 200 (unauthenticated)
 - `POST /api/generate` → 401 (no token)
@@ -135,6 +138,9 @@ This document tracks critical smoke test coverage across all Magnus services.
 - ✅ Request validation
 - ✅ Error responses (401, 403, 404)
 
+**Wave 2 tools (status):**
+- ⚠️ `get-grant-prospect-matches` and `get-restricted-fund-tracking` exist, but are not individually asserted in the current smoke file; registry-level coverage applies.
+
 **Critical Paths:**
 - `GET /health` → 200 (unauthenticated)
 - `GET /api/tools` → 401 (no token)
@@ -158,6 +164,9 @@ This document tracks critical smoke test coverage across all Magnus services.
 - ✅ Protected routes (GET /api/org/overview, /api/org/compliance, /api/org/grants)
 - ✅ Subscription feature checks (compliance_calendar, grant_generator)
 - ✅ Error responses (401, 403, 404)
+
+**Wave 2 surfaces (status):**
+- ⚠️ Restricted fund routes exist (`/api/org/restricted-funds*`) but are not explicitly covered by the current smoke suite.
 
 **Critical Paths:**
 - `GET /health` → 200 (unauthenticated)
