@@ -53,6 +53,12 @@ import {
   updatePartnerProgram,
 } from './partnerProgramService';
 import {
+  partnerPortfolioExportFilename,
+  partnerPortfolioRowsToCsv,
+  parsePortfolioExportSort,
+  sortPartnerPortfolioRowsForExport,
+} from './partnerPortfolioExport';
+import {
   getPartnerPortfolioSummary,
   linkManagedOrganization,
   parseLinkManagedOrgBody,
@@ -262,6 +268,36 @@ app.get(
         filters,
       });
       return res.json(summary);
+    } catch (err) {
+      return next(err);
+    }
+  }
+);
+
+app.get(
+  '/api/partner/portfolio/export.csv',
+  jwtAuth,
+  requireInstitutionalPartner,
+  requirePartnerCtx,
+  async (req, res, next) => {
+    try {
+      const partner = (req as any).partner as { partnerId: string; role: PartnerUserRole };
+      const includeInactive =
+        partner.role === 'PARTNER_ADMIN' && String(req.query['includeInactive'] ?? '') === 'true';
+      const filters = parsePartnerPortfolioListFiltersFromQuery(req.query as Record<string, unknown>);
+      const sortMode = parsePortfolioExportSort(req.query as Record<string, unknown>);
+      const summary = await getPartnerPortfolioSummary(partner.partnerId, {
+        role: partner.role,
+        includeInactive,
+        filters,
+      });
+      const sorted = sortPartnerPortfolioRowsForExport(summary.organizations, sortMode);
+      const now = new Date();
+      const csv = partnerPortfolioRowsToCsv(sorted, summary.disclaimer, { includeBom: true });
+      const filename = partnerPortfolioExportFilename(partner.partnerId, now);
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      return res.status(200).send(csv);
     } catch (err) {
       return next(err);
     }

@@ -121,7 +121,13 @@ export default async function PartnerPortfolioPage({
         {data.resultCount} organization{data.resultCount === 1 ? '' : 's'}
         {filterKeys.length > 0 ? ` · filters: ${filterKeys.join(', ')}` : ''}
       </p>
-      <p style={{ fontSize: 13, opacity: 0.85, marginBottom: 20 }}>{data.disclaimer}</p>
+      <p style={{ fontSize: 13, opacity: 0.85, marginBottom: 12 }}>{data.disclaimer}</p>
+      <p style={{ fontSize: 14, marginBottom: 20 }}>
+        <a href={`/api/partner/portfolio/export${query}`}>Download CSV</a>
+        <span style={{ fontSize: 12, opacity: 0.75, marginLeft: 8 }}>
+          (current filters; add <code style={{ fontSize: 12 }}>?sort=program</code> for program sort)
+        </span>
+      </p>
 
       <div style={{ overflowX: 'auto', marginBottom: 16 }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
