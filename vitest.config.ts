@@ -12,6 +12,7 @@ export default defineConfig({
       { find: '@magnus/db/types', replacement: path.resolve(__dirname, 'packages/db/src/types.ts') },
       { find: '@magnus/db', replacement: path.resolve(__dirname, 'packages/db/src/client.ts') },
       { find: '@magnus/reports', replacement: path.resolve(__dirname, 'packages/reports/src/index.ts') },
+      { find: '@magnus/grants', replacement: path.resolve(__dirname, 'packages/grants/src/index.ts') },
       { find: '@magnus/logging', replacement: path.resolve(__dirname, 'packages/logging/src/index.ts') },
       { find: '@magnus/security', replacement: path.resolve(__dirname, 'packages/security/src/index.ts') },
       { find: '@magnus/subscription', replacement: path.resolve(__dirname, 'packages/subscription/src/index.ts') },

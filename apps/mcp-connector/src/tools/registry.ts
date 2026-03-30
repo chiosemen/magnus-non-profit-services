@@ -14,6 +14,7 @@ import getExpenseAllocation from './financials/get-expense-allocation';
 import getRevenueBreakdown from './financials/get-revenue-breakdown';
 import getFunderResearch from './grants/get-funder-research';
 import getGrantHistory from './grants/get-grant-history';
+import getLoiDraft from './grants/get-loi-draft';
 import getIncomeSummary from './workers/get-income-summary';
 import getMultiOrgProfile from './workers/get-multi-org-profile';
 import getTaxEstimates from './workers/get-tax-estimates';
@@ -42,6 +43,7 @@ const baseTools: MCPTool[] = [
   { ...getRevenueBreakdown, category: 'financials', description: 'Get revenue breakdown by source' },
   { ...getFunderResearch, category: 'grants', description: 'Research potential funders' },
   { ...getGrantHistory, category: 'grants', description: 'Get grant history for an org' },
+  { ...getLoiDraft, category: 'grants', description: 'Generate a grounded letter of inquiry (LOI) draft from provided inputs' },
 ];
 
 const workerTools: MCPTool[] = workerToolsEnabled

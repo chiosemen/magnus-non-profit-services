@@ -19,6 +19,7 @@ import {
 import { getClaudeClient } from '../services/ClaudeClient';
 import { QualityValidator } from '../services/QualityValidator';
 import PROMPT_TEMPLATES from '../prompts/grantSectionTemplates';
+import { LoiGeneratorService, LoiRequestSchema } from '@magnus/grants';
 
 // Extend Express Request type
 declare global {
@@ -70,6 +71,33 @@ const GenerateRequestSchema = z.object({
 });
 
 // ─── Routes ──────────────────────────────────────────────────────────────────
+
+// POST /api/loi/generate - Generate a grounded Letter of Inquiry (LOI) draft
+app.post('/api/loi/generate', authMiddleware, requireGrantGen, async (req, res) => {
+  const parseResult = LoiRequestSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    return res.status(400).json({
+      error: 'VALIDATION_ERROR',
+      details: parseResult.error.flatten().fieldErrors,
+    });
+  }
+
+  const claude = getClaudeClient();
+  const service = new LoiGeneratorService();
+  const result = await service.generate({
+    input: parseResult.data,
+    llm: async (prompt) => {
+      const out = await claude.generate(prompt, {
+        system: 'You must follow grounding rules. Output must be strict JSON only. If you cannot comply, refuse.',
+        maxTokens: 1600,
+        temperature: 0,
+      });
+      return { text: out.content };
+    },
+  });
+
+  return res.status(result.refused ? 422 : 200).json(result);
+});
 
 // POST /api/grants/generate - Generate a new grant proposal
 app.post('/api/grants/generate', authMiddleware, requireGrantGen, async (req, res) => {
