@@ -12,6 +12,11 @@ import {
   SubscriptionNotActiveError,
 } from '@magnus/subscription';
 import { getOrgComplianceCalendar, getOrgGrants, getOrgOverview } from './orgReadService';
+import Anthropic from '@anthropic-ai/sdk';
+import {
+  Form990NarrativeIntelligenceService,
+  Form990NarrativeRequestSchema,
+} from '@magnus/reports';
 
 try {
   validateEnv('org-dashboard-api');
@@ -32,6 +37,29 @@ const requireCompliance = requireFeature('compliance_calendar');
 const requireGrants = requireFeature('grant_generator');
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
+
+function getAnthropicApiKey(): string {
+  const key = process.env['ANTHROPIC_API_KEY'];
+  if (!key || key.trim().length < 10) {
+    throw new Error('ANTHROPIC_API_KEY_REQUIRED');
+  }
+  return key;
+}
+
+async function generateWithClaude(prompt: string): Promise<{ text: string }> {
+  const client = new Anthropic({ apiKey: getAnthropicApiKey() });
+  const out = await client.messages.create({
+    model: 'claude-3-5-sonnet-20241022',
+    max_tokens: 1400,
+    temperature: 0,
+    system:
+      'You must follow grounding rules. Output must be strict JSON only. If you cannot comply, refuse.',
+    messages: [{ role: 'user', content: prompt }],
+  });
+  const first = Array.isArray(out.content) ? out.content[0] : null;
+  const text = first && first.type === 'text' ? first.text : '';
+  return { text };
+}
 
 app.get('/api/org/overview', jwtAuth, requireCompliance, async (req, res, next) => {
   try {
@@ -64,6 +92,28 @@ app.get('/api/org/grants', jwtAuth, requireGrants, async (req, res, next) => {
   }
 });
 
+app.post('/api/org/990/narrative', jwtAuth, requireCompliance, async (req, res, next) => {
+  try {
+    const orgId = (req as any).auth.orgId as string;
+    void orgId; // Org scoping is already provided by JWT; request uses org input for narrative only.
+
+    const parsed = Form990NarrativeRequestSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'VALIDATION_ERROR', details: parsed.error.flatten().fieldErrors });
+    }
+
+    const service = new Form990NarrativeIntelligenceService();
+    const result = await service.generate({
+      input: parsed.data,
+      llm: generateWithClaude,
+    });
+
+    return res.status(result.refused ? 422 : 200).json(result);
+  } catch (err) {
+    return next(err);
+  }
+});
+
 // Generic error handler: keep output stable and avoid leaking internals.
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   // Subscription errors
@@ -77,9 +127,11 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     return res.status(401).json({ error: err instanceof AuthRequiredError ? 'AUTH_REQUIRED' : 'INVALID_TOKEN' });
   }
 
-  const code = err instanceof Error && err.message === 'orgId_or_ein_required'
-    ? 'ORG_ID_OR_EIN_REQUIRED'
-    : 'INTERNAL_ERROR';
+  const code = err instanceof Error && err.message === 'ANTHROPIC_API_KEY_REQUIRED'
+    ? 'ANTHROPIC_API_KEY_REQUIRED'
+    : err instanceof Error && err.message === 'orgId_or_ein_required'
+      ? 'ORG_ID_OR_EIN_REQUIRED'
+      : 'INTERNAL_ERROR';
   const status = code === 'ORG_ID_OR_EIN_REQUIRED' ? 400 : 500;
   res.status(status).json({ error: code });
 });

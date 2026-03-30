@@ -11,9 +11,11 @@
     "test": "node --test __tests__/smoke.test.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.28.0",
     "@magnus/auth": "workspace:*",
     "@magnus/config": "workspace:*",
     "@magnus/db": "workspace:*",
+    "@magnus/reports": "workspace:*",
     "@magnus/subscription": "workspace:*",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
