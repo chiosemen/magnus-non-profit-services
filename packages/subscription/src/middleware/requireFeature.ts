@@ -4,6 +4,7 @@ import type { PrismaClient } from '@magnus/db/types';
 import type { FeatureKey } from '../features';
 import { FeatureNotEnabledError, AuthRequiredError, InvalidTokenError, SubscriptionNotActiveError } from '../errors';
 import { isFeatureEnabled } from '../policy';
+import { hasInstitutionalProgramFeature } from '../programFeatureAccess';
 
 export type RequireFeatureOptions = {
   db?: PrismaClient;
@@ -62,13 +63,19 @@ export function requireFeature(featureKey: FeatureKey, opts: RequireFeatureOptio
         throw new SubscriptionNotActiveError({ orgId, message: `Subscription status is ${org.subscriptionStatus}` });
       }
 
-      if (!isFeatureEnabled({ tier: org.subscriptionTier, status: org.subscriptionStatus, featureKey })) {
-        throw new FeatureNotEnabledError({ orgId, featureKey });
+      if (isFeatureEnabled({ tier: org.subscriptionTier, status: org.subscriptionStatus, featureKey })) {
+        req.org = { orgId };
+        next();
+        return;
       }
 
-      // Attach org context for downstream handlers.
-      req.org = { orgId };
-      next();
+      if (await hasInstitutionalProgramFeature(db, orgId, featureKey)) {
+        req.org = { orgId };
+        next();
+        return;
+      }
+
+      throw new FeatureNotEnabledError({ orgId, featureKey });
     } catch (err) {
       next(err);
     }

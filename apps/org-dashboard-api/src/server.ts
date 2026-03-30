@@ -43,6 +43,16 @@ import {
 } from './orgAuditPrepService';
 import { requirePartnerAdmin, requirePartnerContext } from './partnerAuthMiddleware';
 import {
+  createPartnerProgram,
+  getPartnerProgramSummary,
+  listPartnerPrograms,
+  parsePartnerProgramCreateBody,
+  parsePartnerProgramPatchBody,
+  PartnerProgramInputError,
+  PartnerProgramNotFoundError,
+  updatePartnerProgram,
+} from './partnerProgramService';
+import {
   getPartnerPortfolioSummary,
   linkManagedOrganization,
   parseLinkManagedOrgBody,
@@ -294,6 +304,79 @@ app.patch(
   }
 );
 
+app.get(
+  '/api/partner/programs',
+  jwtAuth,
+  requireInstitutionalPartner,
+  requirePartnerCtx,
+  async (req, res, next) => {
+    try {
+      const partner = (req as any).partner as { partnerId: string };
+      const programs = await listPartnerPrograms(partner.partnerId);
+      return res.json({ partnerId: partner.partnerId, programs });
+    } catch (err) {
+      return next(err);
+    }
+  }
+);
+
+app.post(
+  '/api/partner/programs',
+  jwtAuth,
+  requireInstitutionalPartner,
+  requirePartnerCtx,
+  requirePartnerAdminMw,
+  async (req, res, next) => {
+    try {
+      const partner = (req as any).partner as { partnerId: string };
+      const input = parsePartnerProgramCreateBody(req.body);
+      const program = await createPartnerProgram(partner.partnerId, input);
+      return res.status(201).json({ partnerId: partner.partnerId, program });
+    } catch (err) {
+      return next(err);
+    }
+  }
+);
+
+app.patch(
+  '/api/partner/programs/:programId',
+  jwtAuth,
+  requireInstitutionalPartner,
+  requirePartnerCtx,
+  requirePartnerAdminMw,
+  async (req, res, next) => {
+    try {
+      const partner = (req as any).partner as { partnerId: string };
+      const patch = parsePartnerProgramPatchBody(req.body);
+      const program = await updatePartnerProgram(partner.partnerId, req.params['programId']!, patch);
+      return res.json({ partnerId: partner.partnerId, program });
+    } catch (err) {
+      return next(err);
+    }
+  }
+);
+
+app.get(
+  '/api/partner/programs/:programId/summary',
+  jwtAuth,
+  requireInstitutionalPartner,
+  requirePartnerCtx,
+  async (req, res, next) => {
+    try {
+      const partner = (req as any).partner as { partnerId: string; role: PartnerUserRole };
+      const includeInactive =
+        partner.role === 'PARTNER_ADMIN' && String(req.query['includeInactive'] ?? '') === 'true';
+      const summary = await getPartnerProgramSummary(partner.partnerId, req.params['programId']!, {
+        role: partner.role,
+        includeInactive,
+      });
+      return res.json(summary);
+    } catch (err) {
+      return next(err);
+    }
+  }
+);
+
 // Generic error handler: keep output stable and avoid leaking internals.
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   // Subscription errors
@@ -328,6 +411,12 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     return res.status(400).json({ error: 'INVALID_PARTNER_PORTFOLIO_INPUT', detail: err.message });
   }
   if (err instanceof PartnerPortfolioNotFoundError) {
+    return res.status(404).json({ error: err.message });
+  }
+  if (err instanceof PartnerProgramInputError) {
+    return res.status(400).json({ error: 'INVALID_PARTNER_PROGRAM_INPUT', detail: err.message });
+  }
+  if (err instanceof PartnerProgramNotFoundError) {
     return res.status(404).json({ error: err.message });
   }
 

@@ -24,6 +24,13 @@ const AUDIT_PREP_STATUSES: readonly AuditPrepOverallStatus[] = [
 
 const SUBSCRIPTION_STATUSES = ['ACTIVE', 'PAST_DUE', 'CANCELED'] as const;
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function assertProgramBelongsToPartner(partnerId: string, programId: string): Promise<void> {
+  const p = await prisma.partnerProgram.findFirst({ where: { id: programId, partnerId }, select: { id: true } });
+  if (!p) throw new PartnerPortfolioInputError('program_not_found');
+}
+
 export class PartnerPortfolioInputError extends Error {
   constructor(message: string) {
     super(message);
@@ -41,6 +48,7 @@ export class PartnerPortfolioNotFoundError extends Error {
 export interface PartnerPortfolioListFilters {
   isActive?: boolean;
   cohortLabel?: string;
+  programId?: string;
   subscriptionStatus?: string;
   auditPrepOverallStatus?: AuditPrepOverallStatus;
   governanceComplete?: boolean;
@@ -54,6 +62,8 @@ export interface PartnerPortfolioOrgRow {
   ein: string;
   subscriptionTier: string;
   subscriptionStatus: string;
+  programId: string | null;
+  programLabel: string | null;
   cohortLabel: string | null;
   isActive: boolean;
   partnerNotes: string | null;
@@ -86,6 +96,8 @@ export interface PartnerPortfolioSummaryResult {
 export type PartnerMembershipPublic = {
   id: string;
   orgId: string;
+  programId: string | null;
+  programLabel: string | null;
   cohortLabel: string | null;
   isActive: boolean;
   partnerNotes: string | null;
@@ -118,6 +130,12 @@ export function parsePartnerPortfolioListFiltersFromQuery(q: Record<string, unkn
 
   const cohort = g('cohortLabel');
   if (cohort !== undefined && cohort !== '') out.cohortLabel = cohort;
+
+  const programId = g('programId');
+  if (programId !== undefined && programId !== '') {
+    if (!UUID_RE.test(programId)) throw new PartnerPortfolioInputError('programId_invalid');
+    out.programId = programId;
+  }
 
   const sub = g('subscriptionStatus');
   if (sub) {
@@ -231,6 +249,10 @@ export async function getPartnerPortfolioSummary(
     where.cohortLabel = userFilters.cohortLabel;
   }
 
+  if (userFilters.programId) {
+    where.programId = userFilters.programId;
+  }
+
   if (userFilters.subscriptionStatus) {
     where.org = {
       subscriptionStatus: userFilters.subscriptionStatus as (typeof SUBSCRIPTION_STATUSES)[number],
@@ -240,6 +262,7 @@ export async function getPartnerPortfolioSummary(
   const memberships = await prisma.partnerOrgMembership.findMany({
     where,
     include: {
+      program: { select: { id: true, label: true } },
       org: {
         select: {
           id: true,
@@ -285,6 +308,8 @@ export async function getPartnerPortfolioSummary(
       ein: row.org.ein,
       subscriptionTier: row.org.subscriptionTier,
       subscriptionStatus: row.org.subscriptionStatus,
+      programId: row.programId,
+      programLabel: row.program?.label ?? null,
       cohortLabel: row.cohortLabel,
       isActive: row.isActive,
       partnerNotes: row.partnerNotes,
@@ -318,6 +343,7 @@ export async function linkManagedOrganization(
   partnerId: string,
   input: {
     orgId: string;
+    programId?: string | null;
     cohortLabel?: string | null;
     partnerNotes?: string | null;
     partnerTags?: string[];
@@ -331,6 +357,10 @@ export async function linkManagedOrganization(
     org: { connect: { id: input.orgId } },
     cohortLabel: input.cohortLabel ?? null,
   };
+  if (Object.prototype.hasOwnProperty.call(input, 'programId') && input.programId != null) {
+    await assertProgramBelongsToPartner(partnerId, input.programId);
+    data.program = { connect: { id: input.programId } };
+  }
   if (Object.prototype.hasOwnProperty.call(input, 'partnerNotes')) {
     if (input.partnerNotes === null || input.partnerNotes === undefined) {
       data.partnerNotes = null;
@@ -347,6 +377,7 @@ export async function linkManagedOrganization(
   try {
     const created = await prisma.partnerOrgMembership.create({
       data,
+      include: { program: { select: { id: true, label: true } } },
     });
     return membershipToPublic(created);
   } catch (err) {
@@ -360,14 +391,18 @@ export async function linkManagedOrganization(
 function membershipToPublic(m: {
   id: string;
   orgId: string;
+  programId: string | null;
   cohortLabel: string | null;
   isActive: boolean;
   partnerNotes: string | null;
   partnerTags: string[];
+  program?: { id: string; label: string } | null;
 }): PartnerMembershipPublic {
   return {
     id: m.id,
     orgId: m.orgId,
+    programId: m.programId,
+    programLabel: m.program?.label ?? null,
     cohortLabel: m.cohortLabel,
     isActive: m.isActive,
     partnerNotes: m.partnerNotes,
@@ -379,6 +414,7 @@ export async function updateManagedOrganization(
   partnerId: string,
   orgId: string,
   patch: {
+    programId?: string | null;
     cohortLabel?: string | null;
     isActive?: boolean;
     partnerNotes?: string | null;
@@ -391,6 +427,14 @@ export async function updateManagedOrganization(
   if (!membership) throw new PartnerPortfolioNotFoundError('PARTNER_MEMBERSHIP_NOT_FOUND');
 
   const data: Prisma.PartnerOrgMembershipUpdateInput = {};
+  if (Object.prototype.hasOwnProperty.call(patch, 'programId')) {
+    if (patch.programId === null || patch.programId === undefined) {
+      data.program = { disconnect: true };
+    } else {
+      await assertProgramBelongsToPartner(partnerId, patch.programId);
+      data.program = { connect: { id: patch.programId } };
+    }
+  }
   if (Object.prototype.hasOwnProperty.call(patch, 'cohortLabel')) {
     data.cohortLabel = patch.cohortLabel ?? null;
   }
@@ -413,12 +457,22 @@ export async function updateManagedOrganization(
   const updated = await prisma.partnerOrgMembership.update({
     where: { id: membership.id },
     data,
+    include: { program: { select: { id: true, label: true } } },
   });
   return membershipToPublic(updated);
 }
 
+function readOptionalProgramId(o: Record<string, unknown>): string | null | undefined {
+  if (!Object.prototype.hasOwnProperty.call(o, 'programId')) return undefined;
+  const v = o['programId'];
+  if (v === null || v === undefined) return null;
+  if (typeof v !== 'string' || !UUID_RE.test(v)) throw new PartnerPortfolioInputError('programId_invalid');
+  return v;
+}
+
 export function parseLinkManagedOrgBody(body: unknown): {
   orgId: string;
+  programId?: string | null;
   cohortLabel?: string | null;
   partnerNotes?: string | null;
   partnerTags?: string[];
@@ -432,10 +486,13 @@ export function parseLinkManagedOrgBody(body: unknown): {
   }
   const result: {
     orgId: string;
+    programId?: string | null;
     cohortLabel?: string | null;
     partnerNotes?: string | null;
     partnerTags?: string[];
   } = { orgId: o['orgId'].trim() };
+  const pid = readOptionalProgramId(o);
+  if (pid !== undefined) result.programId = pid;
   if (Object.prototype.hasOwnProperty.call(o, 'cohortLabel')) {
     if (o['cohortLabel'] === null || o['cohortLabel'] === undefined) {
       result.cohortLabel = null;
@@ -453,6 +510,7 @@ export function parseLinkManagedOrgBody(body: unknown): {
 }
 
 export function parseUpdateManagedOrgBody(body: unknown): {
+  programId?: string | null;
   cohortLabel?: string | null;
   isActive?: boolean;
   partnerNotes?: string | null;
@@ -463,11 +521,14 @@ export function parseUpdateManagedOrgBody(body: unknown): {
   }
   const o = body as Record<string, unknown>;
   const result: {
+    programId?: string | null;
     cohortLabel?: string | null;
     isActive?: boolean;
     partnerNotes?: string | null;
     partnerTags?: string[];
   } = {};
+  const pid = readOptionalProgramId(o);
+  if (pid !== undefined) result.programId = pid;
   if (Object.prototype.hasOwnProperty.call(o, 'cohortLabel')) {
     if (o['cohortLabel'] === null) result.cohortLabel = null;
     else if (typeof o['cohortLabel'] === 'string') result.cohortLabel = o['cohortLabel'].trim() || null;

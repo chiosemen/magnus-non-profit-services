@@ -17,6 +17,8 @@ type PortfolioRow = {
   name: string;
   ein: string;
   subscriptionStatus: string;
+  programId: string | null;
+  programLabel: string | null;
   cohortLabel: string | null;
   isActive: boolean;
   partnerNotes: string | null;
@@ -127,6 +129,7 @@ export default async function PartnerPortfolioPage({
             <tr style={{ textAlign: 'left', borderBottom: '1px solid rgba(0,0,0,0.12)' }}>
               <th style={{ padding: '8px 6px' }}>Organization</th>
               <th style={{ padding: '8px 6px' }}>EIN</th>
+              <th style={{ padding: '8px 6px' }}>Program</th>
               <th style={{ padding: '8px 6px' }}>Cohort</th>
               <th style={{ padding: '8px 6px' }}>Active</th>
               <th style={{ padding: '8px 6px' }}>Subscription</th>
@@ -141,6 +144,7 @@ export default async function PartnerPortfolioPage({
               <tr key={row.membershipId} style={{ borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
                 <td style={{ padding: '8px 6px' }}>{row.name}</td>
                 <td style={{ padding: '8px 6px', fontFamily: 'monospace' }}>{row.ein}</td>
+                <td style={{ padding: '8px 6px' }}>{row.programLabel ?? '—'}</td>
                 <td style={{ padding: '8px 6px' }}>{row.cohortLabel ?? '—'}</td>
                 <td style={{ padding: '8px 6px' }}>{row.isActive ? 'yes' : 'no'}</td>
                 <td style={{ padding: '8px 6px' }}>{row.subscriptionStatus}</td>
@@ -170,6 +174,8 @@ export default async function PartnerPortfolioPage({
       </div>
 
       <p style={{ fontSize: 13 }}>
+        <a href="/dashboard/partner/programs">Partner programs</a>
+        {' · '}
         <a href="/dashboard">← Back to dashboard</a>
         {selfBase ? (
           <>

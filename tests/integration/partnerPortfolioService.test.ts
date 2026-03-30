@@ -16,6 +16,7 @@ const PARTNER_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const BILLING_ORG = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const MANAGED_ORG = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const USER_ID = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+const PROG_ID = 'ffffffff-ffff-4fff-8fff-ffffffffffff';
 
 const govMock = vi.hoisted(() => vi.fn());
 const stateMock = vi.hoisted(() => vi.fn());
@@ -37,6 +38,8 @@ type MockMembership = {
   id: string;
   partnerId: string;
   orgId: string;
+  programId: string | null;
+  programLabel: string | null;
   cohortLabel: string | null;
   isActive: boolean;
   partnerNotes: string | null;
@@ -52,14 +55,19 @@ type MockMembership = {
 
 const dbState = vi.hoisted(() => {
   let organizations: Array<{ id: string }> = [];
+  let programs: Array<{ id: string; partnerId: string; label: string }> = [];
   let memberships: MockMembership[] = [];
   let lastFindManyWhere: Record<string, unknown> | null = null;
 
   return {
     reset() {
       organizations = [];
+      programs = [];
       memberships = [];
       lastFindManyWhere = null;
+    },
+    seedProgram(id: string, partnerId: string, label: string) {
+      programs.push({ id, partnerId, label });
     },
     seedOrg(id: string) {
       organizations.push({ id });
@@ -73,6 +81,8 @@ const dbState = vi.hoisted(() => {
         subscriptionStatus: 'ACTIVE',
       };
       memberships.push({
+        programId: null,
+        programLabel: null,
         partnerNotes: null,
         partnerTags: [],
         ...row,
@@ -107,7 +117,18 @@ const dbState = vi.hoisted(() => {
         if (orgWhere?.subscriptionStatus) {
           rows = rows.filter(m => m.org.subscriptionStatus === orgWhere.subscriptionStatus);
         }
-        return [...rows].sort((a, b) => a.orgId.localeCompare(b.orgId));
+        const progId = args.where['programId'] as string | undefined;
+        if (typeof progId === 'string') {
+          rows = rows.filter(m => m.programId === progId);
+        }
+        return [...rows]
+          .sort((a, b) => a.orgId.localeCompare(b.orgId))
+          .map(row => ({
+            ...row,
+            program: row.programId
+              ? { id: row.programId, label: row.programLabel ?? 'Program' }
+              : null,
+          }));
       },
       async create(args: {
         data: {
@@ -115,6 +136,7 @@ const dbState = vi.hoisted(() => {
           orgId?: string;
           partner?: { connect: { id: string } };
           org?: { connect: { id: string } };
+          program?: { connect: { id: string } };
           cohortLabel: string | null;
           partnerNotes?: string | null;
           partnerTags?: string[];
@@ -125,10 +147,19 @@ const dbState = vi.hoisted(() => {
         if (!partnerId || !orgId) throw new Error('missing ids');
         const org = organizations.find(o => o.id === orgId);
         if (!org) throw new Error('missing org');
+        let programId: string | null = null;
+        let programLabel: string | null = null;
+        if (args.data.program?.connect?.id) {
+          programId = args.data.program.connect.id;
+          const pr = programs.find(p => p.id === programId && p.partnerId === partnerId);
+          programLabel = pr?.label ?? null;
+        }
         const row: MockMembership = {
           id: `mem-${memberships.length + 1}`,
           partnerId,
           orgId,
+          programId,
+          programLabel,
           cohortLabel: args.data.cohortLabel,
           isActive: true,
           partnerNotes: args.data.partnerNotes ?? null,
@@ -142,7 +173,11 @@ const dbState = vi.hoisted(() => {
           },
         };
         memberships.push(row);
-        return { ...row, createdAt: new Date(), updatedAt: new Date() };
+        const withProg = {
+          ...row,
+          program: programId ? { id: programId, label: programLabel ?? 'Program' } : null,
+        };
+        return { ...withProg, createdAt: new Date(), updatedAt: new Date() };
       },
       async findFirst(args: { where: { partnerId: string; orgId: string } }) {
         return (
@@ -156,16 +191,43 @@ const dbState = vi.hoisted(() => {
           isActive?: boolean;
           partnerNotes?: string | null;
           partnerTags?: { set: string[] };
+          program?: { connect: { id: string } } | { disconnect: boolean };
         };
       }) {
         const row = memberships.find(m => m.id === args.where.id);
         if (!row) throw new Error('not found');
         const d = args.data;
+        if (
+          d.program &&
+          typeof d.program === 'object' &&
+          'disconnect' in d.program &&
+          (d.program as { disconnect?: boolean }).disconnect === true
+        ) {
+          row.programId = null;
+          row.programLabel = null;
+        }
+        if (d.program && 'connect' in d.program && d.program.connect?.id) {
+          row.programId = d.program.connect.id;
+          const pr = programs.find(p => p.id === row.programId && p.partnerId === row.partnerId);
+          row.programLabel = pr?.label ?? null;
+        }
         if (Object.prototype.hasOwnProperty.call(d, 'cohortLabel')) row.cohortLabel = d.cohortLabel ?? null;
         if (typeof d.isActive === 'boolean') row.isActive = d.isActive;
         if (Object.prototype.hasOwnProperty.call(d, 'partnerNotes')) row.partnerNotes = d.partnerNotes ?? null;
         if (d.partnerTags?.set) row.partnerTags = [...d.partnerTags.set];
-        return { ...row, createdAt: new Date(), updatedAt: new Date() };
+        return {
+          ...row,
+          program: row.programId
+            ? { id: row.programId, label: row.programLabel ?? 'Program' }
+            : null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+      },
+    },
+    partnerProgram: {
+      async findFirst(args: { where: { id: string; partnerId: string } }) {
+        return programs.find(p => p.id === args.where.id && p.partnerId === args.where.partnerId) ?? null;
       },
     },
   };
@@ -175,6 +237,7 @@ vi.mock('@magnus/db/client', () => {
   const prisma = {
     organization: dbState.organization,
     partnerOrgMembership: dbState.partnerOrgMembership,
+    partnerProgram: dbState.partnerProgram,
   };
   return { default: prisma, prisma };
 });
@@ -336,6 +399,8 @@ describe('partner portfolio service', () => {
     expect(o).toMatchObject({
       membershipId: 'm1',
       orgId: MANAGED_ORG,
+      programId: null,
+      programLabel: null,
       cohortLabel: 'C1',
       isActive: true,
       partnerNotes: 'n1',
@@ -353,6 +418,8 @@ describe('partner portfolio service', () => {
         'orgId',
         'partnerNotes',
         'partnerTags',
+        'programId',
+        'programLabel',
         'stateRegistrations',
         'subscriptionStatus',
         'subscriptionTier',
@@ -463,6 +530,7 @@ describe('partner portfolio service', () => {
       parsePartnerPortfolioListFiltersFromQuery({
         isActive: 'false',
         cohortLabel: 'c1',
+        programId: PROG_ID,
         subscriptionStatus: 'ACTIVE',
         auditPrepOverallStatus: 'in_progress',
         governanceComplete: 'true',
@@ -471,6 +539,7 @@ describe('partner portfolio service', () => {
     ).toEqual({
       isActive: false,
       cohortLabel: 'c1',
+      programId: PROG_ID,
       subscriptionStatus: 'ACTIVE',
       auditPrepOverallStatus: 'in_progress',
       governanceComplete: true,
@@ -479,12 +548,47 @@ describe('partner portfolio service', () => {
     expect(() =>
       parsePartnerPortfolioListFiltersFromQuery({ subscriptionStatus: 'INVALID' })
     ).toThrow(PartnerPortfolioInputError);
+    expect(() => parsePartnerPortfolioListFiltersFromQuery({ programId: 'not-a-uuid' })).toThrow(
+      PartnerPortfolioInputError
+    );
+  });
+
+  it('filters portfolio rows by programId', async () => {
+    dbState.seedProgram(PROG_ID, PARTNER_ID, 'Cohort A');
+    dbState.seedMembership({
+      id: 'm1',
+      partnerId: PARTNER_ID,
+      orgId: MANAGED_ORG,
+      programId: PROG_ID,
+      programLabel: 'Cohort A',
+      cohortLabel: null,
+      isActive: true,
+    });
+    const summary = await getPartnerPortfolioSummary(PARTNER_ID, {
+      role: 'PARTNER_ADMIN',
+      includeInactive: true,
+      filters: { programId: PROG_ID },
+    });
+    expect(summary.organizations).toHaveLength(1);
+    expect(summary.organizations[0]!.programLabel).toBe('Cohort A');
+  });
+
+  it('links with program when program exists for partner', async () => {
+    dbState.seedProgram(PROG_ID, PARTNER_ID, 'P1');
+    dbState.seedOrg(MANAGED_ORG);
+    const row = await linkManagedOrganization(PARTNER_ID, { orgId: MANAGED_ORG, programId: PROG_ID });
+    expect(row.programId).toBe(PROG_ID);
+    expect(row.programLabel).toBe('P1');
   });
 
   it('parses link and update bodies', () => {
     expect(parseLinkManagedOrgBody({ orgId: '  ' + MANAGED_ORG + '  ', cohortLabel: ' A ' })).toEqual({
       orgId: MANAGED_ORG,
       cohortLabel: 'A',
+    });
+    expect(parseLinkManagedOrgBody({ orgId: MANAGED_ORG, programId: PROG_ID })).toEqual({
+      orgId: MANAGED_ORG,
+      programId: PROG_ID,
     });
     expect(() => parseLinkManagedOrgBody({})).toThrow(PartnerPortfolioInputError);
     expect(parseUpdateManagedOrgBody({ isActive: false })).toEqual({ isActive: false });

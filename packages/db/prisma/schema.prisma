@@ -349,8 +349,27 @@ model InstitutionalPartner {
   billingOrganization Organization         @relation("InstitutionalPartnerBilling", fields: [billingOrgId], references: [id])
   memberships         PartnerOrgMembership[]
   partnerUsers        PartnerUser[]
+  programs            PartnerProgram[]
 
   @@index([billingOrgId])
+}
+
+model PartnerProgram {
+  id              String   @id @default(uuid()) @db.Uuid
+  partnerId       String   @db.Uuid
+  label           String
+  slug            String?
+  isActive        Boolean  @default(true)
+  notes           String?
+  enabledFeatures String[] @default([])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  partner     InstitutionalPartner     @relation(fields: [partnerId], references: [id])
+  memberships PartnerOrgMembership[]
+
+  @@unique([partnerId, slug])
+  @@index([partnerId])
 }
 
 model PartnerUser {
@@ -372,6 +391,7 @@ model PartnerOrgMembership {
   id            String   @id @default(uuid()) @db.Uuid
   partnerId     String   @db.Uuid
   orgId         String   @db.Uuid
+  programId     String?  @db.Uuid
   cohortLabel   String?
   isActive      Boolean  @default(true)
   partnerNotes  String?
@@ -381,10 +401,12 @@ model PartnerOrgMembership {
 
   partner InstitutionalPartner @relation(fields: [partnerId], references: [id])
   org     Organization         @relation(fields: [orgId], references: [id])
+  program PartnerProgram?      @relation(fields: [programId], references: [id])
 
   @@unique([partnerId, orgId])
   @@index([partnerId])
   @@index([orgId])
+  @@index([programId])
 }
 
 model Worker {
