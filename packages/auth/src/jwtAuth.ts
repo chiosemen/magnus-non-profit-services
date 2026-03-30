@@ -1,10 +1,15 @@
 import jwt from 'jsonwebtoken';
 
+/** Institutional partner staff JWT claim; must match DB `PartnerUser.role` when using partner routes. */
+export type PartnerJwtRole = 'PARTNER_ADMIN' | 'PARTNER_VIEWER';
+
 export type AuthContext = {
   orgId: string;
   workerId?: string;
   role: string;
   sub?: string;
+  partnerId?: string;
+  partnerRole?: PartnerJwtRole;
 };
 
 export type JwtAuthOptions = {
@@ -20,6 +25,8 @@ type JwtAppPayload = {
   role?: unknown;
   roles?: unknown;
   sub?: unknown;
+  partnerId?: unknown;
+  partnerRole?: unknown;
 };
 
 // Framework-agnostic Express-compatible middleware.
@@ -78,11 +85,18 @@ export function createJwtAuthMiddleware(options: JwtAuthOptions = {}) {
       return;
     }
 
+    const partnerId = typeof payload.partnerId === 'string' && payload.partnerId.trim().length > 0
+      ? payload.partnerId.trim()
+      : undefined;
+    const partnerRole = parsePartnerJwtRole(payload.partnerRole);
+
     const auth: AuthContext = {
       orgId,
       ...(workerId ? { workerId } : {}),
       role,
       ...(sub ? { sub } : {}),
+      ...(partnerId ? { partnerId } : {}),
+      ...(partnerRole ? { partnerRole } : {}),
     };
     req.auth = auth;
     next();
@@ -102,5 +116,10 @@ function parseRole(payload: JwtAppPayload): string | null {
     return payload.roles[0];
   }
   return null;
+}
+
+function parsePartnerJwtRole(value: unknown): PartnerJwtRole | undefined {
+  if (value === 'PARTNER_ADMIN' || value === 'PARTNER_VIEWER') return value;
+  return undefined;
 }
 

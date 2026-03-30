@@ -110,6 +110,30 @@ test('ENTERPRISE allows agents_layer', async () => {
   assert.equal(err, undefined, 'ENTERPRISE should allow agents_layer');
 });
 
+test('ENTERPRISE allows institutional_partner', async () => {
+  const secret = 'x'.repeat(32);
+  const token = jwt.sign({ orgId: 'org1' }, secret, { algorithm: 'HS256', expiresIn: '1h' });
+  const mw = requireFeature('institutional_partner', {
+    jwtSecret: secret,
+    db: fakeDb({ tier: 'ENTERPRISE', status: 'ACTIVE' }),
+  });
+
+  const err = await runMw(mw, { headers: { authorization: `Bearer ${token}` } });
+  assert.equal(err, undefined, 'ENTERPRISE should allow institutional_partner');
+});
+
+test('GROWTH denies institutional_partner', async () => {
+  const secret = 'x'.repeat(32);
+  const token = jwt.sign({ orgId: 'org1' }, secret, { algorithm: 'HS256', expiresIn: '1h' });
+  const mw = requireFeature('institutional_partner', {
+    jwtSecret: secret,
+    db: fakeDb({ tier: 'GROWTH', status: 'ACTIVE' }),
+  });
+
+  const err = await runMw(mw, { headers: { authorization: `Bearer ${token}` } });
+  assert.ok(err instanceof FeatureNotEnabledError, 'GROWTH should deny institutional_partner');
+});
+
 // ─── Denied Cases ───────────────────────────────────────────────────────────
 
 test('STARTER denies grant_generator', async () => {

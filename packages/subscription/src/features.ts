@@ -3,5 +3,6 @@ export type FeatureKey =
   | 'grant_generator'
   | 'claude_partner'
   | 'worker_financial_layer'
-  | 'agents_layer';
+  | 'agents_layer'
+  | 'institutional_partner';
 

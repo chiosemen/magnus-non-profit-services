@@ -15,6 +15,12 @@ test('GROWTH allows compliance_calendar + grant_generator', () => {
 test('ENTERPRISE allows full OS', () => {
   assert.equal(isFeatureEnabled({ tier: 'ENTERPRISE', status: 'ACTIVE', featureKey: 'agents_layer' }), true);
   assert.equal(isFeatureEnabled({ tier: 'ENTERPRISE', status: 'ACTIVE', featureKey: 'worker_financial_layer' }), true);
+  assert.equal(isFeatureEnabled({ tier: 'ENTERPRISE', status: 'ACTIVE', featureKey: 'institutional_partner' }), true);
+});
+
+test('GROWTH and STARTER deny institutional_partner', () => {
+  assert.equal(isFeatureEnabled({ tier: 'GROWTH', status: 'ACTIVE', featureKey: 'institutional_partner' }), false);
+  assert.equal(isFeatureEnabled({ tier: 'STARTER', status: 'ACTIVE', featureKey: 'institutional_partner' }), false);
 });
 
 test('non-ACTIVE subscription status disables all features', () => {
