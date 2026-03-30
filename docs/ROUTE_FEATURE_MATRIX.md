@@ -7,13 +7,14 @@ This document maps all premium routes to their required subscription features an
 | Tier | Features |
 |------|----------|
 | STARTER | `compliance_calendar` |
-| GROWTH | `compliance_calendar`, `grant_generator` |
+| GROWTH | `compliance_calendar`, `grant_generator`, `restricted_funds` |
 | ENTERPRISE | All features |
 
 ## Feature Keys
 
 - `compliance_calendar` - Compliance calendar and filing management
 - `grant_generator` - AI-powered grant proposal generation
+- `restricted_funds` - Restricted fund tracking (deterministic; not full GAAP accounting)
 - `claude_partner` - Claude AI integration and prompt management
 - `worker_financial_layer` - Worker financial tools and analysis
 - `agents_layer` - MCP tools and agent integrations
@@ -28,6 +29,9 @@ This document maps all premium routes to their required subscription features an
 | `/api/org/overview` | GET | `compliance_calendar` | STARTER+ |
 | `/api/org/compliance` | GET | `compliance_calendar` | STARTER+ |
 | `/api/org/grants` | GET | `grant_generator` | GROWTH+ |
+| `/api/org/restricted-funds` | GET/POST | `restricted_funds` | GROWTH+ |
+| `/api/org/restricted-funds/:id` | GET | `restricted_funds` | GROWTH+ |
+| `/api/org/restricted-funds/:id/drawdowns` | POST | `restricted_funds` | GROWTH+ |
 
 ### grant-generator
 

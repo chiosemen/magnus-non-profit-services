@@ -12,6 +12,14 @@ import {
   SubscriptionNotActiveError,
 } from '@magnus/subscription';
 import { getOrgComplianceCalendar, getOrgGrants, getOrgOverview } from './orgReadService';
+import {
+  createRestrictedFund,
+  CreateRestrictedFundSchema,
+  getRestrictedFundSummary,
+  listRestrictedFunds,
+  recordRestrictedFundUsageEvent,
+  RecordUsageEventSchema,
+} from './restrictedFundsService';
 
 try {
   validateEnv('org-dashboard-api');
@@ -30,6 +38,7 @@ app.use(express.json({ limit: '1mb' }));
 const jwtAuth = createJwtAuthMiddleware();
 const requireCompliance = requireFeature('compliance_calendar');
 const requireGrants = requireFeature('grant_generator');
+const requireRestrictedFunds = requireFeature('restricted_funds');
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
@@ -59,6 +68,60 @@ app.get('/api/org/grants', jwtAuth, requireGrants, async (req, res, next) => {
     const orgId = (req as any).auth.orgId as string;
     const items = await getOrgGrants(orgId);
     return res.json({ orgId, grants: items });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// ─── Restricted Funds (v1) ────────────────────────────────────────────────────
+
+app.get('/api/org/restricted-funds', jwtAuth, requireRestrictedFunds, async (req, res, next) => {
+  try {
+    const orgId = (req as any).auth.orgId as string;
+    const funds = await listRestrictedFunds(orgId);
+    return res.json({ orgId, restrictedFunds: funds });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+app.post('/api/org/restricted-funds', jwtAuth, requireRestrictedFunds, async (req, res, next) => {
+  try {
+    const orgId = (req as any).auth.orgId as string;
+    const parseResult = CreateRestrictedFundSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      return res.status(400).json({ error: 'VALIDATION_ERROR', details: parseResult.error.flatten().fieldErrors });
+    }
+    const fund = await createRestrictedFund({ orgId, input: parseResult.data });
+    return res.status(201).json({ fund });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+app.get('/api/org/restricted-funds/:id', jwtAuth, requireRestrictedFunds, async (req, res, next) => {
+  try {
+    const orgId = (req as any).auth.orgId as string;
+    const id = req.params['id']!;
+    const summary = await getRestrictedFundSummary({ orgId, restrictedFundId: id });
+    if (!summary) return res.status(404).json({ error: 'RESTRICTED_FUND_NOT_FOUND' });
+    return res.json(summary);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+app.post('/api/org/restricted-funds/:id/drawdowns', jwtAuth, requireRestrictedFunds, async (req, res, next) => {
+  try {
+    const orgId = (req as any).auth.orgId as string;
+    const id = req.params['id']!;
+    const parseResult = RecordUsageEventSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      return res.status(400).json({ error: 'VALIDATION_ERROR', details: parseResult.error.flatten().fieldErrors });
+    }
+    const evt = await recordRestrictedFundUsageEvent({ orgId, restrictedFundId: id, input: parseResult.data });
+    if (!evt) return res.status(404).json({ error: 'RESTRICTED_FUND_NOT_FOUND' });
+    return res.status(201).json({ usageEvent: evt });
   } catch (err) {
     return next(err);
   }

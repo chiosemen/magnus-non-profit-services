@@ -28,6 +28,7 @@
     "@anthropic-ai/sdk": "^0.28.0",
     "@magnus/config": "workspace:*",
     "@magnus/db": "workspace:*",
+    "@magnus/financial": "workspace:*",
     "@magnus/grants": "workspace:*",
     "@magnus/logging": "workspace:*",
     "@magnus/subscription": "workspace:*",
