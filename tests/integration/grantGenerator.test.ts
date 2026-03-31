@@ -44,7 +44,9 @@ vi.mock('../../apps/grant-generator/services/QualityValidator', () => ({
 const { app } = await import('../../apps/grant-generator/src/index');
 
 const ORG_ID = '11111111-1111-4111-8111-111111111111';
-const ORG_EIN = '123456789';
+// Use a suite-specific EIN to avoid cross-suite unique constraint collisions
+// when multiple integration tests create organizations by different IDs.
+const ORG_EIN = '123450003';
 
 function createGrantJwt(): string {
   return jwt.sign(

@@ -27,5 +27,9 @@ export default defineConfig({
     environment: 'node',
     setupFiles: ['tests/integration/setup.ts'],
     testTimeout: 15000,
+    // Integration tests share a real Postgres schema. Run single-threaded to avoid
+    // cross-suite fixture collisions (e.g., same EIN constants) when targeting one DB.
+    minThreads: 1,
+    maxThreads: 1,
   },
 });
