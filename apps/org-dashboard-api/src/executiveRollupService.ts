@@ -166,13 +166,22 @@ export async function getExecutiveRollup(orgId: string, now: Date = new Date()) 
 
   if (can(tier, status, 'volunteer_operations')) {
     const vol = await getVolunteerOperationsSummary(orgId, now);
+    const volExecCoverage: SectionCoverage =
+      vol.volunteerDataStatus === 'OK'
+        ? 'ok'
+        : vol.volunteerDataStatus === 'NOT_CONFIGURED'
+          ? 'unavailable'
+          : 'weak';
     sections.volunteerOperations = {
-      coverage: vol.totals.timeEntryCount > 0 ? 'ok' : 'weak',
+      coverage: volExecCoverage,
       source: 'volunteer_operations',
       dashboardHref: '/dashboard/volunteer-operations',
       summary: {
+        volunteerDataStatus: vol.volunteerDataStatus,
         totalHours: vol.totals.totalHours,
+        timeEntryCount: vol.totals.timeEntryCount,
         activeVolunteers: vol.totals.activeVolunteerProfiles,
+        volunteersWithHoursLast365: vol.totals.volunteersWithHoursLast365,
         inKindAvailable: vol.assumptions.inKindAvailable,
       },
     };

@@ -1,7 +1,6 @@
 import prisma from '@magnus/db/client';
 import { z } from 'zod';
-
-/** In-kind estimate: hours × org.volunteerHourlyRateUsd when rate is set; otherwise unavailable. */
+import { computeVolunteerOperationsAnalytics } from './volunteerOperationsAnalytics';
 
 export const CreateVolunteerProfileSchema = z
   .object({
@@ -124,30 +123,21 @@ export async function getVolunteerOperationsSummary(orgId: string, now: Date = n
     }),
   ]);
 
-  const activeVolunteers = new Set(
-    profiles.filter(p => p.isActive).map(p => p.id)
-  );
-  const hoursByProgram = new Map<string, number>();
-  let totalHours = 0;
-  for (const e of entries) {
-    const h = Number(e.hours);
-    totalHours += h;
-    hoursByProgram.set(e.programLabel, (hoursByProgram.get(e.programLabel) ?? 0) + h);
-  }
-
   const rate = org?.volunteerHourlyRateUsd != null ? Number(org.volunteerHourlyRateUsd) : null;
-  const inKindEstimateUsd =
-    rate != null && Number.isFinite(rate) ? Math.round(totalHours * rate * 100) / 100 : null;
 
-  const missingTimesheetAlerts = entries
-    .filter(e => e.timesheetStatus === 'MISSING_REQUIRED_FIELDS')
-    .slice(0, 100)
-    .map(e => ({
-      timeEntryId: e.id,
+  const analytics = computeVolunteerOperationsAnalytics(
+    profiles.map(p => ({ id: p.id, displayName: p.displayName, isActive: p.isActive })),
+    entries.map(e => ({
+      id: e.id,
       volunteerId: e.volunteerId,
-      occurredAt: e.occurredAt.toISOString(),
-      message: 'Time entry flagged MISSING_REQUIRED_FIELDS (operational follow-up).',
-    }));
+      programLabel: e.programLabel,
+      hours: Number(e.hours),
+      occurredAt: e.occurredAt,
+      timesheetStatus: e.timesheetStatus,
+    })),
+    rate != null && Number.isFinite(rate) ? rate : null,
+    now
+  );
 
   const assignmentIdsWithTime = new Set(
     entries.map(e => e.volunteerAssignmentId).filter((x): x is string => x != null)
@@ -163,21 +153,16 @@ export async function getVolunteerOperationsSummary(orgId: string, now: Date = n
 
   return {
     orgId,
-    assumptions: {
-      inKindFormula: 'sum(hours) × organization.volunteerHourlyRateUsd when rate is configured',
-      hourlyRateUsd: rate,
-      inKindEstimateUsd,
-      inKindAvailable: rate != null,
-    },
-    totals: {
-      totalHours: Math.round(totalHours * 100) / 100,
-      activeVolunteerProfiles: activeVolunteers.size,
-      totalVolunteerProfiles: profiles.length,
-      timeEntryCount: entries.length,
-    },
-    hoursByProgram: Array.from(hoursByProgram.entries())
-      .map(([programLabel, hours]) => ({ programLabel, hours: Math.round(hours * 100) / 100 }))
-      .sort((a, b) => b.hours - a.hours),
+    volunteerDataStatus: analytics.volunteerDataStatus,
+    coverage: analytics.coverage,
+    formulas: analytics.formulas,
+    meta: analytics.meta,
+    assumptions: analytics.assumptions,
+    totals: analytics.totals,
+    hoursByPeriod: analytics.hoursByPeriod,
+    hoursByProgram: analytics.hoursByProgram,
+    rosterSummary: analytics.rosterSummary,
+    recentActivity: analytics.recentActivity,
     upcomingAssignments: assignments
       .filter(a => a.startAt >= now)
       .map(a => ({
@@ -188,7 +173,7 @@ export async function getVolunteerOperationsSummary(orgId: string, now: Date = n
         volunteerId: a.volunteerId,
       })),
     alerts: {
-      missingTimesheetFields: missingTimesheetAlerts,
+      missingTimesheetFields: analytics.missingTimesheetFields,
       assignmentsWithoutTimeEntry: staleAssignments,
     },
   };

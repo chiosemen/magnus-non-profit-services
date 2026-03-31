@@ -113,6 +113,8 @@ describe('Waves 4–6 org-dashboard-api', () => {
     expect(res.body.sections.compliance).toBeDefined();
     expect(res.body.sections.donorOperations).toBeDefined();
     expect(res.body.sections.volunteerOperations).toBeDefined();
+    expect(res.body.sections.volunteerOperations.summary.volunteerDataStatus).toBe('NOT_CONFIGURED');
+    expect(res.body.sections.volunteerOperations.coverage).toBe('unavailable');
   });
 
   it('GROWTH: volunteer profile, settings, time entry, summary', async () => {
@@ -141,11 +143,37 @@ describe('Waves 4–6 org-dashboard-api', () => {
       });
     expect(entry.status).toBe(201);
 
+    const entry2 = await request(app)
+      .post('/api/org/volunteer-operations/time-entries')
+      .set('Authorization', `Bearer ${auth}`)
+      .send({
+        volunteerId: vid,
+        programLabel: 'After school',
+        hours: 2,
+        occurredAt: '2026-04-10T15:00:00.000Z',
+      });
+    expect(entry2.status).toBe(201);
+
+    const entry3 = await request(app)
+      .post('/api/org/volunteer-operations/time-entries')
+      .set('Authorization', `Bearer ${auth}`)
+      .send({
+        volunteerId: vid,
+        programLabel: 'Events',
+        hours: 1,
+        occurredAt: '2026-05-15T15:00:00.000Z',
+      });
+    expect(entry3.status).toBe(201);
+
     const sum = await request(app)
       .get('/api/org/volunteer-operations/summary')
       .set('Authorization', `Bearer ${auth}`);
     expect(sum.status).toBe(200);
-    expect(sum.body.totals.totalHours).toBe(3.5);
-    expect(sum.body.assumptions.inKindEstimateUsd).toBeCloseTo(3.5 * 28.5, 5);
+    expect(sum.body.volunteerDataStatus).toBe('OK');
+    expect(sum.body.totals.totalHours).toBe(6.5);
+    expect(sum.body.totals.timeEntryCount).toBe(3);
+    expect(sum.body.totals.volunteersWithHoursLast365).toBe(1);
+    expect(sum.body.assumptions.inKindEstimateUsd).toBeCloseTo(6.5 * 28.5, 5);
+    expect(sum.body.assumptions.valuationDisclaimer).toContain('Illustrative');
   });
 });
