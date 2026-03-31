@@ -1,7 +1,10 @@
 import { z } from 'zod';
-import FunderReadinessReportHtmlRenderer from '../../services/FunderReadinessReportHtmlRenderer';
-import FunderReadinessReportService from '../../services/FunderReadinessReportService';
-import { form990FilingSchema, normalizeForm990FilingInput } from './get-990-health-score';
+import {
+  FunderReadinessReportHtmlRenderer,
+  FunderReadinessReportService,
+  form990FilingSchema,
+  normalizeForm990FilingInput,
+} from '@magnus/reports';
 
 export const getFunderReadinessReportSchema = z.object({
   ein: z.string().min(9).describe('EIN of the nonprofit'),

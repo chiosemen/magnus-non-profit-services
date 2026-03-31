@@ -2,7 +2,7 @@ import Form990HealthScoreService, {
   Form990HealthScoreResult,
   HealthScoreComponent,
   RawForm990HealthScoreInput,
-} from './Form990HealthScoreService';
+} from './form990HealthScoreService';
 
 export interface FunderReadinessReportIdentity {
   organizationName: string;

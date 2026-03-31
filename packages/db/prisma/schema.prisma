@@ -114,6 +114,8 @@ model Organization {
   subscriptionTier SubscriptionTier
   claudeStatus    ClaudeStatus     @default(NOT_ENABLED)
   plaidAccessToken String?         // encrypted
+  /// Structured Form 990 readiness filing (snake_case API shape + tax_year) for health score / funder report panels.
+  form990ReadinessFiling Json?
   stripeAccountId  String?
   stripeCustomerId String?         @unique
   stripeSubscriptionId String?     @unique

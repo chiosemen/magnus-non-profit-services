@@ -1,20 +1,12 @@
 import { z } from 'zod';
-import Form990HealthScoreService, {
-  HealthScoreComponent,
-  RawForm990HealthScoreInput,
-} from '../../services/Form990HealthScoreService';
+import {
+  Form990HealthScoreService,
+  form990FilingSchema,
+  normalizeForm990FilingInput,
+  type HealthScoreComponent,
+} from '@magnus/reports';
 
-export const form990FilingSchema = z.object({
-  total_revenue: z.number().finite().optional(),
-  total_expenses: z.number().finite().optional(),
-  program_service_expenses: z.number().finite().optional(),
-  net_assets_without_donor_restrictions: z.number().finite().optional(),
-  executive_director_compensation: z.number().finite().optional(),
-  revenue_streams: z.array(z.object({
-    name: z.string().min(1).optional(),
-    amount: z.number().finite().optional(),
-  })).optional(),
-}).strict();
+export { form990FilingSchema, normalizeForm990FilingInput };
 
 export const get990HealthScoreSchema = z.object({
   ein: z.string().min(9).describe('EIN of the nonprofit'),
@@ -67,28 +59,6 @@ function serializeComponent(component: HealthScoreComponent) {
     display_value: component.displayValue,
     formula: component.formula,
     explanation: component.explanation,
-  };
-}
-
-export function normalizeForm990FilingInput(filing: Form990FilingInput): NonNullable<RawForm990HealthScoreInput['filing']> {
-  return {
-    ...(filing.total_revenue !== undefined ? { totalRevenue: filing.total_revenue } : {}),
-    ...(filing.total_expenses !== undefined ? { totalExpenses: filing.total_expenses } : {}),
-    ...(filing.program_service_expenses !== undefined ? { programServiceExpenses: filing.program_service_expenses } : {}),
-    ...(filing.net_assets_without_donor_restrictions !== undefined
-      ? { netAssetsWithoutDonorRestrictions: filing.net_assets_without_donor_restrictions }
-      : {}),
-    ...(filing.executive_director_compensation !== undefined
-      ? { executiveDirectorCompensation: filing.executive_director_compensation }
-      : {}),
-    ...(filing.revenue_streams !== undefined
-      ? {
-        revenueStreams: filing.revenue_streams.map(stream => ({
-          ...(stream.name !== undefined ? { name: stream.name } : {}),
-          ...(stream.amount !== undefined ? { amount: stream.amount } : {}),
-        })),
-      }
-      : {}),
   };
 }
 

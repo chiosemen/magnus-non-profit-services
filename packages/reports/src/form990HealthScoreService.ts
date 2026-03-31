@@ -1,4 +1,4 @@
-import { RequiredFieldError, ValidationError } from '../utils/errors';
+import { RequiredFieldError, ValidationError } from './form990ValidationErrors';
 
 export interface RawForm990RevenueStreamInput {
   name?: string;

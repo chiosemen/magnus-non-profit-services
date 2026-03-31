@@ -81,7 +81,9 @@ import {
   PartnerPortfolioNotFoundError,
   updateManagedOrganization,
 } from './partnerPortfolioService';
+import { getOrg990Readiness, putOrg990ReadinessFiling } from './org990ReadinessService';
 import type { GovernanceOfficerRole, PartnerUserRole, StateRegistrationStatus } from '@magnus/db/types';
+import { putForm990ReadinessFilingBodySchema } from '@magnus/reports';
 
 try {
   validateEnv('org-dashboard-api');
@@ -178,6 +180,31 @@ app.post('/api/org/990/narrative', jwtAuth, requireCompliance, async (req, res, 
     });
 
     return res.status(result.refused ? 422 : 200).json(result);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+app.get('/api/org/990/readiness', jwtAuth, requireCompliance, async (req, res, next) => {
+  try {
+    const orgId = (req as any).auth.orgId as string;
+    const dto = await getOrg990Readiness(orgId);
+    if (!dto) return res.status(404).json({ error: 'ORG_NOT_FOUND' });
+    return res.json(dto);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+app.put('/api/org/990/readiness/filing', jwtAuth, requireCompliance, async (req, res, next) => {
+  try {
+    const orgId = (req as any).auth.orgId as string;
+    const parsed = putForm990ReadinessFilingBodySchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'VALIDATION_ERROR', details: parsed.error.flatten().fieldErrors });
+    }
+    await putOrg990ReadinessFiling(orgId, parsed.data);
+    return res.json({ ok: true });
   } catch (err) {
     return next(err);
   }

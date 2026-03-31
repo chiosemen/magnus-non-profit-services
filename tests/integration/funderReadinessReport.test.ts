@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import FunderReadinessReportHtmlRenderer from '../../apps/mcp-connector/src/services/FunderReadinessReportHtmlRenderer';
-import FunderReadinessReportService from '../../apps/mcp-connector/src/services/FunderReadinessReportService';
+import {
+  FunderReadinessReportHtmlRenderer,
+  FunderReadinessReportService,
+} from '@magnus/reports';
 import getFunderReadinessReport from '../../apps/mcp-connector/src/tools/financials/get-funder-readiness-report';
 
 describe('FunderReadinessReportService', () => {

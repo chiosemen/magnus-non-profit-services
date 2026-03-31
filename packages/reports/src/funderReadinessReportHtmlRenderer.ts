@@ -2,7 +2,7 @@ import {
   FunderReadinessReport,
   FunderReadinessReportItem,
   FunderReadinessReportSection,
-} from './FunderReadinessReportService';
+} from './funderReadinessReportService';
 
 export class FunderReadinessReportHtmlRenderer {
   render(report: FunderReadinessReport): string {

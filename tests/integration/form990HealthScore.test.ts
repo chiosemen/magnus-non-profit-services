@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { RequiredFieldError } from '../../apps/mcp-connector/src/utils/errors';
-import Form990HealthScoreService from '../../apps/mcp-connector/src/services/Form990HealthScoreService';
+import { Form990HealthScoreService, RequiredFieldError } from '@magnus/reports';
 import get990HealthScore from '../../apps/mcp-connector/src/tools/financials/get-990-health-score';
 
 describe('Form990HealthScoreService', () => {

@@ -66,6 +66,13 @@ export default async function DashboardPage() {
           </p>
         </div>
         <div className="card">
+          <div className="cardTitle">Form 990 &amp; funder readiness</div>
+          <p className="cardBody">990 health score, category breakdown, watchouts, and funder readiness report from your stored filing inputs.</p>
+          <p className="cardBody">
+            <a href="/dashboard/990-readiness">Open 990 readiness dashboard</a>
+          </p>
+        </div>
+        <div className="card">
           <div className="cardTitle">State registrations</div>
           <p className="cardBody">Track multi-state registration statuses, renewals, and risk reminders.</p>
           <p className="cardBody">
