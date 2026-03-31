@@ -55,7 +55,7 @@ Known health routes in this repo (service-dependent):
 - `@magnus/mcp-connector`: `GET /health`
 - `@magnus/billing`: `GET /health`
 - `@magnus/claude-partner`: `GET /health`
-- `@magnus/worker-financial-layer`: `GET /health`
+- `@magnus/worker-financial-layer`: `GET /health` — in **`production`**, the process exits unless `ALLOW_WORKER_FINANCIAL_LAYER=true` (release-subset gate; local dev/test unchanged).
 
 ## Deployment Options
 

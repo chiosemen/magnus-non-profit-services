@@ -7,6 +7,8 @@ export const PROGRAM_ENABLED_FEATURE_KEYS: readonly FeatureKey[] = [
   'claude_partner',
   'worker_financial_layer',
   'agents_layer',
+  'donor_operations',
+  'volunteer_operations',
 ] as const;
 
 const KEY_SET = new Set<string>(PROGRAM_ENABLED_FEATURE_KEYS);

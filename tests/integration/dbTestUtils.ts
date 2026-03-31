@@ -4,6 +4,8 @@ type CleanupOptions = {
   auditPrepItem?: boolean;
   boardGovernanceMember?: boolean;
   complianceCalendar?: boolean;
+  donationCampaign?: boolean;
+  donationGift?: boolean;
   grantProposal?: boolean;
   grant?: boolean;
   governanceProfile?: boolean;
@@ -11,6 +13,9 @@ type CleanupOptions = {
   orgStateRegistration?: boolean;
   partnerOrgMembership?: boolean;
   partnerUser?: boolean;
+  volunteerAssignment?: boolean;
+  volunteerProfile?: boolean;
+  volunteerTimeEntry?: boolean;
 };
 
 export async function cleanupIntegrationData(
@@ -57,6 +62,36 @@ export async function cleanupIntegrationData(
 
   if (options.grant) {
     await prisma.grant.deleteMany({
+      where: { orgId: { in: orgIds } },
+    });
+  }
+
+  if (options.volunteerTimeEntry) {
+    await prisma.volunteerTimeEntry.deleteMany({
+      where: { orgId: { in: orgIds } },
+    });
+  }
+
+  if (options.volunteerAssignment) {
+    await prisma.volunteerAssignment.deleteMany({
+      where: { orgId: { in: orgIds } },
+    });
+  }
+
+  if (options.volunteerProfile) {
+    await prisma.volunteerProfile.deleteMany({
+      where: { orgId: { in: orgIds } },
+    });
+  }
+
+  if (options.donationGift) {
+    await prisma.donationGift.deleteMany({
+      where: { orgId: { in: orgIds } },
+    });
+  }
+
+  if (options.donationCampaign) {
+    await prisma.donationCampaign.deleteMany({
       where: { orgId: { in: orgIds } },
     });
   }

@@ -2,6 +2,14 @@
 
 React Native (Expo) client for Magnus Nonprofit OS. The app talks to the **Next.js web app** (`EXPO_PUBLIC_API_BASE_URL`); the web app proxies organization data from **org-dashboard-api** — the mobile app does not call org-dashboard-api directly.
 
+## Scope (explicit)
+
+| In scope (v1) | Out of scope until web + org-dashboard-api are stable |
+|---------------|--------------------------------------------------------|
+| `GET /api/mobile/org-readiness` (read-only rollup) | Donor operations / volunteer operations dashboards or editing |
+| `GET /api/me`, auth login/logout | Full parity with web dashboard modules |
+| Settings / token lifecycle | Worker financial layer surfaces |
+
 ## Features
 
 - Sign-in with **EIN + email + password** via `POST /api/auth/login?includeAccessToken=true` (JSON). The access token is stored in **expo-secure-store** and sent as `Authorization: Bearer` on API calls.

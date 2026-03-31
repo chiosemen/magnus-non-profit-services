@@ -94,6 +94,41 @@ export default async function DashboardPage() {
           </p>
         </div>
         <div className="card">
+          <div className="cardTitle">Compliance calendar</div>
+          <p className="cardBody">Read-only deadlines and statuses from your org compliance calendar.</p>
+          <p className="cardBody">
+            <a href="/dashboard/compliance">Open compliance calendar</a>
+          </p>
+        </div>
+        <div className="card">
+          <div className="cardTitle">Grants</div>
+          <p className="cardBody">Read-only grant portfolio (amounts, period, spend-to-date). Requires GROWTH+.</p>
+          <p className="cardBody">
+            <a href="/dashboard/grants">Open grants dashboard</a>
+          </p>
+        </div>
+        <div className="card">
+          <div className="cardTitle">Donor operations</div>
+          <p className="cardBody">RFM-style segments, lapsed donors, recurring trends, and deterministic upgrade rules — no wealth scoring.</p>
+          <p className="cardBody">
+            <a href="/dashboard/donor-operations">Open donor operations</a>
+          </p>
+        </div>
+        <div className="card">
+          <div className="cardTitle">Volunteer operations</div>
+          <p className="cardBody">Hours by program, active volunteers, in-kind estimate, and light operational alerts.</p>
+          <p className="cardBody">
+            <a href="/dashboard/volunteer-operations">Open volunteer operations</a>
+          </p>
+        </div>
+        <div className="card">
+          <div className="cardTitle">Executive summary</div>
+          <p className="cardBody">Cross-module rollups with coverage and source links — ENTERPRISE only; read-only, no AI strategy layer.</p>
+          <p className="cardBody">
+            <a href="/dashboard/executive-summary">Open executive summary</a>
+          </p>
+        </div>
+        <div className="card">
           <div className="cardTitle">Institutional portfolio</div>
           <p className="cardBody">
             Partner-facing portfolio rollups, program/cohort views, and CSV export. Requires ENTERPRISE institutional partner

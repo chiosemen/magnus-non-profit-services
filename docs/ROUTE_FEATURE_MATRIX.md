@@ -7,8 +7,8 @@ This document maps all premium routes to their required subscription features an
 | Tier | Features |
 |------|----------|
 | STARTER | `compliance_calendar` |
-| GROWTH | `compliance_calendar`, `grant_generator`, `restricted_funds` |
-| ENTERPRISE | All keys in `@magnus/subscription` `FeatureKey` (includes `institutional_partner`) |
+| GROWTH | `compliance_calendar`, `grant_generator`, `restricted_funds`, `donor_operations`, `volunteer_operations` |
+| ENTERPRISE | All keys in `@magnus/subscription` `FeatureKey` (includes `institutional_partner`, `executive_rollups`) |
 
 ## Feature Keys
 
@@ -19,6 +19,9 @@ This document maps all premium routes to their required subscription features an
 - `worker_financial_layer` - Worker financial tools and analysis
 - `agents_layer` - MCP tools and agent integrations
 - `institutional_partner` - Institutional partner portfolio, programs, and export (ENTERPRISE; partner JWT context required on partner routes)
+- `donor_operations` - Deterministic donor portfolio analytics (segments, lapsed, trends, rule-based upgrade signals)
+- `volunteer_operations` - Volunteer hours, program attribution, in-kind estimate, light alerts
+- `executive_rollups` - Read-only cross-module executive summary (ENTERPRISE; no synthetic health score)
 
 ## Route Matrix
 
@@ -48,6 +51,16 @@ Org-scoped routes use an org JWT (`orgId` in token). Partner routes additionally
 | `/api/org/audit-prep` | GET | `compliance_calendar` | STARTER+ | Org JWT |
 | `/api/org/audit-prep/apply-template` | POST | `compliance_calendar` | STARTER+ | Org JWT |
 | `/api/org/audit-prep/items/:itemId` | PATCH | `compliance_calendar` | STARTER+ | Org JWT |
+| `/api/org/donor-operations/summary` | GET | `donor_operations` | GROWTH+ | Org JWT |
+| `/api/org/donor-operations/campaigns` | GET | `donor_operations` | GROWTH+ | Org JWT |
+| `/api/org/donor-operations/campaigns` | POST | `donor_operations` | GROWTH+ | Org JWT |
+| `/api/org/donor-operations/gifts` | POST | `donor_operations` | GROWTH+ | Org JWT |
+| `/api/org/volunteer-operations/summary` | GET | `volunteer_operations` | GROWTH+ | Org JWT |
+| `/api/org/volunteer-operations/settings` | PUT | `volunteer_operations` | GROWTH+ | Org JWT |
+| `/api/org/volunteer-operations/profiles` | POST | `volunteer_operations` | GROWTH+ | Org JWT |
+| `/api/org/volunteer-operations/time-entries` | POST | `volunteer_operations` | GROWTH+ | Org JWT |
+| `/api/org/volunteer-operations/assignments` | POST | `volunteer_operations` | GROWTH+ | Org JWT |
+| `/api/org/executive-summary` | GET | `executive_rollups` | ENTERPRISE | Org JWT; read-only composition |
 | `/api/partner/portfolio/summary` | GET | `institutional_partner` | ENTERPRISE | Partner JWT + partner context |
 | `/api/partner/portfolio/export.csv` | GET | `institutional_partner` | ENTERPRISE | Partner JWT + partner context |
 | `/api/partner/portfolio/orgs` | POST | `institutional_partner` | ENTERPRISE | Partner JWT; `PARTNER_ADMIN` only |

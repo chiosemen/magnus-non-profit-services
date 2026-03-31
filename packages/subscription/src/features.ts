@@ -5,5 +5,8 @@ export type FeatureKey =
   | 'claude_partner'
   | 'worker_financial_layer'
   | 'agents_layer'
-  | 'institutional_partner';
+  | 'institutional_partner'
+  | 'donor_operations'
+  | 'volunteer_operations'
+  | 'executive_rollups';
 

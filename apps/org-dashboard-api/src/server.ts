@@ -83,6 +83,26 @@ import {
 } from './partnerPortfolioService';
 import { getOrg990Readiness, putOrg990ReadinessFiling } from './org990ReadinessService';
 import { getOrgCashFlowForecast, putOrgCashFlowForecastInputs } from './orgCashFlowForecastService';
+import {
+  createDonationCampaign,
+  createDonationGiftsBatch,
+  CreateDonationCampaignSchema,
+  CreateDonationGiftsBatchSchema,
+  getDonorOperationsSummary,
+  listDonationCampaigns,
+} from './donorOperationsService';
+import {
+  createVolunteerAssignment,
+  CreateVolunteerAssignmentSchema,
+  createVolunteerProfile,
+  CreateVolunteerProfileSchema,
+  createVolunteerTimeEntry,
+  CreateVolunteerTimeEntrySchema,
+  getVolunteerOperationsSummary,
+  putVolunteerOperationsSettings,
+  PutVolunteerOpsSettingsSchema,
+} from './volunteerOperationsService';
+import { getExecutiveRollup } from './executiveRollupService';
 import type { GovernanceOfficerRole, PartnerUserRole, StateRegistrationStatus } from '@magnus/db/types';
 import { putForm990ReadinessFilingBodySchema } from '@magnus/reports';
 import { putCashFlowForecastInputsBodySchema } from '@magnus/financial';
@@ -105,6 +125,9 @@ const jwtAuth = createJwtAuthMiddleware();
 const requireCompliance = requireFeature('compliance_calendar');
 const requireGrants = requireFeature('grant_generator');
 const requireRestrictedFunds = requireFeature('restricted_funds');
+const requireDonorOperations = requireFeature('donor_operations');
+const requireVolunteerOperations = requireFeature('volunteer_operations');
+const requireExecutiveRollups = requireFeature('executive_rollups');
 const requireInstitutionalPartner = requireFeature('institutional_partner');
 const requirePartnerCtx = requirePartnerContext();
 const requirePartnerAdminMw = requirePartnerAdmin();
@@ -413,6 +436,137 @@ app.patch('/api/org/audit-prep/items/:itemId', jwtAuth, requireCompliance, async
     const item = await updateOrgAuditPrepItem(orgId, req.params['itemId']!, parseAuditPrepItemPatch(req.body));
     const snapshot = await getOrgAuditPrepSnapshot(orgId);
     return res.json({ orgId, item: toOrgAuditPrepItemDto(item), summary: snapshot.summary });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// ─── Donor operations (deterministic) ─────────────────────────────────────────
+
+app.get('/api/org/donor-operations/summary', jwtAuth, requireDonorOperations, async (req, res, next) => {
+  try {
+    const orgId = (req as any).auth.orgId as string;
+    const summary = await getDonorOperationsSummary(orgId);
+    return res.json(summary);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+app.get('/api/org/donor-operations/campaigns', jwtAuth, requireDonorOperations, async (req, res, next) => {
+  try {
+    const orgId = (req as any).auth.orgId as string;
+    const campaigns = await listDonationCampaigns(orgId);
+    return res.json({ orgId, campaigns });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+app.post('/api/org/donor-operations/campaigns', jwtAuth, requireDonorOperations, async (req, res, next) => {
+  try {
+    const orgId = (req as any).auth.orgId as string;
+    const parsed = CreateDonationCampaignSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'VALIDATION_ERROR', details: parsed.error.flatten().fieldErrors });
+    }
+    const campaign = await createDonationCampaign({ orgId, input: parsed.data });
+    return res.status(201).json({ campaign });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+app.post('/api/org/donor-operations/gifts', jwtAuth, requireDonorOperations, async (req, res, next) => {
+  try {
+    const orgId = (req as any).auth.orgId as string;
+    const parsed = CreateDonationGiftsBatchSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'VALIDATION_ERROR', details: parsed.error.flatten().fieldErrors });
+    }
+    const gifts = await createDonationGiftsBatch({ orgId, input: parsed.data });
+    return res.status(201).json({ orgId, gifts });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// ─── Volunteer operations ─────────────────────────────────────────────────────
+
+app.get('/api/org/volunteer-operations/summary', jwtAuth, requireVolunteerOperations, async (req, res, next) => {
+  try {
+    const orgId = (req as any).auth.orgId as string;
+    const summary = await getVolunteerOperationsSummary(orgId);
+    return res.json(summary);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+app.put('/api/org/volunteer-operations/settings', jwtAuth, requireVolunteerOperations, async (req, res, next) => {
+  try {
+    const orgId = (req as any).auth.orgId as string;
+    const parsed = PutVolunteerOpsSettingsSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'VALIDATION_ERROR', details: parsed.error.flatten().fieldErrors });
+    }
+    await putVolunteerOperationsSettings(orgId, parsed.data);
+    return res.json({ ok: true });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+app.post('/api/org/volunteer-operations/profiles', jwtAuth, requireVolunteerOperations, async (req, res, next) => {
+  try {
+    const orgId = (req as any).auth.orgId as string;
+    const parsed = CreateVolunteerProfileSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'VALIDATION_ERROR', details: parsed.error.flatten().fieldErrors });
+    }
+    const profile = await createVolunteerProfile({ orgId, input: parsed.data });
+    return res.status(201).json({ profile });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+app.post('/api/org/volunteer-operations/time-entries', jwtAuth, requireVolunteerOperations, async (req, res, next) => {
+  try {
+    const orgId = (req as any).auth.orgId as string;
+    const parsed = CreateVolunteerTimeEntrySchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'VALIDATION_ERROR', details: parsed.error.flatten().fieldErrors });
+    }
+    const timeEntry = await createVolunteerTimeEntry({ orgId, input: parsed.data });
+    return res.status(201).json({ timeEntry });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+app.post('/api/org/volunteer-operations/assignments', jwtAuth, requireVolunteerOperations, async (req, res, next) => {
+  try {
+    const orgId = (req as any).auth.orgId as string;
+    const parsed = CreateVolunteerAssignmentSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'VALIDATION_ERROR', details: parsed.error.flatten().fieldErrors });
+    }
+    const assignment = await createVolunteerAssignment({ orgId, input: parsed.data });
+    return res.status(201).json({ assignment });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// ─── Executive rollup (read-only composition) ─────────────────────────────────
+
+app.get('/api/org/executive-summary', jwtAuth, requireExecutiveRollups, async (req, res, next) => {
+  try {
+    const orgId = (req as any).auth.orgId as string;
+    const rollup = await getExecutiveRollup(orgId);
+    if (!rollup) return res.status(404).json({ error: 'ORG_NOT_FOUND' });
+    return res.json(rollup);
   } catch (err) {
     return next(err);
   }

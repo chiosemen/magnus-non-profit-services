@@ -17,6 +17,14 @@ async function main(): Promise<void> {
   validateEnv('worker-financial-layer');
   const env = loadEnv();
 
+  if (process.env.NODE_ENV === 'production' && process.env.ALLOW_WORKER_FINANCIAL_LAYER !== 'true') {
+    // eslint-disable-next-line no-console
+    console.error(
+      'worker-financial-layer: refusing to start in production without ALLOW_WORKER_FINANCIAL_LAYER=true (surface excluded from release subset; see SMOKE_MATRIX.md).'
+    );
+    process.exit(1);
+  }
+
   // Fail-closed: DB must be reachable.
   await prisma.$queryRaw`SELECT 1`;
 

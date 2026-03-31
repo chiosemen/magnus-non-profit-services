@@ -7,15 +7,19 @@ test('STARTER allows compliance_calendar only', () => {
   assert.equal(isFeatureEnabled({ tier: 'STARTER', status: 'ACTIVE', featureKey: 'grant_generator' }), false);
 });
 
-test('GROWTH allows compliance_calendar + grant_generator', () => {
+test('GROWTH allows compliance_calendar + grant_generator + donor/volunteer ops', () => {
   assert.equal(isFeatureEnabled({ tier: 'GROWTH', status: 'ACTIVE', featureKey: 'grant_generator' }), true);
+  assert.equal(isFeatureEnabled({ tier: 'GROWTH', status: 'ACTIVE', featureKey: 'donor_operations' }), true);
+  assert.equal(isFeatureEnabled({ tier: 'GROWTH', status: 'ACTIVE', featureKey: 'volunteer_operations' }), true);
   assert.equal(isFeatureEnabled({ tier: 'GROWTH', status: 'ACTIVE', featureKey: 'claude_partner' }), false);
+  assert.equal(isFeatureEnabled({ tier: 'GROWTH', status: 'ACTIVE', featureKey: 'executive_rollups' }), false);
 });
 
 test('ENTERPRISE allows full OS', () => {
   assert.equal(isFeatureEnabled({ tier: 'ENTERPRISE', status: 'ACTIVE', featureKey: 'agents_layer' }), true);
   assert.equal(isFeatureEnabled({ tier: 'ENTERPRISE', status: 'ACTIVE', featureKey: 'worker_financial_layer' }), true);
   assert.equal(isFeatureEnabled({ tier: 'ENTERPRISE', status: 'ACTIVE', featureKey: 'institutional_partner' }), true);
+  assert.equal(isFeatureEnabled({ tier: 'ENTERPRISE', status: 'ACTIVE', featureKey: 'executive_rollups' }), true);
 });
 
 test('GROWTH and STARTER deny institutional_partner', () => {

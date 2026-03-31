@@ -202,6 +202,8 @@ Package counts above reflect app-local smoke/unit suites. Additional workspace i
 - `tests/integration/orgGovernanceApi.test.ts` (3 tests)
 - `tests/integration/stateRegistrationRisk.test.ts` (2 tests)
 - `tests/integration/orgStateRegistrationService.test.ts` (3 tests)
+- `tests/integration/donorOperationsAnalytics.test.ts` (deterministic donor analytics unit tests)
+- `tests/integration/waves456DashboardApi.test.ts` (donor/volunteer/executive-summary API contract)
 
 **Coverage:**
 - ✅ Health endpoint (public)
