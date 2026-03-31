@@ -185,6 +185,20 @@ describe('org governance service integration', () => {
         complete: false,
       },
     });
+    expect(snapshot.policyChecklist).toEqual(expect.arrayContaining([
+      expect.objectContaining({ key: 'conflictOfInterestPolicy', enabled: false }),
+      expect.objectContaining({ key: 'whistleblowerPolicy', enabled: false }),
+      expect.objectContaining({ key: 'documentRetentionPolicy', enabled: false }),
+    ]));
+    expect(snapshot.readiness).toMatchObject({
+      completionRate: expect.any(Number),
+      completedChecks: expect.any(Number),
+      totalChecks: expect.any(Number),
+      issueCount: expect.any(Number),
+      missingItems: expect.any(Number),
+      staleItems: expect.any(Number),
+    });
+    expect(Array.isArray(snapshot.readiness.issues)).toBe(true);
     expect(snapshot.readiness.issues.map(issue => issue.code)).toEqual([
       'BOARD_ROSTER_EMPTY',
       'OFFICER_ROLE_MISSING',

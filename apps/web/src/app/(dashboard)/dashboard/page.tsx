@@ -51,6 +51,13 @@ export default async function DashboardPage() {
           <div className="cardTitle">Organization</div>
           <p className="cardBody"><b>Org ID:</b> {me.orgId}</p>
         </div>
+        <div className="card">
+          <div className="cardTitle">Governance</div>
+          <p className="cardBody">Track board readiness from live roster, policy, disclosure, and attendance records.</p>
+          <p className="cardBody">
+            <a href="/dashboard/governance">Open governance dashboard</a>
+          </p>
+        </div>
       </div>
     </div>
   );
