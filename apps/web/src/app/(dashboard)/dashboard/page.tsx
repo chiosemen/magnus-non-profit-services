@@ -93,6 +93,16 @@ export default async function DashboardPage() {
             <a href="/dashboard/cash-flow">Open cash flow dashboard</a>
           </p>
         </div>
+        <div className="card">
+          <div className="cardTitle">Institutional portfolio</div>
+          <p className="cardBody">
+            Partner-facing portfolio rollups, program/cohort views, and CSV export. Requires ENTERPRISE institutional partner
+            access and partner context on your session; otherwise the portfolio page explains what is missing.
+          </p>
+          <p className="cardBody">
+            <a href="/dashboard/partner/portfolio">Open institutional portfolio</a>
+          </p>
+        </div>
       </div>
     </div>
   );
