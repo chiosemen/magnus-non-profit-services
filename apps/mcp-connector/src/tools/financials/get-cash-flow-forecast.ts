@@ -1,39 +1,12 @@
 import { z } from 'zod';
-import CashFlowForecastService from '../../services/CashFlowForecastService';
+import {
+  CashFlowForecastService,
+  getCashFlowForecastToolSchema,
+  mapCashFlowStoredToRaw,
+} from '@magnus/financial';
 import { formatCurrency } from '../../utils/formatters';
 
-const cashFlowEntrySchema = z.object({
-  week: z.number().int().min(1).max(13),
-  amount: z.number().finite().min(0),
-  label: z.string().min(1).optional(),
-}).strict();
-
-const cadenceSchema = z.enum(['weekly', 'biweekly', 'monthly']);
-
-const payrollScheduleSchema = z.object({
-  cadence: cadenceSchema,
-  amount: z.number().finite().min(0),
-  first_payment_week: z.number().int().min(1).max(13),
-}).strict();
-
-const recurringOperatingExpenseSchema = z.object({
-  name: z.string().min(1),
-  amount: z.number().finite().min(0),
-  cadence: cadenceSchema,
-  first_due_week: z.number().int().min(1).max(13),
-}).strict();
-
-export const getCashFlowForecastSchema = z.object({
-  organization_name: z.string().min(1).describe('Organization name for the forecast header'),
-  current_cash_balance: z.number().finite().describe('Current unrestricted cash balance'),
-  expected_grant_inflows: z.array(cashFlowEntrySchema).describe('Expected grant inflows bucketed into forecast weeks'),
-  expected_donation_inflows: z.array(cashFlowEntrySchema).describe('Expected donation inflows bucketed into forecast weeks'),
-  payroll_schedule: payrollScheduleSchema.describe('Payroll cadence, amount, and first payment week'),
-  recurring_operating_expenses: z.array(recurringOperatingExpenseSchema)
-    .describe('Recurring operating expenses to model over the 13-week horizon'),
-  reserve_threshold_target: z.number().finite().min(0).optional()
-    .describe('Optional low-cash target; defaults to zero if omitted'),
-});
+export const getCashFlowForecastSchema = getCashFlowForecastToolSchema;
 
 export type GetCashFlowForecastInput = z.infer<typeof getCashFlowForecastSchema>;
 
@@ -41,36 +14,11 @@ const service = new CashFlowForecastService();
 
 export async function execute(input: GetCashFlowForecastInput): Promise<string> {
   const parsed = getCashFlowForecastSchema.parse(input);
-  const forecast = service.forecast({
-    currentCashBalance: parsed.current_cash_balance,
-    expectedGrantInflows: parsed.expected_grant_inflows.map(entry => ({
-      week: entry.week,
-      amount: entry.amount,
-      ...(entry.label !== undefined ? { label: entry.label } : {}),
-    })),
-    expectedDonationInflows: parsed.expected_donation_inflows.map(entry => ({
-      week: entry.week,
-      amount: entry.amount,
-      ...(entry.label !== undefined ? { label: entry.label } : {}),
-    })),
-    payrollSchedule: {
-      cadence: parsed.payroll_schedule.cadence,
-      amount: parsed.payroll_schedule.amount,
-      firstPaymentWeek: parsed.payroll_schedule.first_payment_week,
-    },
-    recurringOperatingExpenses: parsed.recurring_operating_expenses.map(expense => ({
-      name: expense.name,
-      amount: expense.amount,
-      cadence: expense.cadence,
-      firstDueWeek: expense.first_due_week,
-    })),
-    ...(parsed.reserve_threshold_target !== undefined
-      ? { reserveThresholdTarget: parsed.reserve_threshold_target }
-      : {}),
-  });
+  const { organization_name, ...core } = parsed;
+  const forecast = service.forecast(mapCashFlowStoredToRaw(core));
 
   return JSON.stringify({
-    organization_name: parsed.organization_name,
+    organization_name,
     forecast_horizon_weeks: 13,
     methodology: forecast.methodology,
     user_input: {

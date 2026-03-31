@@ -1,4 +1,4 @@
-import { RequiredFieldError, ValidationError } from '../utils/errors';
+import { RequiredFieldError, ValidationError } from './cashFlowValidationErrors';
 
 export type CashFlowCadence = 'weekly' | 'biweekly' | 'monthly';
 

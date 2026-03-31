@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import CashFlowForecastService from '../../apps/mcp-connector/src/services/CashFlowForecastService';
+import { CashFlowForecastService, RequiredFieldError } from '@magnus/financial';
 import getCashFlowForecast from '../../apps/mcp-connector/src/tools/financials/get-cash-flow-forecast';
-import { RequiredFieldError } from '../../apps/mcp-connector/src/utils/errors';
 
 const baseInput = {
   currentCashBalance: 120_000,

@@ -86,6 +86,13 @@ export default async function DashboardPage() {
             <a href="/dashboard/restricted-funds">Open restricted funds dashboard</a>
           </p>
         </div>
+        <div className="card">
+          <div className="cardTitle">Cash flow</div>
+          <p className="cardBody">13-week deterministic forecast from your stored assumptions: ending cash trend, reserve warning, and inflow/outflow totals.</p>
+          <p className="cardBody">
+            <a href="/dashboard/cash-flow">Open cash flow dashboard</a>
+          </p>
+        </div>
       </div>
     </div>
   );

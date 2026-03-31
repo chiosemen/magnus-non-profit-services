@@ -116,6 +116,8 @@ model Organization {
   plaidAccessToken String?         // encrypted
   /// Structured Form 990 readiness filing (snake_case API shape + tax_year) for health score / funder report panels.
   form990ReadinessFiling Json?
+  /// Operator-entered 13-week cash flow assumptions (snake_case API shape) for deterministic forecast dashboard.
+  cashFlowForecastInputs Json?
   stripeAccountId  String?
   stripeCustomerId String?         @unique
   stripeSubscriptionId String?     @unique
