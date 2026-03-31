@@ -2,6 +2,8 @@
 
 This document maps all premium routes to their required subscription features and tiers.
 
+**Dashboard scope truth (donor / volunteer / executive):** see [DASHBOARD_WAVES_SCOPE.md](./DASHBOARD_WAVES_SCOPE.md) for implemented vs partial vs future-wave vs explicitly excluded product claims.
+
 ## Subscription Tiers
 
 | Tier | Features |
@@ -19,9 +21,9 @@ This document maps all premium routes to their required subscription features an
 - `worker_financial_layer` - Worker financial tools and analysis
 - `agents_layer` - MCP tools and agent integrations
 - `institutional_partner` - Institutional partner portfolio, programs, and export (ENTERPRISE; partner JWT context required on partner routes)
-- `donor_operations` - Deterministic donor portfolio analytics (segments, lapsed, trends, rule-based upgrade signals)
-- `volunteer_operations` - Volunteer hours, program attribution, in-kind estimate, light alerts
-- `executive_rollups` - Read-only cross-module executive summary (ENTERPRISE; no synthetic health score)
+- `donor_operations` - Deterministic donor portfolio analytics (see [DASHBOARD_WAVES_SCOPE.md](./DASHBOARD_WAVES_SCOPE.md); not donor intelligence / wealth screening / broad CRM)
+- `volunteer_operations` - Volunteer operations dashboard: hours, roster, in-kind estimate, alerts (not scheduling/messaging CRM)
+- `executive_rollups` - Executive command center: read-only rollups, `moduleState`, deterministic alerts (ENTERPRISE; no global health score or LLM strategy engine)
 
 ## Route Matrix
 

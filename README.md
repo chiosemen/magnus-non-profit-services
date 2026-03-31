@@ -12,7 +12,8 @@ Engines:
 ## Magnus Accord scope
 
 Release-facing readiness and exclusions: [`PRODUCTION_READINESS_REPORT.md`](PRODUCTION_READINESS_REPORT.md).  
-Route-to-feature mapping: [`docs/ROUTE_FEATURE_MATRIX.md`](docs/ROUTE_FEATURE_MATRIX.md).
+Route-to-feature mapping: [`docs/ROUTE_FEATURE_MATRIX.md`](docs/ROUTE_FEATURE_MATRIX.md).  
+Dashboard waves scope (donor / volunteer / executive — implemented vs excluded): [`docs/DASHBOARD_WAVES_SCOPE.md`](docs/DASHBOARD_WAVES_SCOPE.md).
 
 ## Setup
 

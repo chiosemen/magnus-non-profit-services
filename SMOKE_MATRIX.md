@@ -205,6 +205,8 @@ Package counts above reflect app-local smoke/unit suites. Additional workspace i
 - `tests/integration/donorOperationsAnalytics.test.ts` (deterministic donor analytics unit tests)
 - `tests/integration/waves456DashboardApi.test.ts` (donor/volunteer/executive-summary API contract)
 
+Product intent for those dashboards (implemented vs excluded variants): [`docs/DASHBOARD_WAVES_SCOPE.md`](docs/DASHBOARD_WAVES_SCOPE.md).
+
 **Coverage:**
 - ✅ Health endpoint (public)
 - ✅ JWT auth middleware

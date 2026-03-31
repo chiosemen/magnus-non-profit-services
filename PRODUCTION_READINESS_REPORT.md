@@ -43,7 +43,7 @@ This update narrows the truthful Magnus Accord release subset to the Wave 1 surf
 
 ### Explicitly Still Excluded
 
-- Donor intelligence or prospecting automation
+- **Donor intelligence** (wealth screening, synthetic intent, thin-data major-donor prediction, broad CRM) and prospecting automation — distinct from **donor operations**, which is implemented as deterministic portfolio analytics; see [`docs/DASHBOARD_WAVES_SCOPE.md`](docs/DASHBOARD_WAVES_SCOPE.md)
 - Grantmaker portal workflows
 - Full board portal, calendar rewrite, or generic task management
 - Broad document-management or report-builder platform work
@@ -57,7 +57,7 @@ This update narrows the truthful Magnus Accord release subset to the Wave 1 surf
 
 ## Wave 3 Institutional Channel Alignment (2026-03-30)
 
-This update extends the truthful Magnus Accord story to **Wave 3 institutional partner** surfaces that are implemented and tested in this repository. It does not imply readiness for donor CRM, grantmaker workflows, or worker-marketplace features.
+This update extends the truthful Magnus Accord story to **Wave 3 institutional partner** surfaces that are implemented and tested in this repository. It does not imply readiness for donor CRM, grantmaker workflows, or worker-marketplace features. For donor operations, volunteer operations, and executive rollups vs excluded “intelligence” variants, see [`docs/DASHBOARD_WAVES_SCOPE.md`](docs/DASHBOARD_WAVES_SCOPE.md).
 
 ### Included In Current Accord Release Subset (Wave 3 Additions)
 
@@ -77,9 +77,9 @@ Integration coverage for the above includes `tests/integration/partnerPortfolioS
 
 The following remain **out of scope** for Magnus Accord as documented here (whether or not unrelated code exists elsewhere in the monorepo):
 
-- Donor intelligence
-- Wealth screening
-- Volunteer management
+- **Donor intelligence** (wealth screening, synthetic donor intent, major-donor prediction on thin data) — not the same as **donor operations** (`donor_operations`), which is an implemented, bounded analytics surface; see [`docs/DASHBOARD_WAVES_SCOPE.md`](docs/DASHBOARD_WAVES_SCOPE.md)
+- Wealth screening (standalone product)
+- **Full volunteer CRM / scheduling / messaging platform** — not the same as **volunteer operations** (`volunteer_operations`), which is an implemented light operational dashboard (hours, roster, in-kind estimate, alerts); see [`docs/DASHBOARD_WAVES_SCOPE.md`](docs/DASHBOARD_WAVES_SCOPE.md)
 - Broad CRM
 - Workforce compensation benchmarking (Accord subset; see also worker-financial-layer exclusion above)
 - Full federal indirect cost tooling
