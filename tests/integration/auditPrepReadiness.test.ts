@@ -76,6 +76,17 @@ describe('buildAuditPrepReadinessSummary', () => {
     expect(s.explanation.some(line => line.includes('Every item is marked complete'))).toBe(true);
   });
 
+  it('does not mark open items overdue when target date is today (UTC day)', () => {
+    const s = buildAuditPrepReadinessSummary(
+      [
+        { status: 'IN_PROGRESS', targetDate: new Date('2026-03-30T00:00:00.000Z') },
+      ],
+      now
+    );
+    expect(s.overdueItems).toBe(0);
+    expect(s.overallStatus).toBe('in_progress');
+  });
+
   it('in_progress when there are open items, none blocked, none overdue', () => {
     const s = buildAuditPrepReadinessSummary(
       [

@@ -129,7 +129,16 @@ describe('org audit prep service', () => {
     const snapshot = await getOrgAuditPrepSnapshot(ORG_ID, new Date('2026-03-30T12:00:00.000Z'));
     expect(snapshot.items).toHaveLength(AUDIT_PREP_TEMPLATE_ITEMS.length);
     expect(snapshot.summary.totalItems).toBe(AUDIT_PREP_TEMPLATE_ITEMS.length);
+    expect(snapshot.summary.openItems).toBe(AUDIT_PREP_TEMPLATE_ITEMS.length);
+    expect(snapshot.summary.blockedItems).toBe(0);
+    expect(snapshot.summary.overdueItems).toBe(0);
     expect(snapshot.summary.overallStatus).toBe('in_progress');
+    expect(snapshot.summary.explanation).toEqual(expect.arrayContaining([
+      expect.stringContaining('Open items:'),
+      expect.stringContaining('in progress'),
+    ]));
+    const priorYearItems = snapshot.items.filter(item => item.category === 'PRIOR_YEAR_FINDING_REMEDIATION');
+    expect(priorYearItems).toHaveLength(3);
     expect(snapshot.disclaimer.length).toBeGreaterThan(10);
   });
 
