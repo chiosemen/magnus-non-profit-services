@@ -115,10 +115,15 @@ describe('org state registration service', () => {
 
     expect(snapshot.summary).toMatchObject({
       trackedStates: 3,
+      activeStates: 1,
+      pendingStates: 0,
       missingRegistrationStates: 1,
       overdueRenewals: 1,
       unknownStates: 1,
+      highRiskStates: 2,
     });
+    expect(snapshot.disclaimer).toContain('user-entered');
+    expect(snapshot.summary.activeStates + snapshot.summary.pendingStates).toBe(1);
     expect(snapshot.registrations.map(item => item.stateCode)).toEqual(['CA', 'IL', 'NY']);
     expect(snapshot.registrations[0]?.riskFlags.map(flag => flag.code)).toEqual(['MISSING_REGISTRATION']);
     expect(snapshot.registrations[1]?.riskFlags.map(flag => flag.code)).toEqual(['UNKNOWN_STATUS']);

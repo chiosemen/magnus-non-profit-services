@@ -58,6 +58,20 @@ export default async function DashboardPage() {
             <a href="/dashboard/governance">Open governance dashboard</a>
           </p>
         </div>
+        <div className="card">
+          <div className="cardTitle">Audit prep</div>
+          <p className="cardBody">Monitor checklist completion, blockers, and overdue preparation items.</p>
+          <p className="cardBody">
+            <a href="/dashboard/audit-prep">Open audit prep dashboard</a>
+          </p>
+        </div>
+        <div className="card">
+          <div className="cardTitle">State registrations</div>
+          <p className="cardBody">Track multi-state registration statuses, renewals, and risk reminders.</p>
+          <p className="cardBody">
+            <a href="/dashboard/state-registrations">Open registration dashboard</a>
+          </p>
+        </div>
       </div>
     </div>
   );

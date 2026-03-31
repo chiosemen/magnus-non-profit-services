@@ -77,10 +77,25 @@ describe('state registration risk flags', () => {
     expect(summary).toMatchObject({
       trackedStates: 3,
       solicitationStates: 3,
+      activeStates: 1,
+      pendingStates: 0,
       missingRegistrationStates: 1,
       overdueRenewals: 1,
       unknownStates: 1,
       highRiskStates: 2,
     });
+  });
+
+  it('does not generate risk flags when a state does not solicit donations', () => {
+    const asOf = new Date('2026-03-29T00:00:00.000Z');
+    const flags = buildStateRegistrationRiskFlags({
+      stateCode: 'CA',
+      stateName: 'California',
+      status: 'NOT_REGISTERED',
+      solicitsDonations: false,
+      renewalDueDate: new Date('2026-01-01T00:00:00.000Z'),
+    }, asOf);
+
+    expect(flags).toEqual([]);
   });
 });
