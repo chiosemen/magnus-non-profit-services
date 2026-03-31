@@ -9,6 +9,8 @@ export type { FeatureKey } from './features';
 export { FeatureNotEnabledError } from './errors';
 export { AuthRequiredError, InvalidTokenError, SubscriptionNotActiveError } from './errors';
 export { featuresForTier, isFeatureEnabled } from './policy';
+export { subscriptionAllowsScheduledAgent } from './autonomousOpsPolicy';
+export type { ScheduledAgentName } from './autonomousOpsPolicy';
 export { requireFeature } from './middleware/requireFeature';
 
 export async function getOrgTier(orgId: string): Promise<SubscriptionTier> {

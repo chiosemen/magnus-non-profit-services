@@ -16,6 +16,9 @@ importers:
       '@magnus/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@magnus/subscription':
+        specifier: workspace:*
+        version: link:../../packages/subscription
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1

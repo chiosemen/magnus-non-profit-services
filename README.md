@@ -9,6 +9,10 @@ Engines:
 - AI Governance Layer
 - Federal Readiness Toolkit
 
+## Autonomous Ops
+
+Bounded agent program (stages, autonomy tiers, persona mapping): [`docs/AUTONOMOUS_OPS_ROADMAP.md`](docs/AUTONOMOUS_OPS_ROADMAP.md). Handoff and org identity storage: [`docs/AUTONOMOUS_OPS_HANDOFF_AND_MEMORY.md`](docs/AUTONOMOUS_OPS_HANDOFF_AND_MEMORY.md).
+
 ## Setup
 
 PR hardening checklist: `docs/PR_CHECKLIST.md`

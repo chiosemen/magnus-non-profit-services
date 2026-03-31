@@ -1,3 +1,4 @@
+import { subscriptionAllowsScheduledAgent } from '@magnus/subscription';
 import type { AgentName, AgentRunContext, ScopeType } from '../contracts/run';
 import { prisma } from '../db';
 import { AgentRunLogger } from '../audit/AgentRunLogger';
@@ -6,6 +7,8 @@ import { tryAdvisoryXactLock } from './locks';
 import { ComplianceWatchdog } from '../agents/complianceWatchdog/ComplianceWatchdog';
 import { WorkerIncomeOptimizer } from '../agents/workerIncomeOptimizer/WorkerIncomeOptimizer';
 import { GrantLifecycleManager } from '../agents/grantLifecycleManager/GrantLifecycleManager';
+import { BoardIntelligenceOracle } from '../agents/boardIntelligenceOracle/BoardIntelligenceOracle';
+import { FinancialSentinel } from '../agents/financialSentinel/FinancialSentinel';
 
 export type SchedulerDeps = {
   alertSink: AlertSink;
@@ -60,31 +63,63 @@ export class Scheduler {
   async runScheduled(agentName: AgentName, window: { start: Date; end: Date }): Promise<void> {
     await prisma.$queryRaw`SELECT 1`;
 
-    if (agentName === 'ComplianceWatchdog') {
-      // Agents are enterprise-only: do not run for non-enterprise or non-active subscriptions.
+    if (
+      agentName === 'ComplianceWatchdog' ||
+      agentName === 'BoardIntelligenceOracle' ||
+      agentName === 'FinancialSentinel'
+    ) {
       const orgs = await prisma.organization.findMany({
-        where: { subscriptionTier: 'ENTERPRISE', subscriptionStatus: 'ACTIVE' },
-        select: { id: true },
+        where: { subscriptionStatus: 'ACTIVE' },
+        select: { id: true, subscriptionTier: true },
       });
-      await this.runForScopes(agentName, 'org', orgs.map(o => o.id), window);
+      const ids = orgs
+        .filter(o =>
+          subscriptionAllowsScheduledAgent({
+            tier: o.subscriptionTier,
+            status: 'ACTIVE',
+            agentName,
+          }),
+        )
+        .map(o => o.id);
+      await this.runForScopes(agentName, 'org', ids, window);
       return;
     }
     if (agentName === 'WorkerIncomeOptimizer') {
-      // Run only for workers linked to at least one enterprise org with an ACTIVE subscription.
       const rels = await prisma.workerOrgRelationship.findMany({
-        where: { organization: { subscriptionTier: 'ENTERPRISE', subscriptionStatus: 'ACTIVE' } },
-        select: { workerId: true },
+        where: { organization: { subscriptionStatus: 'ACTIVE' } },
+        select: { workerId: true, organization: { select: { subscriptionTier: true } } },
       });
-      const workerIds = Array.from(new Set(rels.map(r => r.workerId)));
+      const workerIds = Array.from(
+        new Set(
+          rels
+            .filter(r =>
+              subscriptionAllowsScheduledAgent({
+                tier: r.organization.subscriptionTier,
+                status: 'ACTIVE',
+                agentName,
+              }),
+            )
+            .map(r => r.workerId),
+        ),
+      );
       await this.runForScopes(agentName, 'worker', workerIds, window);
       return;
     }
     if (agentName === 'GrantLifecycleManager') {
       const grants = await prisma.grant.findMany({
-        where: { organization: { subscriptionTier: 'ENTERPRISE', subscriptionStatus: 'ACTIVE' } },
-        select: { id: true },
+        where: { organization: { subscriptionStatus: 'ACTIVE' } },
+        select: { id: true, organization: { select: { subscriptionTier: true } } },
       });
-      await this.runForScopes(agentName, 'grant', grants.map(g => g.id), window);
+      const grantIds = grants
+        .filter(g =>
+          subscriptionAllowsScheduledAgent({
+            tier: g.organization.subscriptionTier,
+            status: 'ACTIVE',
+            agentName,
+          }),
+        )
+        .map(g => g.id);
+      await this.runForScopes(agentName, 'grant', grantIds, window);
       return;
     }
   }
@@ -120,6 +155,8 @@ export class Scheduler {
 
   private getAgent(agentName: AgentName, sink: AlertSink) {
     if (agentName === 'ComplianceWatchdog') return new ComplianceWatchdog(sink);
+    if (agentName === 'BoardIntelligenceOracle') return new BoardIntelligenceOracle(sink);
+    if (agentName === 'FinancialSentinel') return new FinancialSentinel(sink);
     if (agentName === 'WorkerIncomeOptimizer') return new WorkerIncomeOptimizer(sink);
     return new GrantLifecycleManager(sink);
   }

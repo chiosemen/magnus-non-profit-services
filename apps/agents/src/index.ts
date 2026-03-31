@@ -27,8 +27,15 @@ function parseScopeType(s: string): ScopeType {
 }
 
 function parseAgentName(s: string): AgentName {
-  if (s === 'ComplianceWatchdog' || s === 'WorkerIncomeOptimizer' || s === 'GrantLifecycleManager') return s;
-  throw new Error('Invalid --agent. Expected ComplianceWatchdog|WorkerIncomeOptimizer|GrantLifecycleManager.');
+  const allowed: AgentName[] = [
+    'ComplianceWatchdog',
+    'WorkerIncomeOptimizer',
+    'GrantLifecycleManager',
+    'BoardIntelligenceOracle',
+    'FinancialSentinel',
+  ];
+  if ((allowed as string[]).includes(s)) return s as AgentName;
+  throw new Error(`Invalid --agent. Expected one of: ${allowed.join('|')}.`);
 }
 
 async function main(): Promise<void> {
@@ -71,7 +78,9 @@ async function main(): Promise<void> {
 function computeDefaultWindow(agentName: AgentName): { start: Date; end: Date } {
   if (agentName === 'ComplianceWatchdog') return dailyWindowAt(9, 0);
   if (agentName === 'GrantLifecycleManager') return dailyWindowAt(9, 30);
-  return weeklyWindowMonday0900();
+  if (agentName === 'FinancialSentinel') return dailyWindowAt(10, 0);
+  if (agentName === 'BoardIntelligenceOracle') return weeklyWindowMondayAt(8, 0);
+  return weeklyWindowMondayAt(9, 0);
 }
 
 function dailyWindowAt(hour: number, minute: number): { start: Date; end: Date } {
@@ -81,11 +90,11 @@ function dailyWindowAt(hour: number, minute: number): { start: Date; end: Date }
   return { start: new Date(end.getTime() - 24 * 60 * 60 * 1000), end };
 }
 
-function weeklyWindowMonday0900(): { start: Date; end: Date } {
+function weeklyWindowMondayAt(hour: number, minute: number): { start: Date; end: Date } {
   const now = new Date();
   const day = now.getDay();
   const daysSinceMonday = (day + 6) % 7;
-  let end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 0, 0, 0);
+  let end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hour, minute, 0, 0);
   end = new Date(end.getTime() - daysSinceMonday * 24 * 60 * 60 * 1000);
   if (now.getTime() < end.getTime()) end = new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
   return { start: new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000), end };

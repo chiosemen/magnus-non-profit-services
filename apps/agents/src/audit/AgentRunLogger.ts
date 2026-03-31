@@ -15,6 +15,9 @@ export class AgentRunLogger {
         windowEnd: ctx.window.end,
         status: 'STARTED',
         startedAt: new Date(),
+        autonomyTier: ctx.autonomyTier ?? 'TIER_A_AUTONOMOUS',
+        requiresHumanReview: ctx.requiresHumanReview ?? false,
+        sourceRefs: ctx.sourceRefs === undefined ? undefined : (ctx.sourceRefs as Prisma.InputJsonValue),
       },
       select: { id: true },
     });
@@ -22,25 +25,33 @@ export class AgentRunLogger {
   }
 
   async finishSuccess(runId: string, metrics: AgentRunMetrics): Promise<void> {
+    const m = { ...(metrics as Record<string, unknown>) };
+    const sourceRefs = m['sourceRefs'];
+    delete m['sourceRefs'];
     await prisma.agentRun.update({
       where: { id: runId },
       data: {
         status: 'SUCCESS' satisfies AgentRunStatus,
         finishedAt: new Date(),
-        metrics: metrics as Prisma.InputJsonValue,
+        metrics: m as Prisma.InputJsonValue,
+        ...(sourceRefs !== undefined ? { sourceRefs: sourceRefs as Prisma.InputJsonValue } : {}),
       },
     });
   }
 
   async finishFailed(runId: string, err: unknown, metrics: AgentRunMetrics): Promise<void> {
     const msg = redactErrorMessage(err);
+    const m = { ...(metrics as Record<string, unknown>) };
+    const sourceRefs = m['sourceRefs'];
+    delete m['sourceRefs'];
     await prisma.agentRun.update({
       where: { id: runId },
       data: {
         status: 'FAILED' satisfies AgentRunStatus,
         finishedAt: new Date(),
         error: msg,
-        metrics: metrics as Prisma.InputJsonValue,
+        metrics: m as Prisma.InputJsonValue,
+        ...(sourceRefs !== undefined ? { sourceRefs: sourceRefs as Prisma.InputJsonValue } : {}),
       },
     });
   }

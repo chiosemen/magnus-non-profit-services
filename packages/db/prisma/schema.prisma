@@ -91,6 +91,29 @@ enum ClaudeStatus {
   SUSPENDED
 }
 
+/// Platform autonomy classification for AgentRun audit (org settings cannot exceed these bounds).
+enum AutonomyTier {
+  TIER_A_AUTONOMOUS
+  TIER_B_ASK_FIRST
+  TIER_C_NEVER
+}
+
+enum AgentHandoffStatus {
+  OPEN
+  ACKNOWLEDGED
+  RESOLVED
+  CANCELLED
+}
+
+/// Five org identity / heartbeat documents (markdown in `content`).
+enum OrgContextFileKind {
+  ORG_IDENTITY
+  ORG_SOUL
+  ORG_AGENTS
+  ORG_MEMORY
+  ORG_HEARTBEAT
+}
+
 // ─── Core Models ─────────────────────────────────────────────────────────────
 
 model Organization {
@@ -119,6 +142,10 @@ model Organization {
   promptLibraries    OrgPromptLibrary[]
   claudeUsageLogs    ClaudeUsageLog[]
   sessions           Session[]
+
+  agentHandoffs                 AgentHandoff[]
+  orgContextFiles               OrgContextFile[]
+  agentOperationalMemoryEntries AgentOperationalMemoryEntry[]
 }
 
 model ComplianceCalendar {
@@ -258,9 +285,71 @@ model AgentRun {
   error      String?
   metrics    Json?
 
+  autonomyTier        AutonomyTier @default(TIER_A_AUTONOMOUS)
+  requiresHumanReview Boolean      @default(false)
+  sourceRefs          Json?
+  humanReviewedAt     DateTime?
+  humanReviewedBy     String?
+
+  handoffs                   AgentHandoff[]
+  agentOperationalMemories   AgentOperationalMemoryEntry[]
+
   @@index([agentName, scopeType, scopeId])
   @@index([windowEnd])
   @@unique([agentName, scopeType, scopeId, windowStart, windowEnd])
+}
+
+model AgentHandoff {
+  id                  String             @id @default(uuid()) @db.Uuid
+  orgId               String             @db.Uuid
+  fromAgentName       String
+  toAgentName         String
+  title               String
+  body                String             @db.Text
+  urgency             String             @default("normal")
+  requiresHumanReview Boolean            @default(false)
+  status              AgentHandoffStatus @default(OPEN)
+  sourceEvidence      Json?
+  relatedAgentRunId   String?            @db.Uuid
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  resolvedAt          DateTime?
+
+  organization    Organization @relation(fields: [orgId], references: [id])
+  relatedAgentRun AgentRun?    @relation(fields: [relatedAgentRunId], references: [id])
+
+  @@index([orgId, status])
+  @@index([orgId, createdAt])
+}
+
+model OrgContextFile {
+  id        String             @id @default(uuid()) @db.Uuid
+  orgId     String             @db.Uuid
+  kind      OrgContextFileKind
+  content   String             @db.Text
+  updatedAt DateTime           @updatedAt
+
+  organization Organization @relation(fields: [orgId], references: [id])
+
+  @@unique([orgId, kind])
+}
+
+/// Tier 1 operational memory: append-only log of agent outputs (convention; not enforced in DB).
+model AgentOperationalMemoryEntry {
+  id         String   @id @default(uuid()) @db.Uuid
+  orgId      String   @db.Uuid
+  agentName  String
+  kind       String
+  payload    Json
+  sourceRefs Json?
+  agentRunId String?  @db.Uuid
+  createdAt  DateTime @default(now())
+
+  organization Organization @relation(fields: [orgId], references: [id])
+  agentRun     AgentRun?    @relation(fields: [agentRunId], references: [id])
+
+  @@index([orgId, createdAt])
+  @@index([orgId, agentName])
 }
 
 model Alert {

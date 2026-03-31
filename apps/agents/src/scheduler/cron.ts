@@ -22,9 +22,25 @@ export function startCron(env: AgentsEnv, scheduler: Scheduler): void {
     });
   }, tz ? { timezone: tz } : undefined);
 
+  // Daily 10:00 local time — financial watch (grant pace; internal alerts only)
+  cron.schedule('0 10 * * *', () => {
+    const window = dailyWindowAtLocalHour(10, 0);
+    scheduler.runScheduled('FinancialSentinel', window).catch(() => {
+      process.exit(1);
+    });
+  }, tz ? { timezone: tz } : undefined);
+
+  // Weekly Monday 08:00 local time — board / executive prep digest
+  cron.schedule('0 8 * * 1', () => {
+    const window = weeklyWindowMondayAt(8, 0);
+    scheduler.runScheduled('BoardIntelligenceOracle', window).catch(() => {
+      process.exit(1);
+    });
+  }, tz ? { timezone: tz } : undefined);
+
   // Weekly Monday 09:00 local time
   cron.schedule('0 9 * * 1', () => {
-    const window = weeklyWindowMonday0900();
+    const window = weeklyWindowMondayAt(9, 0);
     scheduler.runScheduled('WorkerIncomeOptimizer', window).catch(() => {
       process.exit(1);
     });
@@ -41,12 +57,11 @@ function dailyWindowAtLocalHour(hour: number, minute: number): { start: Date; en
   return { start, end };
 }
 
-function weeklyWindowMonday0900(): { start: Date; end: Date } {
+function weeklyWindowMondayAt(hour: number, minute: number): { start: Date; end: Date } {
   const now = new Date();
-  // Compute most recent Monday 09:00 local time.
-  const day = now.getDay(); // 0 Sun, 1 Mon
-  const daysSinceMonday = (day + 6) % 7; // Mon -> 0, Tue -> 1, ... Sun -> 6
-  let end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 0, 0, 0);
+  const day = now.getDay();
+  const daysSinceMonday = (day + 6) % 7;
+  let end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hour, minute, 0, 0);
   end = new Date(end.getTime() - daysSinceMonday * 24 * 60 * 60 * 1000);
   if (now.getTime() < end.getTime()) {
     end = new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
