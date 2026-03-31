@@ -13,3 +13,12 @@ export {
   MAX_HANDOFF_BODY_BYTES,
 } from './agentHandoffService';
 export type { CreateHandoffInput, TransitionHandoffInput } from './agentHandoffService';
+export {
+  OrgMemoryService,
+  AUTONOMOUS_OPS_MEMORY_DISCLAIMER,
+} from './orgMemoryService';
+export type {
+  AppendOperationalMemoryInput,
+  CreateCuratedMemoryInput,
+  IngestSemanticChunkInput,
+} from './orgMemoryService';

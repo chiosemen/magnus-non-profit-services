@@ -7,6 +7,7 @@ import { validateEnv } from '@magnus/config/envValidator';
 import { getOrgComplianceCalendar, getOrgGrants, getOrgOverview } from './orgReadService';
 import { registerOrgIdentityFilesRoutes } from './orgIdentityFilesRoutes';
 import { registerAgentHandoffRoutes } from './agentHandoffRoutes';
+import { registerMemoryRoutes } from './memoryRoutes';
 
 try {
   validateEnv('org-dashboard-api');
@@ -26,6 +27,7 @@ const jwtAuth = createJwtAuthMiddleware();
 
 registerOrgIdentityFilesRoutes(app, jwtAuth);
 registerAgentHandoffRoutes(app, jwtAuth);
+registerMemoryRoutes(app, jwtAuth);
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 

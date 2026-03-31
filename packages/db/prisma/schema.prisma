@@ -146,6 +146,8 @@ model Organization {
   agentHandoffs                 AgentHandoff[]
   orgContextFiles               OrgContextFile[]
   agentOperationalMemoryEntries AgentOperationalMemoryEntry[]
+  orgCuratedMemoryItems         OrgCuratedMemoryItem[]
+  orgSemanticMemoryChunks       OrgSemanticMemoryChunk[]
 }
 
 model ComplianceCalendar {
@@ -362,12 +364,54 @@ model AgentOperationalMemoryEntry {
   sourceRefs Json?
   agentRunId String?  @db.Uuid
   createdAt  DateTime @default(now())
+  /// 0–1 when set; null means unspecified confidence.
+  confidence           Float?
+  /// When true, excluded from default recall paths (redaction / do-not-use).
+  recallDisabled       Boolean  @default(false)
+  recallDisabledReason String?  @db.Text
 
   organization Organization @relation(fields: [orgId], references: [id])
   agentRun     AgentRun?    @relation(fields: [agentRunId], references: [id])
 
   @@index([orgId, createdAt])
   @@index([orgId, agentName])
+  @@index([orgId, recallDisabled])
+}
+
+/// Tier 2 curated memory: human- or policy-approved durable facts (still not authoritative oracle truth).
+model OrgCuratedMemoryItem {
+  id          String   @id @default(uuid()) @db.Uuid
+  orgId       String   @db.Uuid
+  title       String?
+  body        String   @db.Text
+  /// Explicit uncertainty / reliability hint for consumers (0–1).
+  confidence  Float    @default(0.5)
+  sourceRefs  Json?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdBy   String?
+
+  organization Organization @relation(fields: [orgId], references: [id])
+
+  @@index([orgId, isActive])
+  @@index([orgId, updatedAt])
+}
+
+/// Tier 3 semantic memory: text chunks for retrieval; keyword search until embeddings are enabled.
+model OrgSemanticMemoryChunk {
+  id             String   @id @default(uuid()) @db.Uuid
+  orgId          String   @db.Uuid
+  chunkText      String   @db.Text
+  confidence     Float    @default(0.4)
+  sourceRefs     Json?
+  /// Reserved for future vector index; search remains keyword-only while false.
+  embeddingReady Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [orgId], references: [id])
+
+  @@index([orgId, createdAt])
 }
 
 model Alert {

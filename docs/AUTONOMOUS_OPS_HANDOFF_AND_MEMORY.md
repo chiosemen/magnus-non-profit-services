@@ -49,16 +49,37 @@ Consumers should treat handoff bodies as **draft internal context**, not externa
   - `PATCH /api/org/autonomous-ops/handoffs/:id/status` — `{ "toStatus", "actorType", "actorName"?, "detail"? }`.
   - `GET /api/org/autonomous-ops/handoffs/:id/audit` — audit trail.
 
-## Tier 1 operational memory (`AgentOperationalMemoryEntry`)
+## Three-tier memory (Autonomous Ops)
 
-Append-only (by convention) log of agent outputs and notable events:
+All read APIs include an explicit **disclaimer** string so consumers never treat memory as silent, unquestionable truth.
 
-- **orgId**, **agentName**, **kind** (short string, e.g. `digest`, `alert_batch`, `escalation`).
-- **payload** — JSON document (structured summary).
-- **agentRunId** — optional FK to `AgentRun`.
-- **sourceRefs** — JSON for pointers back to domain rows or tool outputs.
+### Tier 1 — Daily operational (`AgentOperationalMemoryEntry`)
 
-**Tier 2 (curated)** can continue to live in `OrgContextFile` / `ORG_MEMORY` until a dedicated curation workflow exists. **Tier 3 (semantic retrieval)** is not implemented in this migration.
+- Append-only log: **orgId**, **agentName**, **kind**, **payload** (JSON), optional **sourceRefs** (JSON object or array), optional **agentRunId** (must be org-scoped `AgentRun`).
+- **confidence** — optional 0–1; omit when unknown.
+- **recallDisabled** + **recallDisabledReason** — exclude row from default recall (`listOperational` filters these out unless `includeRecallDisabled=true`).
+
+### Tier 2 — Curated (`OrgCuratedMemoryItem`)
+
+- Structured items: **title**, **body**, **confidence** (required, default 0.5), **sourceRefs**, **isActive**.
+- **Curation rules:** `isActive=false` removes the item from default lists (soft retire); content is not deleted. New items default to `isActive=true`. Curated text is still **not** authoritative—verify against primary records.
+- **ORG_MEMORY** in `OrgContextFile` remains valid for narrative/org-edited prose; `OrgCuratedMemoryItem` is for discrete, list-shaped facts.
+
+### Tier 3 — Semantic (`OrgSemanticMemoryChunk`)
+
+- **chunkText**, **confidence**, **sourceRefs**, **embeddingReady** (default `false`).
+- **Fallback behavior:** search uses **PostgreSQL case-insensitive substring** match only (`matchMode: keyword_insensitive_contains`). Responses set **semanticReady: false** until a real embedding pipeline sets `embeddingReady` and (future) vector search. Empty query returns no hits with the same disclaimer.
+
+### org-dashboard-api routes (`OrgMemoryService`)
+
+- `POST /api/org/autonomous-ops/memory/operational` — append Tier 1.
+- `GET /api/org/autonomous-ops/memory/operational` — list (`includeRecallDisabled`, `take`).
+- `PATCH /api/org/autonomous-ops/memory/operational/:id/recall` — `{ disabled, reason? }`.
+- `POST /api/org/autonomous-ops/memory/curated` — create Tier 2.
+- `GET /api/org/autonomous-ops/memory/curated` — list (`includeInactive`, `take`).
+- `PATCH /api/org/autonomous-ops/memory/curated/:id/deactivate` — soft deactivate.
+- `POST /api/org/autonomous-ops/memory/semantic/chunks` — ingest Tier 3 chunk.
+- `GET /api/org/autonomous-ops/memory/semantic/search?q=&limit=` — keyword search + disclaimer.
 
 ## Audit linkage
 
