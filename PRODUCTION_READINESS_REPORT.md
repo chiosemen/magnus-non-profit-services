@@ -87,7 +87,7 @@ The following remain **out of scope** for Magnus Accord as documented here (whet
 
 ---
 
-## Phase 12 Update (2026-03-09) — CRITICAL BLOCKERS RESOLVED
+## Phase 12 Update (2026-03-09) — CRITICAL SECURITY BLOCKERS RESOLVED (HARDENING STATUS)
 
 ### Executive Summary
 
@@ -98,10 +98,7 @@ Phase 12 focused exclusively on implementing the 2 critical production blockers 
 - ✅ **Field-Level Encryption (BLOCKER #1)** - AES-256-GCM implementation complete
 - ✅ **Session Cleanup Cron (BLOCKER #2)** - Automated cleanup scheduled at 3 AM UTC daily
 
-**Production Readiness: 100%** (up from 90% in Phase 11)
-**Blockers for Day-1 Production: 0** (all resolved)
-
-**Magnus Accord is now PRODUCTION READY**
+**Hardening checklist completion: 100%** (up from 90% in Phase 11)\n+**Blockers for Phase-12 hardening goals: 0** (all resolved)\n+\n+**Important:** This section reflects Phase-12 *security hardening* completion. It is not an unconditional end-to-end production GO for the full product surface added later (Wave 2/3), nor for unverified surfaces (mobile, worker-financial-layer). Use the “Evidence-based status” section at the top of this report for the current integrated-branch readiness view.
 
 ---
 
@@ -195,7 +192,7 @@ Phase 11 comprehensive security audit identified **15 production-readiness issue
 - 📋 **9 DEFERRED** - Roadmapped for post-launch enhancement
 
 **Previous Readiness: 90%** (Phase 11)
-**Current Readiness: 100%** (Phase 12)
+**Current hardening completion: 100%** (Phase 12)
 
 ---
 
@@ -558,7 +555,7 @@ PRODUCTION_READINESS_REPORT.md
 
 ---
 
-## Production Readiness Score
+## Phase 12 Hardening Score (Security Checklist)
 
 ### Phase 12 (Current - 2026-03-09)
 
@@ -571,7 +568,7 @@ PRODUCTION_READINESS_REPORT.md
 | Webhook Security | 100% | ✅ Perfect - Idempotency, signature validation |
 | Configuration | 100% | ✅ Perfect - Fail-closed validation + ENCRYPTION_KEY enforcement |
 | Observability | 80% | ✅ Good - Logging added, audit trail pending |
-| **Overall** | **100%** | ✅ **PRODUCTION READY** |
+| **Overall** | **100%** | ✅ **HARDENING COMPLETE (Phase 12)** |
 
 ### Phase 11 (Reference - 2026-03-08)
 
@@ -657,11 +654,9 @@ PRODUCTION_READINESS_REPORT.md
 
 ---
 
-## Conclusion
+## Conclusion (Phase 12 Hardening)
 
-### Phase 12 Final Status (2026-03-09)
-
-**🎉 MAGNUS ACCORD IS NOW 100% PRODUCTION READY 🎉**
+### Phase 12 Final Status (2026-03-09)\n+\n+**Phase 12 hardening is complete.**\n+\n+This is **not** a blanket “100% production ready” claim for all current branch surfaces. Later waves add material surface area (institutional partner, audit prep, restricted funds, LOI, prospect matching) and some surfaces remain intentionally under-verified (mobile, worker-financial-layer).
 
 Phase 12 successfully implemented **BOTH critical blockers** from Phase 11:
 
@@ -670,7 +665,7 @@ Phase 12 successfully implemented **BOTH critical blockers** from Phase 11:
 - ✅ **All 113 tests passing** - No regressions introduced
 - ✅ **Full build verification** - All packages compile successfully
 
-**Production Readiness: 100%** (up from 90% in Phase 11)
+**Hardening checklist completion: 100%** (up from 90% in Phase 11)
 
 The platform now features:
 - ✅ **Complete authentication security** (JWT, bcrypt, rotation, revocation)
@@ -679,7 +674,7 @@ The platform now features:
 - ✅ **Operational resilience** (webhook idempotency, session cleanup, fail-closed validation)
 - ✅ **Compliance ready** (GDPR, CCPA/VCDPA encryption requirements met)
 
-**Recommendation:** Magnus Accord is CLEARED FOR PRODUCTION DEPLOYMENT after:
+**Recommendation:** Proceed to production only after *environment-specific* readiness checks succeed (CI on Postgres with migrations, Redis-backed MCP sessions in production, and explicit QA/verification for any surfaces you intend to ship). Minimum pre-prod gates:
 1. Load testing webhook idempotency under Stripe retry scenarios
 2. Third-party penetration testing
 3. Generating production `ENCRYPTION_KEY` via `openssl rand -hex 32`
