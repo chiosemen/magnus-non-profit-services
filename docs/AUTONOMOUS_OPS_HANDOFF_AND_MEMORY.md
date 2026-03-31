@@ -37,6 +37,18 @@ Asynchronous work queue between agents (and staff):
 
 Consumers should treat handoff bodies as **draft internal context**, not external truth.
 
+### Service and API (`AgentHandoffService`)
+
+- **Lifecycle:** `OPEN` → `ACKNOWLEDGED` → `RESOLVED`, or `OPEN` / `ACKNOWLEDGED` → `CANCELLED`. Terminal states: `RESOLVED`, `CANCELLED`. Invalid transitions return `409 INVALID_TRANSITION`.
+- **Audit:** append-only `AgentHandoffAuditEntry` rows (`CREATED`, `STATUS_CHANGED`) with `actorType` `agent` | `user` | `system`.
+- **Limits:** title ≤ 500 chars; body ≤ 128 KiB UTF-8; `sourceEvidence` must be a JSON **array** if present.
+- **org-dashboard-api (JWT org scope):**
+  - `POST /api/org/autonomous-ops/handoffs` — create (`fromAgentName`, `toAgentName`, `title`, `body`, optional `urgency`, `requiresHumanReview`, `sourceEvidence`, `relatedAgentRunId` scoped to org `AgentRun`).
+  - `GET /api/org/autonomous-ops/handoffs` — list; query `status`, `toAgentName`.
+  - `GET /api/org/autonomous-ops/handoffs/:id` — one item.
+  - `PATCH /api/org/autonomous-ops/handoffs/:id/status` — `{ "toStatus", "actorType", "actorName"?, "detail"? }`.
+  - `GET /api/org/autonomous-ops/handoffs/:id/audit` — audit trail.
+
 ## Tier 1 operational memory (`AgentOperationalMemoryEntry`)
 
 Append-only (by convention) log of agent outputs and notable events:

@@ -317,9 +317,27 @@ model AgentHandoff {
 
   organization    Organization @relation(fields: [orgId], references: [id])
   relatedAgentRun AgentRun?    @relation(fields: [relatedAgentRunId], references: [id])
+  auditEntries    AgentHandoffAuditEntry[]
 
   @@index([orgId, status])
   @@index([orgId, createdAt])
+}
+
+/// Append-only audit trail for AgentHandoff lifecycle (internal agents / staff actions).
+model AgentHandoffAuditEntry {
+  id         String              @id @default(uuid()) @db.Uuid
+  handoffId  String              @db.Uuid
+  createdAt  DateTime            @default(now())
+  action     String
+  fromStatus AgentHandoffStatus?
+  toStatus   AgentHandoffStatus?
+  actorType  String
+  actorName  String?
+  detail     Json?
+
+  handoff AgentHandoff @relation(fields: [handoffId], references: [id], onDelete: Cascade)
+
+  @@index([handoffId, createdAt])
 }
 
 model OrgContextFile {

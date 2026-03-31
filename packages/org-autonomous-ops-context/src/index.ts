@@ -6,3 +6,10 @@ export {
 } from './orgIdentityFilesService';
 export type { OrgIdentityTemplateInput } from './templates';
 export { defaultMarkdownForKind } from './templates';
+export {
+  AgentHandoffService,
+  HANDOFF_AUDIT_ACTIONS,
+  MAX_HANDOFF_TITLE_CHARS,
+  MAX_HANDOFF_BODY_BYTES,
+} from './agentHandoffService';
+export type { CreateHandoffInput, TransitionHandoffInput } from './agentHandoffService';
