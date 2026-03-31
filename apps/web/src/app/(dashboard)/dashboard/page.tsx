@@ -122,10 +122,10 @@ export default async function DashboardPage() {
           </p>
         </div>
         <div className="card">
-          <div className="cardTitle">Executive summary</div>
+          <div className="cardTitle">Executive command center</div>
           <p className="cardBody">Cross-module rollups with coverage and source links — ENTERPRISE only; read-only, no AI strategy layer.</p>
           <p className="cardBody">
-            <a href="/dashboard/executive-summary">Open executive summary</a>
+            <a href="/dashboard/executive-summary">Open executive command center</a>
           </p>
         </div>
         <div className="card">

@@ -9,16 +9,12 @@ import { getOrgComplianceCalendar, getOrgGrants } from './orgReadService';
 import { listRestrictedFunds } from './restrictedFundsService';
 import { getDonorOperationsSummary } from './donorOperationsService';
 import { getVolunteerOperationsSummary } from './volunteerOperationsService';
+import { getOrgCashFlowForecast } from './orgCashFlowForecastService';
+import { buildDeterministicExecutiveAlerts } from './executiveRollupAlerts';
+import { enrichSectionsWithModuleState } from './executiveRollupModuleState';
+import type { ExecutiveAlert, ExecutiveSection, ExecutiveSectionInput, SectionCoverage } from './executiveRollupTypes';
 
-export type SectionCoverage = 'ok' | 'weak' | 'unavailable';
-
-export type ExecutiveSection = {
-  coverage: SectionCoverage;
-  source: string;
-  dashboardHref: string;
-  summary: Record<string, unknown>;
-  unavailableReason?: string;
-};
+export type { ExecutiveAlert, ExecutiveModuleState, ExecutiveSection, SectionCoverage } from './executiveRollupTypes';
 
 function can(
   tier: 'STARTER' | 'GROWTH' | 'ENTERPRISE',
@@ -27,6 +23,11 @@ function can(
 ): boolean {
   return isFeatureEnabled({ tier, status, featureKey: key });
 }
+
+const SCOPE_NOTES = [
+  'Institutional portfolio rollups require partner session context; this org executive view does not embed partner JWT data.',
+  'Alerts are deterministic rules over module outputs, not AI-generated prioritization.',
+] as const;
 
 export async function getExecutiveRollup(orgId: string, now: Date = new Date()) {
   const org = await prisma.organization.findUnique({
@@ -38,7 +39,7 @@ export async function getExecutiveRollup(orgId: string, now: Date = new Date()) 
   const tier = org.subscriptionTier;
   const status = org.subscriptionStatus;
 
-  const sections: Record<string, ExecutiveSection> = {};
+  const sections: Record<string, ExecutiveSectionInput> = {};
 
   const addUnavailable = (key: string, source: string, href: string, feature: FeatureKey) => {
     sections[key] = {
@@ -138,11 +139,42 @@ export async function getExecutiveRollup(orgId: string, now: Date = new Date()) 
         summary: { overallScore: readiness.overallScore, taxYear: readiness.taxYear },
       };
     }
+
+    const cf = await getOrgCashFlowForecast(orgId);
+    if (cf === null) {
+      sections.cashFlow = {
+        coverage: 'unavailable',
+        source: 'cash_flow_forecast',
+        dashboardHref: '/dashboard/cash-flow',
+        summary: {},
+        unavailableReason: 'Organization not found.',
+      };
+    } else if (cf.status === 'insufficient_data') {
+      sections.cashFlow = {
+        coverage: 'weak',
+        source: 'cash_flow_forecast',
+        dashboardHref: '/dashboard/cash-flow',
+        summary: { status: 'insufficient_data', message: cf.message },
+      };
+    } else {
+      sections.cashFlow = {
+        coverage: cf.lowCashAlert.triggered ? 'weak' : 'ok',
+        source: 'cash_flow_forecast',
+        dashboardHref: '/dashboard/cash-flow',
+        summary: {
+          projectedEndingCash: cf.projectedEndingCash,
+          lowCashAlertTriggered: cf.lowCashAlert.triggered,
+          lowestProjectedCash: cf.summary.lowestProjectedCash,
+          currentCashBalance: cf.currentCashBalance,
+        },
+      };
+    }
   } else {
     addUnavailable('governance', 'governance', '/dashboard/governance', 'compliance_calendar');
     addUnavailable('auditPrep', 'audit_prep', '/dashboard/audit-prep', 'compliance_calendar');
     addUnavailable('stateRegistrations', 'state_registrations', '/dashboard/state-registrations', 'compliance_calendar');
     addUnavailable('form990Readiness', '990_readiness', '/dashboard/990-readiness', 'compliance_calendar');
+    addUnavailable('cashFlow', 'cash_flow_forecast', '/dashboard/cash-flow', 'compliance_calendar');
   }
 
   if (can(tier, status, 'donor_operations')) {
@@ -194,11 +226,26 @@ export async function getExecutiveRollup(orgId: string, now: Date = new Date()) 
     );
   }
 
+  /** Partner portfolio APIs are not callable with org JWT; surface honest NOT_APPLICABLE for drill-through only. */
+  sections.institutionalPortfolio = {
+    coverage: 'unavailable',
+    source: 'partner_portfolio',
+    dashboardHref: '/dashboard/partner/portfolio',
+    summary: {},
+    unavailableReason:
+      'Institutional portfolio metrics are computed in partner context (partner API + session). Open portfolio when your user has partner access; this rollup does not fabricate partner data.',
+  };
+
+  const enriched: Record<string, ExecutiveSection> = enrichSectionsWithModuleState(sections);
+  const alerts: ExecutiveAlert[] = buildDeterministicExecutiveAlerts(enriched);
+
   return {
     orgId,
     generatedAt: now.toISOString(),
     disclaimer:
-      'Read-only rollups with source links and coverage states. No cross-module health score; no AI-generated strategy.',
-    sections,
+      'Read-only rollups with source links, module states, and deterministic alerts. No cross-module health score; no AI-generated strategy or prioritization.',
+    scopeNotes: [...SCOPE_NOTES],
+    alerts,
+    sections: enriched,
   };
 }

@@ -110,7 +110,17 @@ describe('Waves 4–6 org-dashboard-api', () => {
       .set('Authorization', `Bearer ${tokenFor(ORG_ENTERPRISE)}`);
     expect(res.status).toBe(200);
     expect(res.body.disclaimer).toContain('No cross-module health score');
+    expect(Array.isArray(res.body.alerts)).toBe(true);
+    expect(Array.isArray(res.body.scopeNotes)).toBe(true);
+    expect(res.body.scopeNotes.length).toBeGreaterThan(0);
+    for (const a of res.body.alerts as Array<{ sourceModule: string; dashboardHref: string; confidence: string }>) {
+      expect(a.sourceModule).toBeTruthy();
+      expect(a.dashboardHref).toMatch(/^\//);
+      expect(a.confidence).toBe('deterministic');
+    }
     expect(res.body.sections.compliance).toBeDefined();
+    expect(res.body.sections.cashFlow).toBeDefined();
+    expect(res.body.sections.institutionalPortfolio.moduleState).toBe('NOT_APPLICABLE_ORG_CONTEXT');
     expect(res.body.sections.donorOperations).toBeDefined();
     expect(res.body.sections.volunteerOperations).toBeDefined();
     expect(res.body.sections.volunteerOperations.summary.volunteerDataStatus).toBe('NOT_CONFIGURED');
