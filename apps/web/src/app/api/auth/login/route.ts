@@ -101,7 +101,12 @@ export async function POST(req: Request) {
   const payload = await buildWebAuthPayload(user.id, org.id);
   const accessToken = signAccessToken(payload);
 
-  const res = NextResponse.json({ ok: true });
+  const url = new URL(req.url);
+  const includeAccessToken = url.searchParams.get('includeAccessToken') === 'true';
+
+  const res = NextResponse.json(
+    includeAccessToken ? { ok: true, accessToken } : { ok: true }
+  );
   setAccessCookie(res, accessToken);
   setRefreshCookie(res, refreshToken);
   return res;

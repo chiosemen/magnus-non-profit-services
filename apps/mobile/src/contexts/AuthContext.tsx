@@ -4,14 +4,14 @@
  */
 
 import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
-import { apiClient, type LoginCredentials, type UserProfile } from '../services/api';
+import { apiClient, type LoginWithEinCredentials, type UserProfile } from '../services/api';
 import { saveToken, getToken, deleteToken } from '../services/storage';
 
 type AuthState = {
   isLoading: boolean;
   isAuthenticated: boolean;
   user: UserProfile | null;
-  login: (credentials: LoginCredentials, sessionToken: string) => Promise<void>;
+  login: (credentials: LoginWithEinCredentials) => Promise<void>;
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
 };
@@ -36,7 +36,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsAuthenticated(true);
       setUser(profile);
     } catch (err) {
-      // Fail closed: invalid/expired token -> logout
       console.error('Auth check failed:', err);
       await deleteToken();
       setIsAuthenticated(false);
@@ -46,9 +45,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const login = async (credentials: LoginCredentials, sessionToken: string) => {
+  const login = async (credentials: LoginWithEinCredentials) => {
+    const accessToken = await apiClient.loginWithEin(credentials);
     try {
-      await saveToken(sessionToken);
+      await saveToken(accessToken);
       const profile = await apiClient.getMe();
       setIsAuthenticated(true);
       setUser(profile);

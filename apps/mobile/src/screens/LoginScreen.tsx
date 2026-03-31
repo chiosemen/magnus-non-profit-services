@@ -1,5 +1,5 @@
 /**
- * LoginScreen - Email/password authentication
+ * LoginScreen — EIN + email + password (matches POST /api/auth/login JSON contract)
  */
 
 import React, { useState } from 'react';
@@ -16,24 +16,23 @@ import { useAuth } from '../contexts/AuthContext';
 
 export default function LoginScreen() {
   const { login } = useAuth();
+  const [ein, setEin] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Error', 'Please enter email and password');
+    if (!ein.trim() || !email.trim() || !password) {
+      Alert.alert('Error', 'Please enter EIN, email, and password');
       return;
     }
 
     setIsLoading(true);
     try {
-      // For MVP: we don't have a way to extract session token from web login redirect
-      // This is a placeholder - in production you'd use a mobile-specific auth endpoint
-      // that returns the token directly
-      await login({ email, password }, 'placeholder-session-token');
+      await login({ ein, email, password });
     } catch (err) {
-      Alert.alert('Login Failed', 'Invalid email or password');
+      const message = err instanceof Error ? err.message : 'Sign-in failed';
+      Alert.alert('Login failed', message);
       console.error('Login error:', err);
     } finally {
       setIsLoading(false);
@@ -44,7 +43,16 @@ export default function LoginScreen() {
     <View style={styles.container}>
       <View style={styles.card}>
         <Text style={styles.title}>Magnus</Text>
-        <Text style={styles.subtitle}>Sign in to continue</Text>
+        <Text style={styles.subtitle}>Sign in with your organization EIN</Text>
+
+        <TextInput
+          style={styles.input}
+          placeholder="EIN (e.g. 12-3456789)"
+          value={ein}
+          onChangeText={setEin}
+          autoCapitalize="characters"
+          editable={!isLoading}
+        />
 
         <TextInput
           style={styles.input}
@@ -78,7 +86,8 @@ export default function LoginScreen() {
         </TouchableOpacity>
 
         <Text style={styles.note}>
-          Note: This is an MVP. Use credentials from the web app.
+          Mobile uses the same credentials as the web app. Org data loads through the web API (not directly from the
+          org dashboard service).
         </Text>
       </View>
     </View>
@@ -147,5 +156,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#999',
     textAlign: 'center',
+    lineHeight: 18,
   },
 });
