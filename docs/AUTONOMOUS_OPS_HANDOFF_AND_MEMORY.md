@@ -16,6 +16,15 @@ Five curated markdown documents per organization (content in `content`, typed by
 
 **Uniqueness:** at most one row per `(orgId, kind)` via unique constraint. Upserts replace prior content.
 
+### Persistence and API (`@magnus/org-autonomous-ops-context`)
+
+- **Service:** `OrgIdentityFilesService` — `ensureDefaults(orgId)` creates missing rows only (idempotent); `list`, `get`, `upsertContent`; max content **512 KiB** (`CONTENT_TOO_LARGE`).
+- **Templates:** `defaultMarkdownForKind` — `ORG_IDENTITY` seeds a table from `prisma.Organization` with an HTML `source-linked` comment; other kinds use structured scaffolds.
+- **org-dashboard-api (JWT org scope):**
+  - `GET /api/org/autonomous-ops/identity-files` — all five files (bootstraps defaults on first read).
+  - `GET /api/org/autonomous-ops/identity-files/:kind` — one kind (`ORG_IDENTITY`, …).
+  - `PUT /api/org/autonomous-ops/identity-files/:kind` — body `{ "content": "..." }`.
+
 ## Agent handoff (`AgentHandoff`)
 
 Asynchronous work queue between agents (and staff):

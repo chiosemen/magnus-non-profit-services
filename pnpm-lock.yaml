@@ -327,6 +327,9 @@ importers:
       '@magnus/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@magnus/org-autonomous-ops-context':
+        specifier: workspace:*
+        version: link:../../packages/org-autonomous-ops-context
       cors:
         specifier: ^2.8.5
         version: 2.8.6
@@ -483,6 +486,19 @@ importers:
       prisma:
         specifier: ^5.22.0
         version: 5.22.0
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+
+  packages/org-autonomous-ops-context:
+    dependencies:
+      '@magnus/db':
+        specifier: workspace:*
+        version: link:../db
+    devDependencies:
+      '@types/node':
+        specifier: ^22.5.0
+        version: 22.19.11
       typescript:
         specifier: ^5.5.4
         version: 5.9.3
