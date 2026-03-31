@@ -60,6 +60,27 @@ describe('Restricted Fund Tracking (deterministic)', () => {
     expect(res.riskFlags).toContain('UNDERSPEND_RISK');
   });
 
+  it('flags PERIOD_ENDED_WITH_REMAINING_BALANCE when period is over and funds remain', () => {
+    const now = new Date();
+    const start = new Date(now.getTime() - 120 * 86400000);
+    const end = new Date(now.getTime() - 1 * 86400000);
+
+    const res = computeRestrictedFundStatus({
+      fund: {
+        id: '55555555-5555-5555-5555-555555555555',
+        totalRestrictedAmountUsd: 5000,
+        startDate: start.toISOString(),
+        endDate: end.toISOString(),
+      },
+      usageEvents: [{ amountUsd: 3000, occurredAt: new Date(now.getTime() - 5 * 86400000).toISOString() }],
+      nowIso: now.toISOString(),
+    });
+
+    expect(res.remainingBalanceUsd).toBeGreaterThan(0);
+    expect(res.period.daysRemaining).toBe(0);
+    expect(res.riskFlags).toContain('PERIOD_ENDED_WITH_REMAINING_BALANCE');
+  });
+
   it('missing/invalid period dates fails closed with MISSING_PERIOD_DATES', () => {
     const res = computeRestrictedFundStatus({
       fund: {

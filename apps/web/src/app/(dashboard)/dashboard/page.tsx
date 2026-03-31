@@ -72,6 +72,13 @@ export default async function DashboardPage() {
             <a href="/dashboard/state-registrations">Open registration dashboard</a>
           </p>
         </div>
+        <div className="card">
+          <div className="cardTitle">Restricted funds</div>
+          <p className="cardBody">Monitor restricted balance, period-end pacing, and deterministic spend risks.</p>
+          <p className="cardBody">
+            <a href="/dashboard/restricted-funds">Open restricted funds dashboard</a>
+          </p>
+        </div>
       </div>
     </div>
   );
