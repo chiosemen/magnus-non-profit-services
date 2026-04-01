@@ -5,6 +5,7 @@ export type ScheduledAgentName =
   | 'ComplianceWatchdog'
   | 'BoardIntelligenceOracle'
   | 'GrantLifecycleManager'
+  | 'GrantIntelligenceHerald'
   | 'FinancialSentinel'
   | 'WorkerIncomeOptimizer';
 
@@ -27,6 +28,9 @@ export function subscriptionAllowsScheduledAgent(params: {
     return tier === 'GROWTH' || tier === 'ENTERPRISE';
   }
   if (name === 'GrantLifecycleManager' || name === 'FinancialSentinel' || name === 'WorkerIncomeOptimizer') {
+    return tier === 'ENTERPRISE';
+  }
+  if (name === 'GrantIntelligenceHerald') {
     return tier === 'ENTERPRISE';
   }
   return false;

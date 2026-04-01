@@ -9,6 +9,7 @@ import { WorkerIncomeOptimizer } from '../agents/workerIncomeOptimizer/WorkerInc
 import { GrantLifecycleManager } from '../agents/grantLifecycleManager/GrantLifecycleManager';
 import { BoardIntelligenceOracle } from '../agents/boardIntelligenceOracle/BoardIntelligenceOracle';
 import { FinancialSentinel } from '../agents/financialSentinel/FinancialSentinel';
+import { GrantIntelligenceHerald } from '../agents/grantIntelligenceHerald/GrantIntelligenceHerald';
 
 export type SchedulerDeps = {
   alertSink: AlertSink;
@@ -66,7 +67,8 @@ export class Scheduler {
     if (
       agentName === 'ComplianceWatchdog' ||
       agentName === 'BoardIntelligenceOracle' ||
-      agentName === 'FinancialSentinel'
+      agentName === 'FinancialSentinel' ||
+      agentName === 'GrantIntelligenceHerald'
     ) {
       const orgs = await prisma.organization.findMany({
         where: { subscriptionStatus: 'ACTIVE' },
@@ -157,6 +159,7 @@ export class Scheduler {
     if (agentName === 'ComplianceWatchdog') return new ComplianceWatchdog(sink);
     if (agentName === 'BoardIntelligenceOracle') return new BoardIntelligenceOracle(sink);
     if (agentName === 'FinancialSentinel') return new FinancialSentinel(sink);
+    if (agentName === 'GrantIntelligenceHerald') return new GrantIntelligenceHerald(sink);
     if (agentName === 'WorkerIncomeOptimizer') return new WorkerIncomeOptimizer(sink);
     return new GrantLifecycleManager(sink);
   }

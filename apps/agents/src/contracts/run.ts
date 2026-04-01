@@ -4,6 +4,7 @@ export type AgentName =
   | 'ComplianceWatchdog'
   | 'WorkerIncomeOptimizer'
   | 'GrantLifecycleManager'
+  | 'GrantIntelligenceHerald'
   | 'BoardIntelligenceOracle'
   | 'FinancialSentinel';
 

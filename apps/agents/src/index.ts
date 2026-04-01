@@ -31,6 +31,7 @@ function parseAgentName(s: string): AgentName {
     'ComplianceWatchdog',
     'WorkerIncomeOptimizer',
     'GrantLifecycleManager',
+    'GrantIntelligenceHerald',
     'BoardIntelligenceOracle',
     'FinancialSentinel',
   ];
@@ -77,6 +78,7 @@ async function main(): Promise<void> {
 
 function computeDefaultWindow(agentName: AgentName): { start: Date; end: Date } {
   if (agentName === 'ComplianceWatchdog') return dailyWindowAt(2, 15);
+  if (agentName === 'GrantIntelligenceHerald') return weeklyWindowTuesdayAt(7, 30);
   if (agentName === 'GrantLifecycleManager') return dailyWindowAt(9, 30);
   if (agentName === 'FinancialSentinel') return dailyWindowAt(10, 0);
   if (agentName === 'BoardIntelligenceOracle') return weeklyWindowMondayAt(8, 0);
@@ -96,6 +98,17 @@ function weeklyWindowMondayAt(hour: number, minute: number): { start: Date; end:
   const daysSinceMonday = (day + 6) % 7;
   let end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hour, minute, 0, 0);
   end = new Date(end.getTime() - daysSinceMonday * 24 * 60 * 60 * 1000);
+  if (now.getTime() < end.getTime()) end = new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
+  return { start: new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000), end };
+}
+
+function weeklyWindowTuesdayAt(hour: number, minute: number): { start: Date; end: Date } {
+  const now = new Date();
+  const day = now.getDay();
+  // Tue=2; compute days since Tuesday.
+  const daysSinceTuesday = (day + 5) % 7;
+  let end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hour, minute, 0, 0);
+  end = new Date(end.getTime() - daysSinceTuesday * 24 * 60 * 60 * 1000);
   if (now.getTime() < end.getTime()) end = new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
   return { start: new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000), end };
 }

@@ -38,6 +38,14 @@ export function startCron(env: AgentsEnv, scheduler: Scheduler): void {
     });
   }, tz ? { timezone: tz } : undefined);
 
+  // Weekly Tuesday 07:30 local time — HERALD grant opportunity review (internal)
+  cron.schedule('30 7 * * 2', () => {
+    const window = weeklyWindowTuesdayAt(7, 30);
+    scheduler.runScheduled('GrantIntelligenceHerald', window).catch(() => {
+      process.exit(1);
+    });
+  }, tz ? { timezone: tz } : undefined);
+
   // Weekly Monday 09:00 local time
   cron.schedule('0 9 * * 1', () => {
     const window = weeklyWindowMondayAt(9, 0);
@@ -63,6 +71,19 @@ function weeklyWindowMondayAt(hour: number, minute: number): { start: Date; end:
   const daysSinceMonday = (day + 6) % 7;
   let end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hour, minute, 0, 0);
   end = new Date(end.getTime() - daysSinceMonday * 24 * 60 * 60 * 1000);
+  if (now.getTime() < end.getTime()) {
+    end = new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
+  }
+  const start = new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
+  return { start, end };
+}
+
+function weeklyWindowTuesdayAt(hour: number, minute: number): { start: Date; end: Date } {
+  const now = new Date();
+  const day = now.getDay();
+  const daysSinceTuesday = (day + 5) % 7;
+  let end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hour, minute, 0, 0);
+  end = new Date(end.getTime() - daysSinceTuesday * 24 * 60 * 60 * 1000);
   if (now.getTime() < end.getTime()) {
     end = new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
   }
