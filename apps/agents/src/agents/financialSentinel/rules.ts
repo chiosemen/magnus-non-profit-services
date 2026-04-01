@@ -60,6 +60,7 @@ export function runFinancialSentinelRules(inputs: SentinelInputs): {
 
     const timeRatio = Math.min(1, Math.max(0, elapsedMs / periodMs));
     const spendRatio = g.spentToDate / g.totalAmount;
+    const daysToEnd = Math.ceil((g.endDate.getTime() - asOf.getTime()) / 86400000);
 
     // Only evaluate after 25% of period elapsed (avoid noisy first weeks).
     if (timeRatio < 0.25) {
@@ -69,6 +70,39 @@ export function runFinancialSentinelRules(inputs: SentinelInputs): {
 
     const expectedFloor = timeRatio * 0.5;
     const expectedCeil = timeRatio * 1.15;
+
+    // Restricted funds timing risk: grant is ending soon but spending is far behind time pace.
+    // This is a heuristic to flag potential underspend/closeout risk for restricted funds.
+    if (daysToEnd >= 0 && daysToEnd <= 60 && spendRatio < Math.max(0, timeRatio * 0.35)) {
+      const gapPct = Math.max(0, (timeRatio - spendRatio) * 100);
+      const sev = daysToEnd <= 30 || gapPct >= 40 ? 'HIGH' : 'MED';
+      alerts.push({
+        agentName: ctx.agentName,
+        scopeType: ctx.scope.type,
+        scopeId: orgId,
+        severity: sev,
+        type: 'RESTRICTED_FUNDS_TIMING_RISK',
+        title: `Restricted funds timing risk — ${g.funderName}`,
+        body: [
+          `Grant ends in ~${daysToEnd} day(s) on ${g.endDate.toISOString().slice(0, 10)}.`,
+          `As of ${asOf.toISOString().slice(0, 10)}, time elapsed is ${(timeRatio * 100).toFixed(0)}% but spend is ${(spendRatio * 100).toFixed(1)}%.`,
+          'This is a conservative heuristic for restricted-fund timing / closeout risk. Verify with accounting and grant management.',
+        ].join('\n'),
+        recommendedActions: [
+          'Reconcile actual spend vs the grant budget in the accounting system.',
+          'Confirm allowable expenses, procurement lead times, and closeout requirements.',
+          'If needed, evaluate no-cost extension options (human decision).',
+        ],
+        dedupeKey: sentinelDedupeKey({
+          agentName: ctx.agentName,
+          scopeType: ctx.scope.type,
+          scopeId: orgId,
+          alertType: 'RESTRICTED_FUNDS_TIMING_RISK',
+          grantId: g.id,
+          windowEnd: ctx.window.end,
+        }),
+      });
+    }
 
     if (spendRatio < expectedFloor) {
       alerts.push({
