@@ -8,7 +8,7 @@ const baseCtx = {
   window: { start: new Date('2026-06-01T00:00:00Z'), end: new Date('2026-06-15T12:00:00Z') },
 };
 
-test('BOARD_PREP_DIGEST summarizes compliance and grants', () => {
+test('ORACLE emits weekly summary and pre-board packet with compliance and grants', () => {
   const r = runBoardIntelligenceOracleRules({
     ctx: baseCtx,
     org: { id: 'org-1', name: 'Test Org', ein: '12-3456789' },
@@ -29,9 +29,20 @@ test('BOARD_PREP_DIGEST summarizes compliance and grants', () => {
         spentToDate: 40_000,
       },
     ],
+    orgAlertsInWindow: [],
+    openHandoffs: [],
+    orgContextFiles: [],
   });
-  assert.equal(r.alerts.length, 1);
-  assert.equal(r.alerts[0]?.type, 'BOARD_PREP_DIGEST');
-  assert.ok(String(r.alerts[0]?.body).includes('Test Org'));
-  assert.ok(String(r.alerts[0]?.body).includes('Acme Foundation'));
+  assert.equal(r.alerts.length, 2);
+  const types = r.alerts.map(a => a.type).sort();
+  assert.deepEqual(types, ['BOARD_PRE_BOARD_BRIEFING', 'BOARD_WEEKLY_EXEC_SUMMARY']);
+  const weekly = r.alerts.find(a => a.type === 'BOARD_WEEKLY_EXEC_SUMMARY');
+  assert.ok(String(weekly?.body).includes('Test Org'));
+  assert.ok(String(weekly?.body).includes('Count: 1'));
+  assert.ok(String(weekly?.body).includes('`compliance_calendar`'));
+  assert.ok(String(weekly?.body).includes('`grants`'));
+  const pre = r.alerts.find(a => a.type === 'BOARD_PRE_BOARD_BRIEFING');
+  assert.ok(String(pre?.body).includes('`c1`'));
+  assert.ok(String(pre?.body).includes('`g1`'));
+  assert.ok(String(pre?.body).includes('Acme Foundation'));
 });

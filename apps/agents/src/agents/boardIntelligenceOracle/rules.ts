@@ -1,27 +1,21 @@
 import type { AlertEvent } from '../../contracts/events';
 import type { AgentRunContext } from '../../contracts/run';
+import {
+  buildOracleBriefingPacket,
+  formatPreBoardBriefingPacket,
+  formatWeeklyExecutiveSummary,
+  oracleMaxSeverity,
+  type BuildOraclePacketInput,
+  type ComplianceRow,
+  type GrantSummary,
+  type OrgAlertRow,
+  type OpenHandoffRow,
+  type OrgContextRow,
+} from './oraclePacket';
 
-export type ComplianceRow = {
-  id: string;
-  dueDate: Date;
-  status: 'PENDING' | 'IN_PROGRESS' | 'FILED';
-  deadlineType: 'FORM_990' | 'STATE_REGISTRATION' | 'GRANT_REPORT';
-};
+export type { ComplianceRow, GrantSummary, OrgAlertRow, OpenHandoffRow, OrgContextRow };
 
-export type GrantSummary = {
-  id: string;
-  funderName: string;
-  endDate: Date;
-  totalAmount: number;
-  spentToDate: number;
-};
-
-export type OracleInputs = {
-  ctx: AgentRunContext;
-  org: { id: string; name: string; ein: string };
-  complianceCalendar: ComplianceRow[];
-  grants: GrantSummary[];
-};
+export type OracleInputs = BuildOraclePacketInput;
 
 export function oracleDedupeKey(params: {
   agentName: string;
@@ -37,82 +31,73 @@ export function runBoardIntelligenceOracleRules(inputs: OracleInputs): {
   alerts: AlertEvent[];
   skippedRules: string[];
   metrics: Record<string, unknown>;
+  packet: ReturnType<typeof buildOracleBriefingPacket>;
 } {
   const { ctx, org } = inputs;
-  const alerts: AlertEvent[] = [];
   const skippedRules: string[] = [];
-  const now = ctx.window.end;
-  const in30 = new Date(now.getTime() + 30 * 86400000);
 
-  const pendingSoon = inputs.complianceCalendar.filter(
-    c => c.status !== 'FILED' && c.dueDate <= in30 && c.dueDate >= new Date(now.getTime() - 1 * 86400000),
-  );
-  const overdue = inputs.complianceCalendar.filter(c => c.status !== 'FILED' && c.dueDate < now);
+  const packet = buildOracleBriefingPacket(inputs);
+  const sev = oracleMaxSeverity(packet);
 
-  const activeGrants = inputs.grants.filter(g => g.endDate >= now);
+  const weeklyBody = formatWeeklyExecutiveSummary(packet);
+  const preBoardBody = formatPreBoardBriefingPacket(packet);
 
-  const lines: string[] = [
-    `Executive / board prep digest for ${org.name} (EIN ${org.ein}).`,
-    '',
-    `Compliance items not filed: ${inputs.complianceCalendar.filter(c => c.status !== 'FILED').length} total.`,
-    `Due within 30 days (from run window end): ${pendingSoon.length}.`,
-    `Appears overdue vs window end: ${overdue.length}.`,
-    `Active grants (end on/after window end): ${activeGrants.length}.`,
-  ];
-
-  if (pendingSoon.length > 0) {
-    lines.push('', 'Upcoming (30d):');
-    for (const c of pendingSoon.slice(0, 8)) {
-      lines.push(`- ${c.deadlineType} due ${c.dueDate.toISOString().slice(0, 10)} (${c.status})`);
-    }
-    if (pendingSoon.length > 8) lines.push(`- …and ${pendingSoon.length - 8} more`);
-  }
-
-  if (activeGrants.length > 0) {
-    lines.push('', 'Grant pipeline (sample):');
-    for (const g of activeGrants.slice(0, 6)) {
-      const pct = g.totalAmount > 0 ? ((g.spentToDate / g.totalAmount) * 100).toFixed(1) : 'n/a';
-      lines.push(`- ${g.funderName}: spends ${pct}% through period; ends ${g.endDate.toISOString().slice(0, 10)}`);
-    }
-    if (activeGrants.length > 6) lines.push(`- …and ${activeGrants.length - 6} more`);
-  }
-
-  lines.push(
-    '',
-    'This digest is internal-only and rule-based. Confirm all dates and amounts in source systems before board use.',
-  );
-
-  const severity = overdue.length > 0 ? 'HIGH' : pendingSoon.length > 0 ? 'MED' : 'LOW';
-
-  alerts.push({
-    agentName: ctx.agentName,
-    scopeType: ctx.scope.type,
-    scopeId: org.id,
-    severity,
-    type: 'BOARD_PREP_DIGEST',
-    title: `Board / executive prep — ${org.name}`,
-    body: lines.join('\n'),
-    recommendedActions: [
-      'Review compliance calendar entries in the dashboard.',
-      'Validate grant balances and reporting dates with finance.',
-      'Add open issues to the board agenda as needed.',
-    ],
-    dedupeKey: oracleDedupeKey({
+  const alerts: AlertEvent[] = [
+    {
       agentName: ctx.agentName,
       scopeType: ctx.scope.type,
       scopeId: org.id,
-      alertType: 'BOARD_PREP_DIGEST',
-      windowEnd: ctx.window.end,
-    }),
-  });
+      severity: sev,
+      type: 'BOARD_WEEKLY_EXEC_SUMMARY',
+      title: `Weekly executive summary — ${org.name}`,
+      body: weeklyBody,
+      recommendedActions: [
+        'Review linked source IDs in the appendix against the org dashboard.',
+        'Route open questions to finance (grants) and compliance owners.',
+      ],
+      dedupeKey: oracleDedupeKey({
+        agentName: ctx.agentName,
+        scopeType: ctx.scope.type,
+        scopeId: org.id,
+        alertType: 'BOARD_WEEKLY_EXEC_SUMMARY',
+        windowEnd: ctx.window.end,
+      }),
+    },
+    {
+      agentName: ctx.agentName,
+      scopeType: ctx.scope.type,
+      scopeId: org.id,
+      severity: sev,
+      type: 'BOARD_PRE_BOARD_BRIEFING',
+      title: `Pre-board briefing packet (draft) — ${org.name}`,
+      body: preBoardBody,
+      recommendedActions: [
+        'Confirm agenda items against overdue compliance and open handoffs.',
+        'Staff to verify all cited alerts in primary systems — not board-approved material.',
+      ],
+      dedupeKey: oracleDedupeKey({
+        agentName: ctx.agentName,
+        scopeType: ctx.scope.type,
+        scopeId: org.id,
+        alertType: 'BOARD_PRE_BOARD_BRIEFING',
+        windowEnd: ctx.window.end,
+      }),
+    },
+  ];
 
   return {
     alerts,
     skippedRules,
     metrics: {
-      pendingSoonCount: pendingSoon.length,
-      overdueCount: overdue.length,
-      activeGrantCount: activeGrants.length,
+      pendingSoonCount: packet.compliance.pendingSoon.length,
+      overdueCount: packet.compliance.overdue.length,
+      activeGrantCount: packet.grants.active.length,
+      financialWatchAlertCount: packet.financialWatch.alerts.length,
+      complianceOpsAlertCount: packet.complianceOpsAlerts.alerts.length,
+      openHandoffCount: packet.governance.openHandoffs.length,
+      orgContextFileCount: packet.governance.contextFiles.length,
+      sourceRefCount: packet.sourceIndex.length,
     },
+    packet,
   };
 }
