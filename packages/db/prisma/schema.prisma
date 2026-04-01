@@ -148,6 +148,28 @@ model Organization {
   agentOperationalMemoryEntries AgentOperationalMemoryEntry[]
   orgCuratedMemoryItems         OrgCuratedMemoryItem[]
   orgSemanticMemoryChunks       OrgSemanticMemoryChunk[]
+
+  autonomousOpsSettings         OrgAutonomousOpsSettings?
+}
+
+enum AutonomousOpsBoundaryMode {
+  internal_only
+  ask_first
+  never
+}
+
+model OrgAutonomousOpsSettings {
+  id                    String      @id @default(uuid()) @db.Uuid
+  orgId                 String      @unique @db.Uuid
+  enabledAgents         Json
+  maxAutonomyTier       AutonomyTier @default(TIER_A_AUTONOMOUS)
+  agentBoundaryOverrides Json?
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
 }
 
 model ComplianceCalendar {

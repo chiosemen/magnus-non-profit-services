@@ -22,3 +22,10 @@ export type {
   CreateCuratedMemoryInput,
   IngestSemanticChunkInput,
 } from './orgMemoryService';
+
+export { AutonomousOpsSettingsService } from './autonomySettingsService';
+export type {
+  AutonomousOpsSettings,
+  UpsertAutonomousOpsSettingsInput,
+  BoundaryMode,
+} from './autonomySettingsService';

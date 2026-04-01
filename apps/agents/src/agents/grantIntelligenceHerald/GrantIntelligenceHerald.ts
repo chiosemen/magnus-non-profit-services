@@ -6,6 +6,7 @@ import { AgentHandoffService, OrgMemoryService } from '@magnus/org-autonomous-op
 import { createCandidOpportunityFetcher, type GrantMatch, type OpportunityFetcher } from './opportunityClient';
 import { parseOrgIdentityForGrantProfile } from './parseOrgIdentity';
 import { runGrantIntelligenceHeraldRules } from './rules';
+import { assertInternalSideEffectAllowed } from '../../autonomy/enforcement';
 
 const HERALD_TO_QUEUE = 'GrantTeam';
 
@@ -104,10 +105,12 @@ export class GrantIntelligenceHerald {
         org: { id: org.id, name: org.name, ein: org.ein },
         match: m,
       });
+      assertInternalSideEffectAllowed({ autonomyTier: ctx.autonomyTier, requiresHumanReview: ctx.requiresHumanReview, effect: 'handoff' });
       const h = await this.handoffSvc.create(org.id, input);
       createdHandoffIds.push(h.id);
     }
 
+    assertInternalSideEffectAllowed({ autonomyTier: ctx.autonomyTier, requiresHumanReview: ctx.requiresHumanReview, effect: 'memory' });
     await this.memorySvc.appendOperational(org.id, {
       agentName: ctx.agentName,
       kind: 'herald_grant_readiness_update',

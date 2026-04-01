@@ -5,6 +5,7 @@ import { runComplianceWatchdogRules } from './rules';
 import { AgentHandoffService, OrgMemoryService } from '@magnus/org-autonomous-ops-context';
 import type { PrismaClient } from '@magnus/db/types';
 import { buildStewardOracleHandoffInput, STEWARD_ORACLE_HANDOFF_TITLE } from './stewardHandoffs';
+import { assertInternalSideEffectAllowed } from '../../autonomy/enforcement';
 
 /**
  * STEWARD (roadmap) — persisted agent name remains `ComplianceWatchdog`.
@@ -99,6 +100,7 @@ export class ComplianceWatchdog {
       if (openDup > 0) {
         stewardHandoffSkipped = 'open_oracle_handoff_exists';
       } else {
+        assertInternalSideEffectAllowed({ autonomyTier: ctx.autonomyTier, requiresHumanReview: ctx.requiresHumanReview, effect: 'handoff' });
         await this.handoffSvc.create(org.id, handoffInput);
         stewardHandoffCreated = true;
       }
@@ -106,6 +108,7 @@ export class ComplianceWatchdog {
 
     let stewardMemoryAppended = false;
     try {
+      assertInternalSideEffectAllowed({ autonomyTier: ctx.autonomyTier, requiresHumanReview: ctx.requiresHumanReview, effect: 'memory' });
       await this.memorySvc.appendOperational(org.id, {
         agentName: 'ComplianceWatchdog',
         kind: 'steward_compliance_scan',

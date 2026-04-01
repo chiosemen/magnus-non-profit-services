@@ -10,6 +10,8 @@ import { GrantLifecycleManager } from '../agents/grantLifecycleManager/GrantLife
 import { BoardIntelligenceOracle } from '../agents/boardIntelligenceOracle/BoardIntelligenceOracle';
 import { FinancialSentinel } from '../agents/financialSentinel/FinancialSentinel';
 import { GrantIntelligenceHerald } from '../agents/grantIntelligenceHerald/GrantIntelligenceHerald';
+import { AutonomousOpsSettingsService, type AutonomousOpsSettings } from '@magnus/org-autonomous-ops-context';
+import { effectiveBoundaryMode, stampCtxForBoundary, type BoundaryMode } from '../autonomy/enforcement';
 
 export type SchedulerDeps = {
   alertSink: AlertSink;
@@ -18,6 +20,7 @@ export type SchedulerDeps = {
 export class Scheduler {
   private readonly runLogger = new AgentRunLogger();
   private readonly deps: SchedulerDeps;
+  private readonly settingsSvc = new AutonomousOpsSettingsService(prisma as any);
 
   constructor(deps: SchedulerDeps) {
     this.deps = deps;
@@ -29,6 +32,13 @@ export class Scheduler {
       scope: { type: params.scopeType, id: params.scopeId },
       window: params.window,
     };
+    if (ctx.scope.type === 'org') {
+      const settings = await this.settingsSvc.get(ctx.scope.id);
+      const mode = boundaryModeForAgent(settings, ctx.agentName);
+      const stamp = stampCtxForBoundary({ mode });
+      ctx.autonomyTier = stamp.autonomyTier;
+      ctx.requiresHumanReview = stamp.requiresHumanReview;
+    }
 
     // Fail-closed: ensure DB is reachable before attempting run.
     await prisma.$queryRaw`SELECT 1`;
@@ -83,7 +93,8 @@ export class Scheduler {
           }),
         )
         .map(o => o.id);
-      await this.runForScopes(agentName, 'org', ids, window);
+      const filtered = await this.filterOrgsByAutonomySettings(agentName, ids);
+      await this.runForScopes(agentName, 'org', filtered, window);
       return;
     }
     if (agentName === 'WorkerIncomeOptimizer') {
@@ -163,4 +174,22 @@ export class Scheduler {
     if (agentName === 'WorkerIncomeOptimizer') return new WorkerIncomeOptimizer(sink);
     return new GrantLifecycleManager(sink);
   }
+
+  private async filterOrgsByAutonomySettings(agentName: AgentName, orgIds: string[]): Promise<string[]> {
+    const out: string[] = [];
+    for (const orgId of orgIds) {
+      const settings = await this.settingsSvc.get(orgId);
+      if (!settings.enabledAgents.includes(agentName)) continue;
+      const mode = boundaryModeForAgent(settings, agentName);
+      if (mode === 'never') continue;
+      out.push(orgId);
+    }
+    return out;
+  }
+}
+
+function boundaryModeForAgent(settings: AutonomousOpsSettings, agentName: AgentName): BoundaryMode {
+  const override = settings.agentBoundaryOverrides[agentName];
+  const defaultMode: BoundaryMode = override ?? 'internal_only';
+  return effectiveBoundaryMode({ defaultMode, maxAutonomyTier: settings.maxAutonomyTier });
 }

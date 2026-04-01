@@ -8,6 +8,7 @@ import { getOrgComplianceCalendar, getOrgGrants, getOrgOverview } from './orgRea
 import { registerOrgIdentityFilesRoutes } from './orgIdentityFilesRoutes';
 import { registerAgentHandoffRoutes } from './agentHandoffRoutes';
 import { registerMemoryRoutes } from './memoryRoutes';
+import { registerAutonomousOpsSettingsRoutes } from './autonomousOpsSettingsRoutes';
 
 try {
   validateEnv('org-dashboard-api');
@@ -28,6 +29,7 @@ const jwtAuth = createJwtAuthMiddleware();
 registerOrgIdentityFilesRoutes(app, jwtAuth);
 registerAgentHandoffRoutes(app, jwtAuth);
 registerMemoryRoutes(app, jwtAuth);
+registerAutonomousOpsSettingsRoutes(app, jwtAuth);
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
