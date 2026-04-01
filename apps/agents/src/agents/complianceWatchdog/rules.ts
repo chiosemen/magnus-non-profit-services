@@ -119,9 +119,27 @@ export function runComplianceWatchdogRules(inputs: ComplianceWatchdogInputs): Co
     }
   }
 
-  // Rule 4: Grant report deadlines within 30 days
+  // Rule 4: Grant report deadlines — overdue and within 30 days
   for (const d of inputs.grantReportDeadlines) {
-    if (d.dueDate.getTime() >= now.getTime() && d.dueDate.getTime() <= in30Days.getTime()) {
+    if (d.dueDate.getTime() < now.getTime()) {
+      alerts.push({
+        agentName: ctx.agentName,
+        scopeType: ctx.scope.type,
+        scopeId: org.id,
+        severity: 'HIGH',
+        type: 'GRANT_REPORT_DEADLINE_OVERDUE',
+        title: 'Grant report deadline overdue',
+        body: `Grant report "${d.title}" was due on ${d.dueDate.toISOString().slice(0, 10)} (verify status with finance).`,
+        recommendedActions: ['Confirm submission status and update grant records if already filed.'],
+        dedupeKey: complianceDedupeKey({
+          agentName: ctx.agentName,
+          scopeType: ctx.scope.type,
+          scopeId: org.id,
+          alertType: `GRANT_REPORT_DEADLINE_OVERDUE:${d.grantId}:${d.dueDate.toISOString().slice(0, 10)}`,
+          windowEnd: ctx.window.end,
+        }),
+      });
+    } else if (d.dueDate.getTime() <= in30Days.getTime()) {
       alerts.push({
         agentName: ctx.agentName,
         scopeType: ctx.scope.type,

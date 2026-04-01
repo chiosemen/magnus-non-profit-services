@@ -5,9 +5,9 @@ import { Scheduler } from './scheduler';
 export function startCron(env: AgentsEnv, scheduler: Scheduler): void {
   const tz = env.AGENTS_TIMEZONE;
 
-  // Daily 09:00 local time
-  cron.schedule('0 9 * * *', () => {
-    const window = dailyWindowAtLocalHour(9, 0);
+  // Nightly 02:15 local — STEWARD (ComplianceWatchdog) internal compliance scan
+  cron.schedule('15 2 * * *', () => {
+    const window = dailyWindowAtLocalHour(2, 15);
     scheduler.runScheduled('ComplianceWatchdog', window).catch(() => {
       // Fail closed: scheduler process should exit on cron failure to avoid silent drift.
       process.exit(1);

@@ -16,6 +16,9 @@ importers:
       '@magnus/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@magnus/org-autonomous-ops-context':
+        specifier: workspace:*
+        version: link:../../packages/org-autonomous-ops-context
       '@magnus/subscription':
         specifier: workspace:*
         version: link:../../packages/subscription

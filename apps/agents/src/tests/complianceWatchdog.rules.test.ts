@@ -78,6 +78,32 @@ test('overdue deadline rule triggers when dueDate < windowEnd', () => {
   assert.equal(res.alerts.some(a => a.type === 'COMPLIANCE_DEADLINE_OVERDUE'), true);
 });
 
+test('grant report overdue emits HIGH GRANT_REPORT_DEADLINE_OVERDUE', () => {
+  const res = runComplianceWatchdogRules({
+    ctx: ctx(),
+    org: {
+      id: '00000000-0000-0000-0000-000000000001',
+      ein: '123456789',
+      name: 'Test Org',
+      annualRevenue: null,
+      subscriptionTier: 'STARTER',
+      uses990Postcard: false,
+      fiscalYearEnd: null,
+    },
+    complianceCalendar: [],
+    grantReportDeadlines: [
+      {
+        grantId: 'g1',
+        dueDate: new Date('2026-02-01T00:00:00.000Z'),
+        title: 'Q4 narrative',
+      },
+    ],
+  });
+  const hit = res.alerts.find(a => a.type === 'GRANT_REPORT_DEADLINE_OVERDUE');
+  assert.ok(hit);
+  assert.equal(hit!.severity, 'HIGH');
+});
+
 test('dedupeKey stable for same windowEnd', () => {
   const a = runComplianceWatchdogRules({
     ctx: ctx(),

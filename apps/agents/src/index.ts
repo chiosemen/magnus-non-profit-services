@@ -76,7 +76,7 @@ async function main(): Promise<void> {
 }
 
 function computeDefaultWindow(agentName: AgentName): { start: Date; end: Date } {
-  if (agentName === 'ComplianceWatchdog') return dailyWindowAt(9, 0);
+  if (agentName === 'ComplianceWatchdog') return dailyWindowAt(2, 15);
   if (agentName === 'GrantLifecycleManager') return dailyWindowAt(9, 30);
   if (agentName === 'FinancialSentinel') return dailyWindowAt(10, 0);
   if (agentName === 'BoardIntelligenceOracle') return weeklyWindowMondayAt(8, 0);
