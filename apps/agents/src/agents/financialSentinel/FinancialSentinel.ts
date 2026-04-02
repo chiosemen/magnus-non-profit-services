@@ -100,7 +100,25 @@ export class FinancialSentinel {
     const asOf = ctx.window.end;
     if (!plaidAccessToken) {
       skippedRules.push('cash_runway:no_plaid_token');
-      return { alert: null, skippedRules };
+      return {
+        alert: {
+          agentName: ctx.agentName,
+          scopeType: ctx.scope.type,
+          scopeId: orgId,
+          severity: 'LOW',
+          type: 'CASH_RUNWAY_UNAVAILABLE',
+          title: 'Cash runway unavailable (Plaid not configured)',
+          body: [
+            `As of ${asOf.toISOString().slice(0, 10)}, cash runway could not be computed because Plaid is not configured for this org.`,
+            '',
+            'This is an internal visibility alert only. No external action was taken.',
+            'Configure Plaid access token for the organization, then rerun FinancialSentinel.',
+          ].join('\n'),
+          recommendedActions: ['Configure Plaid and rerun FinancialSentinel.'],
+          dedupeKey: `${ctx.agentName}:${ctx.scope.type}:${orgId}:CASH_RUNWAY_UNAVAILABLE:${asOf.toISOString()}`,
+        },
+        skippedRules,
+      };
     }
 
     try {
@@ -145,7 +163,9 @@ export class FinancialSentinel {
                 `Estimated burn rate is ~$${(runway.burnRateUsdPerMonth ?? 0).toFixed(2)}/month based on last ${months} months of transactions.`,
                 `Estimated runway is ~${runway.runwayMonths.toFixed(1)} months.`,
                 '',
-                'This is a heuristic for internal review only. Reconcile with authoritative accounting records before action.',
+                `Inputs used (Plaid summaries): window ${range.startDate}..${range.endDate}, total_inflow=$${totalInflowUsd.toFixed(2)}, total_outflow=$${totalOutflowUsd.toFixed(2)}.`,
+                '',
+                'This is a heuristic for internal review only. It is not authoritative accounting. Reconcile with the accounting system before action.',
               ].join('\n'),
               recommendedActions: [
                 'Confirm cash and burn assumptions in the accounting system.',
@@ -164,9 +184,34 @@ export class FinancialSentinel {
           runwayMonths: runway.runwayMonths,
         },
       };
-    } catch {
+    } catch (err) {
       skippedRules.push('cash_runway:plaid_error');
-      return { alert: null, skippedRules };
+      const code = err instanceof Error ? err.message : null;
+      const reason = code === 'PLAID_MISCONFIGURED' ? 'PLAID_MISCONFIGURED' : 'PLAID_ERROR';
+      return {
+        alert: {
+          agentName: ctx.agentName,
+          scopeType: ctx.scope.type,
+          scopeId: orgId,
+          severity: 'LOW',
+          type: 'CASH_RUNWAY_UNAVAILABLE',
+          title: reason === 'PLAID_MISCONFIGURED' ? 'Cash runway unavailable (Plaid misconfigured)' : 'Cash runway unavailable (Plaid error)',
+          body: [
+            `As of ${asOf.toISOString().slice(0, 10)}, cash runway could not be computed due to a Plaid error.`,
+            '',
+            'This is an internal visibility alert only. No external action was taken.',
+            reason === 'PLAID_MISCONFIGURED'
+              ? 'PLAID_CLIENT_ID/PLAID_SECRET are missing. Configure Plaid credentials and rerun FinancialSentinel.'
+              : 'Verify Plaid credentials/connectivity and rerun FinancialSentinel.',
+          ].join('\n'),
+          recommendedActions:
+            reason === 'PLAID_MISCONFIGURED'
+              ? ['Set PLAID_CLIENT_ID and PLAID_SECRET, then rerun FinancialSentinel.']
+              : ['Verify Plaid connectivity and rerun FinancialSentinel.'],
+          dedupeKey: `${ctx.agentName}:${ctx.scope.type}:${orgId}:CASH_RUNWAY_UNAVAILABLE:${asOf.toISOString()}`,
+        },
+        skippedRules,
+      };
     }
   }
 }

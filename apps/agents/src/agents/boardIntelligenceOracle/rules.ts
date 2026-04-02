@@ -52,8 +52,25 @@ export function runBoardIntelligenceOracleRules(inputs: OracleInputs): {
       title: `Weekly executive summary — ${org.name}`,
       body: weeklyBody,
       recommendedActions: [
-        'Review linked source IDs in the appendix against the org dashboard.',
-        'Route open questions to finance (grants) and compliance owners.',
+        {
+          label: 'Review the executive board (operator view)',
+          kind: 'navigate',
+          url: '/app/autonomous-ops/executive',
+          sourceRefs: [{ type: 'dest', href: '/app/autonomous-ops/executive', status: 'UNIMPLEMENTED_IN_REPO' }],
+        },
+        {
+          label: 'Review active obligations (derived)',
+          kind: 'navigate',
+          url: '/api/org/autonomous-ops/obligations/active',
+          sourceRefs: [{ type: 'dest', href: '/api/org/autonomous-ops/obligations/active', status: 'IMPLEMENTED' }],
+        },
+        {
+          label: 'Review alerts and resolve ownership/status',
+          kind: 'navigate',
+          url: '/app/autonomous-ops/alerts',
+          sourceRefs: [{ type: 'dest', href: '/app/autonomous-ops/alerts', status: 'UNIMPLEMENTED_IN_REPO' }],
+        },
+        'Verify source IDs in the appendix against DB-backed surfaces before action.',
       ],
       dedupeKey: oracleDedupeKey({
         agentName: ctx.agentName,
@@ -72,8 +89,25 @@ export function runBoardIntelligenceOracleRules(inputs: OracleInputs): {
       title: `Pre-board briefing packet (draft) — ${org.name}`,
       body: preBoardBody,
       recommendedActions: [
-        'Confirm agenda items against overdue compliance and open handoffs.',
-        'Staff to verify all cited alerts in primary systems — not board-approved material.',
+        {
+          label: 'Confirm overdue compliance items',
+          kind: 'navigate',
+          url: '/app/compliance',
+          sourceRefs: [{ type: 'dest', href: '/app/compliance', status: 'UNIMPLEMENTED_IN_REPO' }],
+        },
+        {
+          label: 'Review active obligations (derived)',
+          kind: 'navigate',
+          url: '/api/org/autonomous-ops/obligations/active',
+          sourceRefs: [{ type: 'dest', href: '/api/org/autonomous-ops/obligations/active', status: 'IMPLEMENTED' }],
+        },
+        {
+          label: 'Review open handoffs and assign owners',
+          kind: 'navigate',
+          url: '/app/autonomous-ops/handoffs',
+          sourceRefs: [{ type: 'dest', href: '/app/autonomous-ops/handoffs', status: 'UNIMPLEMENTED_IN_REPO' }],
+        },
+        'Staff must verify all cited items in primary systems — this is draft internal material only.',
       ],
       dedupeKey: oracleDedupeKey({
         agentName: ctx.agentName,

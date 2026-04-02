@@ -7,6 +7,8 @@ import { createCandidOpportunityFetcher, type GrantMatch, type OpportunityFetche
 import { parseOrgIdentityForGrantProfile } from './parseOrgIdentity';
 import { runGrantIntelligenceHeraldRules } from './rules';
 import { assertInternalSideEffectAllowed } from '../../autonomy/enforcement';
+import { assertOperationalMemoryKind } from '../../autonomousOps/operationalMemoryKinds';
+import { buildOperationalMemoryEnvelopeV1 } from '../../autonomousOps/operationalMemoryEnvelope';
 
 const HERALD_TO_QUEUE = 'GrantTeam';
 
@@ -42,16 +44,32 @@ export class GrantIntelligenceHerald {
     const parsed = orgIdentity
       ? parseOrgIdentityForGrantProfile({ orgIdentityMarkdown: orgIdentity.content, annualRevenueUsdSnapshot })
       : null;
+    const profile = parsed?.profile ?? null;
 
-    if (!parsed) {
+    if (!profile) {
+      const missing = parsed?.missing ?? ['missing_org_identity'];
+      const missingLines =
+        missing.length === 0
+          ? ['- (unknown)']
+          : missing.map(m => {
+              if (m === 'missing_org_identity') return '- ORG_IDENTITY file is missing';
+              if (m === 'missing_ntee_code') return '- NTEE code missing in **Sector / NTEE** (e.g. `B20`)';
+              if (m === 'missing_primary_state') return '- State footprint missing in **State footprint** (e.g. `CA`)';
+              if (m === 'missing_annual_budget_usd') return '- Annual revenue snapshot missing (set `Organization.annualRevenue`)';
+              return `- ${m}`;
+            });
+
       const body = [
         'HERALD could not run opportunity matching because required grant profile inputs are missing.',
         '',
-        'Update `ORG_IDENTITY` with:',
-        '- NTEE code in **Sector / NTEE** (e.g. `B20`)',
-        '- At least one two-letter state code in **State footprint** (e.g. `CA`)',
-        '- Annual revenue/budget snapshot (Organization.annualRevenue) must be set',
+        '**Missing inputs detected**:',
+        ...missingLines,
+        '',
+        'Update `ORG_IDENTITY` with the sections above (headers must match), then rerun HERALD.',
         '- Optional: add focus areas as bullet points under **Mission**',
+        '',
+        `ORG_IDENTITY source ref: ${orgIdentity?.id ?? '(none)'}`,
+        `ORG_IDENTITY updatedAt: ${orgIdentity?.updatedAt?.toISOString() ?? '(none)'}`,
         '',
         'Internal only. No external scanning or submissions were performed.',
       ].join('\n');
@@ -76,13 +94,45 @@ export class GrantIntelligenceHerald {
       };
     }
 
-    const matches = await this.fetcher({
-      nteeCode: parsed.nteeCode,
-      state: parsed.primaryState,
-      annualBudget: parsed.annualBudgetUsd,
-      focusAreas: parsed.focusAreas,
-      maxResults: 10,
-    });
+    let matches: GrantMatch[] = [];
+    try {
+      matches = await this.fetcher({
+        nteeCode: profile.nteeCode,
+        state: profile.primaryState,
+        annualBudget: profile.annualBudgetUsd,
+        focusAreas: profile.focusAreas,
+        maxResults: 10,
+      });
+    } catch (err) {
+      const code = err instanceof Error ? err.message : 'CANDID_UNAVAILABLE';
+      if (code === 'CANDID_UNAVAILABLE' || code === 'CANDID_API_KEY_MISSING') {
+        await this.sink.emit({
+          agentName: ctx.agentName,
+          scopeType: ctx.scope.type,
+          scopeId: org.id,
+          severity: 'LOW',
+          type: 'HERALD_CANDID_UNAVAILABLE',
+          title: `HERALD opportunity source unavailable — ${org.name}`,
+          body: [
+            'HERALD could not fetch grant opportunities from the external source.',
+            '',
+            `Reason: ${code}`,
+            '',
+            'In production, HERALD fails closed and will not fabricate seed opportunities.',
+            'Verify CANDID_API_KEY and network access, then rerun HERALD.',
+          ].join('\n'),
+          recommendedActions: ['Set CANDID_API_KEY and rerun HERALD.'],
+          dedupeKey: `${ctx.agentName}:${ctx.scope.type}:${org.id}:HERALD_CANDID_UNAVAILABLE:${ctx.window.end.toISOString()}`,
+        });
+        return {
+          orgId: org.id,
+          alertsEmitted: 1,
+          skippedRules: ['CANDID_UNAVAILABLE'],
+          orgIdentityUpdatedAt: orgIdentity?.updatedAt?.toISOString() ?? null,
+        };
+      }
+      throw err;
+    }
 
     const result = runGrantIntelligenceHeraldRules({
       ctx,
@@ -104,6 +154,12 @@ export class GrantIntelligenceHerald {
       const input = buildLoiPrepHandoff({
         org: { id: org.id, name: org.name, ein: org.ein },
         match: m,
+        orgIdentityFileId: orgIdentity?.id ?? null,
+        orgGrantProfile: {
+          nteeCode: profile.nteeCode,
+          primaryState: profile.primaryState,
+          annualBudgetUsd: profile.annualBudgetUsd,
+        },
       });
       assertInternalSideEffectAllowed({ autonomyTier: ctx.autonomyTier, requiresHumanReview: ctx.requiresHumanReview, effect: 'handoff' });
       const h = await this.handoffSvc.create(org.id, input);
@@ -111,23 +167,28 @@ export class GrantIntelligenceHerald {
     }
 
     assertInternalSideEffectAllowed({ autonomyTier: ctx.autonomyTier, requiresHumanReview: ctx.requiresHumanReview, effect: 'memory' });
+    assertOperationalMemoryKind('GrantIntelligenceHerald', 'herald_grant_readiness_update');
     await this.memorySvc.appendOperational(org.id, {
       agentName: ctx.agentName,
       kind: 'herald_grant_readiness_update',
-      payload: {
-        matchesFound: matches.length,
-        matchesHighUrgency: matches.filter(m => m.urgency === 'high').length,
-        selectedForLoiPrep: selectedForLoi.map(m => ({ opportunityId: m.opportunity.id, funderName: m.opportunity.funderName })),
-        orgGrantProfile: {
-          nteeCode: parsed.nteeCode,
-          primaryState: parsed.primaryState,
-          annualBudgetUsd: parsed.annualBudgetUsd,
-          focusAreas: parsed.focusAreas,
+      payload: buildOperationalMemoryEnvelopeV1({
+        asOf: ctx.window.end,
+        summary: `Grant match scan ran; matches=${matches.length}; LOI_prep_selected=${selectedForLoi.length}.`,
+        data: {
+          matchesFound: matches.length,
+          matchesHighUrgency: matches.filter(m => m.urgency === 'high').length,
+          selectedForLoiPrep: selectedForLoi.map(m => ({ opportunityId: m.opportunity.id, funderName: m.opportunity.funderName })),
+          orgGrantProfile: {
+            nteeCode: profile.nteeCode,
+            primaryState: profile.primaryState,
+            annualBudgetUsd: profile.annualBudgetUsd,
+            focusAreas: profile.focusAreas,
+          },
         },
-      },
+      }),
       sourceRefs: [
         { type: 'org_context', kind: 'ORG_IDENTITY', id: orgIdentity?.id ?? null },
-        { type: 'candid_scan', ntee: parsed.nteeCode, state: parsed.primaryState },
+        { type: 'candid_scan', ntee: profile.nteeCode, state: profile.primaryState },
       ],
       confidence: 0.8,
     });
@@ -150,8 +211,20 @@ export class GrantIntelligenceHerald {
   }
 }
 
-function buildLoiPrepHandoff(params: { org: { id: string; name: string; ein: string }; match: GrantMatch }) {
+function buildLoiPrepHandoff(params: {
+  org: { id: string; name: string; ein: string };
+  match: GrantMatch;
+  orgIdentityFileId: string | null;
+  orgGrantProfile: { nteeCode: string; primaryState: string; annualBudgetUsd: number };
+}) {
   const opp = params.match.opportunity;
+  const nteeListed = opp.eligibleNTEECodes?.includes(params.orgGrantProfile.nteeCode);
+  const stateListed = opp.eligibleStates?.includes(params.orgGrantProfile.primaryState);
+  const eligibilityLines = [
+    `Eligibility (from opportunity listing):`,
+    `- NTEE ${params.orgGrantProfile.nteeCode}: ${nteeListed ? 'listed' : 'not_listed_or_unknown'}`,
+    `- State ${params.orgGrantProfile.primaryState}: ${stateListed ? 'listed' : 'not_listed_or_unknown'}`,
+  ];
   const body = [
     `HERALD identified a matching opportunity that requires an LOI.`,
     '',
@@ -160,10 +233,21 @@ function buildLoiPrepHandoff(params: { org: { id: string; name: string; ein: str
     `Program: ${opp.programName}`,
     `Opportunity ID: ${opp.id}`,
     `Application URL: ${opp.applicationUrl ?? '(not provided)'}`,
-    `Deadline: ${opp.applicationDeadline ?? '(unknown)'}`,
+    `Application deadline: ${opp.applicationDeadline ?? '(unknown)'}`,
+    `Rolling deadline: ${opp.isRollingDeadline ? 'yes' : 'no_or_unknown'}`,
+    `LOI required: ${opp.requiresLetterOfInquiry ? 'yes' : 'no'}`,
+    `Accepts unsolicited: ${opp.acceptsUnsolicited ? 'yes' : 'no_or_unknown'}`,
     '',
     `Match score: ${params.match.matchScore}`,
     `Match reasons: ${params.match.matchReasons.join('; ')}`,
+    params.match.missingCriteria.length > 0 ? `Missing criteria: ${params.match.missingCriteria.join('; ')}` : `Missing criteria: (none flagged by rules)`,
+    '',
+    ...eligibilityLines,
+    '',
+    'Operator checklist (internal):',
+    '- Open the application URL and confirm: eligibility, deadlines, LOI format/limits, required attachments, and submission rules.',
+    '- Capture key requirements into an internal draft doc and assign an internal owner.',
+    '- Draft LOI only after confirming eligibility and requirements (no automated submission).',
     '',
     '---',
     'Boundaries:',
@@ -172,6 +256,12 @@ function buildLoiPrepHandoff(params: { org: { id: string; name: string; ein: str
     '- Verify eligibility and requirements on the funder website before drafting.',
   ].join('\n');
 
+  const sourceEvidence = [
+    params.orgIdentityFileId ? [{ type: 'org_context', kind: 'ORG_IDENTITY', id: params.orgIdentityFileId }] : [],
+    [{ type: 'candid_opportunity', opportunityId: opp.id }],
+    [{ type: 'application_url', url: opp.applicationUrl ?? null }],
+  ].flat();
+
   return {
     fromAgentName: 'GrantIntelligenceHerald',
     toAgentName: HERALD_TO_QUEUE,
@@ -179,10 +269,7 @@ function buildLoiPrepHandoff(params: { org: { id: string; name: string; ein: str
     body,
     urgency: params.match.urgency === 'high' ? 'high' : 'normal',
     requiresHumanReview: true,
-    sourceEvidence: [
-      { type: 'candid_opportunity', opportunityId: opp.id },
-      { type: 'application_url', url: opp.applicationUrl ?? null },
-    ],
+    sourceEvidence,
   };
 }
 

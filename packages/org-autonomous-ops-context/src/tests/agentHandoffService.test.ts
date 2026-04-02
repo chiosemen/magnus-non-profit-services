@@ -110,6 +110,10 @@ test('create writes handoff and CREATED audit with OPEN', async () => {
   assert.equal(audits.length, 1);
   assert.equal(audits[0]?.action, HANDOFF_AUDIT_ACTIONS.CREATED);
   assert.equal(audits[0]?.toStatus, 'OPEN');
+  const createdDetail = audits[0]?.detail as Record<string, unknown>;
+  assert.equal(createdDetail.requiresHumanReview, true);
+  assert.equal(createdDetail.relatedAgentRunId, null);
+  assert.ok(Array.isArray(createdDetail.sourceEvidence));
 });
 
 test('transition records STATUS_CHANGED audit and updates status', async () => {
@@ -134,6 +138,9 @@ test('transition records STATUS_CHANGED audit and updates status', async () => {
   assert.equal(audits[audits.length - 1]?.action, HANDOFF_AUDIT_ACTIONS.STATUS_CHANGED);
   assert.equal(audits[audits.length - 1]?.fromStatus, 'OPEN');
   assert.equal(audits[audits.length - 1]?.toStatus, 'ACKNOWLEDGED');
+  const ackDetail = audits[audits.length - 1]?.detail as Record<string, unknown>;
+  assert.equal(ackDetail.handoffRequiresHumanReview, false);
+  assert.equal(ackDetail.relatedAgentRunId, null);
 });
 
 test('invalid transition is rejected', async () => {
@@ -154,6 +161,83 @@ test('invalid transition is rejected', async () => {
       }),
     /INVALID_TRANSITION/,
   );
+});
+
+test('terminal transitions fail closed without auditable evidence', async () => {
+  const { db, orgId } = makeFixture();
+  const svc = new AgentHandoffService(db);
+  const h = await svc.create(orgId, {
+    fromAgentName: 'A',
+    toAgentName: 'B',
+    title: 'T',
+    body: 'B',
+  });
+  await svc.transition(orgId, {
+    handoffId: h.id,
+    toStatus: 'ACKNOWLEDGED',
+    actorType: 'user',
+    actorName: 'staff-1',
+  });
+
+  await assert.rejects(
+    () =>
+      svc.transition(orgId, {
+        handoffId: h.id,
+        toStatus: 'RESOLVED',
+        actorType: 'user',
+        actorName: 'staff-1',
+        detail: null,
+      }),
+    /RESOLUTION_REQUIRED/,
+  );
+
+  await assert.rejects(
+    () =>
+      svc.transition(orgId, {
+        handoffId: h.id,
+        toStatus: 'CANCELLED',
+        actorType: 'user',
+        actorName: 'staff-1',
+        detail: {},
+      }),
+    /CANCELLATION_REASON_REQUIRED/,
+  );
+});
+
+test('terminal transitions store resolution evidence in append-only audit detail', async () => {
+  const { db, orgId, audits } = makeFixture();
+  const svc = new AgentHandoffService(db);
+  const h = await svc.create(orgId, {
+    fromAgentName: 'A',
+    toAgentName: 'B',
+    title: 'T',
+    body: 'B',
+  });
+  await svc.transition(orgId, {
+    handoffId: h.id,
+    toStatus: 'ACKNOWLEDGED',
+    actorType: 'user',
+    actorName: 'staff-1',
+  });
+
+  const n = audits.length;
+  await svc.transition(orgId, {
+    handoffId: h.id,
+    toStatus: 'RESOLVED',
+    actorType: 'user',
+    actorName: 'staff-1',
+    detail: { resolutionSummary: 'Filed the form; evidence in accounting packet.' },
+  });
+
+  assert.equal(audits.length, n + 1);
+  const last = audits[audits.length - 1];
+  assert.equal(last?.action, HANDOFF_AUDIT_ACTIONS.STATUS_CHANGED);
+  assert.equal(last?.toStatus, 'RESOLVED');
+  assert.deepEqual(last?.detail, {
+    resolutionSummary: 'Filed the form; evidence in accounting packet.',
+    handoffRequiresHumanReview: false,
+    relatedAgentRunId: null,
+  });
 });
 
 test('listAudit returns chronological entries', async () => {

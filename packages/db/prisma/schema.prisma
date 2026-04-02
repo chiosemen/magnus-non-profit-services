@@ -77,6 +77,20 @@ enum AlertSeverity {
   CRITICAL
 }
 
+enum AlertStatus {
+  OPEN
+  ACKNOWLEDGED
+  IN_PROGRESS
+  RESOLVED
+  CANCELLED
+}
+
+enum AlertOwnerType {
+  USER
+  AGENT
+  SYSTEM
+}
+
 enum PromptType {
   GRANT_DRAFT
   BOARD_REPORT
@@ -150,6 +164,45 @@ model Organization {
   orgSemanticMemoryChunks       OrgSemanticMemoryChunk[]
 
   autonomousOpsSettings         OrgAutonomousOpsSettings?
+  donorEvents                   DonorEvent[]
+  volunteerEvents               VolunteerEvent[]
+}
+
+/// Append-only donor gift ledger row (ingested from Stripe, CSV, manual API, etc.).
+/// Executive donor_ops and APIs use only these rows — not unrelated income tables.
+model DonorEvent {
+  id           String   @id @default(uuid()) @db.Uuid
+  orgId        String   @db.Uuid
+  occurredAt   DateTime
+  amount       Decimal  @db.Decimal(14, 2)
+  currency     String   @default("USD") @db.VarChar(8)
+  sourceSystem String   @db.VarChar(64)
+  sourceRef    String   @db.VarChar(512)
+  raw          Json?
+  createdAt    DateTime @default(now())
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, sourceSystem, sourceRef])
+  @@index([orgId, occurredAt])
+}
+
+/// Append-only volunteer time ledger row (manual API, CSV import, etc.). Hours are recorded as reported by the source; not inferred from payroll or other systems.
+model VolunteerEvent {
+  id             String   @id @default(uuid()) @db.Uuid
+  orgId          String   @db.Uuid
+  occurredAt     DateTime
+  hours          Decimal  @db.Decimal(10, 2)
+  activityLabel  String?  @db.VarChar(256)
+  sourceSystem   String   @db.VarChar(64)
+  sourceRef      String   @db.VarChar(512)
+  raw            Json?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, sourceSystem, sourceRef])
+  @@index([orgId, occurredAt])
 }
 
 enum AutonomousOpsBoundaryMode {
@@ -317,6 +370,7 @@ model AgentRun {
 
   handoffs                   AgentHandoff[]
   agentOperationalMemories   AgentOperationalMemoryEntry[]
+  relatedAlerts              Alert[] @relation("AlertRelatedAgentRun")
 
   @@index([agentName, scopeType, scopeId])
   @@index([windowEnd])
@@ -342,6 +396,7 @@ model AgentHandoff {
   organization    Organization @relation(fields: [orgId], references: [id])
   relatedAgentRun AgentRun?    @relation(fields: [relatedAgentRunId], references: [id])
   auditEntries    AgentHandoffAuditEntry[]
+  relatedAlerts   Alert[] @relation("AlertRelatedHandoff")
 
   @@index([orgId, status])
   @@index([orgId, createdAt])
@@ -438,9 +493,12 @@ model OrgSemanticMemoryChunk {
 
 model Alert {
   id                String        @id @default(uuid()) @db.Uuid
+  /// Stable agent name that emitted the alert (source attribution; do not infer from UI state).
+  agentName         String
   scopeType          AgentScopeType
   scopeId            String        @db.Uuid
   severity           AlertSeverity
+  status             AlertStatus   @default(OPEN)
   type               String
   title              String
   body               String
@@ -448,9 +506,38 @@ model Alert {
   dedupeKey          String        @unique
   createdAt          DateTime      @default(now())
   acknowledgedAt     DateTime?
+  resolvedAt         DateTime?
+  resolutionSummary  String?       @db.Text
+  ownerType          AlertOwnerType?
+  ownerId            String?
+  ownerName          String?
+  relatedAgentRunId  String?       @db.Uuid
+  relatedHandoffId   String?       @db.Uuid
 
+  relatedAgentRun AgentRun?     @relation("AlertRelatedAgentRun", fields: [relatedAgentRunId], references: [id], onDelete: SetNull)
+  relatedHandoff  AgentHandoff? @relation("AlertRelatedHandoff", fields: [relatedHandoffId], references: [id], onDelete: SetNull)
+  auditEntries    AlertAuditEntry[]
+
+  @@index([agentName])
   @@index([scopeType, scopeId])
   @@index([createdAt])
+}
+
+/// Append-only audit trail for Alert lifecycle (internal agents / staff actions).
+model AlertAuditEntry {
+  id        String   @id @default(uuid()) @db.Uuid
+  alertId   String   @db.Uuid
+  createdAt DateTime @default(now())
+  action    String
+  fromStatus AlertStatus?
+  toStatus   AlertStatus?
+  actorType  String
+  actorName  String?
+  detail     Json?
+
+  alert Alert @relation(fields: [alertId], references: [id], onDelete: Cascade)
+
+  @@index([alertId, createdAt])
 }
 
 // ─── Claude Partner Models ───────────────────────────────────────────────────

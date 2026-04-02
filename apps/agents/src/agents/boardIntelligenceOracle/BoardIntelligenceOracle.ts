@@ -3,6 +3,7 @@ import type { AgentRunContext } from '../../contracts/run';
 import { prisma } from '../../db';
 import { runBoardIntelligenceOracleRules } from './rules';
 import type { OrgAlertRow, OpenHandoffRow, OrgContextRow } from './oraclePacket';
+import type { AlertSeverity } from '@magnus/db/types';
 
 /**
  * ORACLE — Board Intelligence: bounded internal briefings from compliance, grants,
@@ -67,7 +68,7 @@ export class BoardIntelligenceOracle {
     const orgAlertsInWindow: OrgAlertRow[] = orgAlertsRaw.map(a => ({
       id: a.id,
       type: a.type,
-      severity: a.severity,
+      severity: a.severity as AlertSeverity,
       title: a.title,
       createdAt: a.createdAt,
     }));

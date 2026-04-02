@@ -2,8 +2,14 @@ import { prisma } from '../db';
 import type { AlertEvent } from '../contracts/events';
 import type { AlertSeverity, AgentScopeType, Prisma } from '@magnus/db/types';
 import type { AlertSink } from './AlertSink';
+import { randomUUID } from 'node:crypto';
+
+const ALERT_SEVERITIES = ['LOW', 'MED', 'HIGH', 'CRITICAL'] as const satisfies readonly AlertSeverity[];
 
 function mapSeverity(sev: AlertEvent['severity']): AlertSeverity {
+  if (!ALERT_SEVERITIES.includes(sev as AlertSeverity)) {
+    throw new Error('INVALID_ALERT_SEVERITY');
+  }
   return sev as AlertSeverity;
 }
 
@@ -11,6 +17,31 @@ function mapScopeType(scopeType: AlertEvent['scopeType']): AgentScopeType {
   if (scopeType === 'org') return 'ORG';
   if (scopeType === 'worker') return 'WORKER';
   return 'GRANT';
+}
+
+type RecommendedAction =
+  | string
+  | {
+      label: string;
+      kind?: string;
+      url?: string;
+      sourceRefs?: unknown;
+    };
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function assertValidRecommendedActions(raw: unknown): asserts raw is RecommendedAction[] {
+  if (!Array.isArray(raw)) throw new Error('INVALID_RECOMMENDED_ACTIONS');
+  for (const item of raw) {
+    if (typeof item === 'string') continue;
+    if (!isPlainObject(item)) throw new Error('INVALID_RECOMMENDED_ACTIONS');
+    if (typeof item['label'] !== 'string' || item['label'].length === 0) throw new Error('INVALID_RECOMMENDED_ACTIONS');
+    if (item['kind'] !== undefined && typeof item['kind'] !== 'string') throw new Error('INVALID_RECOMMENDED_ACTIONS');
+    if (item['url'] !== undefined && typeof item['url'] !== 'string') throw new Error('INVALID_RECOMMENDED_ACTIONS');
+    // sourceRefs is intentionally left as unknown, but must remain JSON-serializable at write time.
+  }
 }
 
 export class DbAlertSink implements AlertSink {
@@ -21,6 +52,7 @@ export class DbAlertSink implements AlertSink {
   }
 
   async emit(event: AlertEvent): Promise<void> {
+    assertValidRecommendedActions(event.recommendedActions);
     const scopeType = mapScopeType(event.scopeType);
     const scopeId = event.scopeId;
     const type = event.type;
@@ -42,17 +74,32 @@ export class DbAlertSink implements AlertSink {
     }
 
     try {
-      await this.db.alert.create({
+      const created = await this.db.alert.create({
         data: {
+          agentName: event.agentName,
           scopeType,
           scopeId,
           severity: mapSeverity(event.severity),
+          status: 'OPEN',
           type,
           title: event.title,
           body: event.body,
           recommendedActions: event.recommendedActions as Prisma.InputJsonValue,
           dedupeKey,
           createdAt: new Date(),
+        },
+        select: { id: true },
+      });
+      await this.db.alertAuditEntry.create({
+        data: {
+          id: randomUUID(),
+          alertId: created.id,
+          action: 'CREATED',
+          fromStatus: null,
+          toStatus: 'OPEN',
+          actorType: 'agent',
+          actorName: event.agentName,
+          detail: { dedupeKey } as Prisma.InputJsonValue,
         },
       });
     } catch (err: any) {

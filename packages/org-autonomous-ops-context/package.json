@@ -9,7 +9,8 @@
     "test": "pnpm build && node --test dist/tests"
   },
   "dependencies": {
-    "@magnus/db": "workspace:*"
+    "@magnus/db": "workspace:*",
+    "@magnus/subscription": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.5.0",

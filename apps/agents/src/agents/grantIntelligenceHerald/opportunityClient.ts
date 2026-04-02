@@ -96,6 +96,27 @@ export function calculateGrantMatchScore(
   return { score: Math.round(clamp(score, 0, 100)), reasons };
 }
 
+function missingCriteriaFromRuleInputs(params: {
+  org: { nteeCode: string; state: string; annualBudget: number; focusAreas: string[] };
+  opp: { eligibleNTEECodes: string[]; eligibleStates: string[]; minGrantAmount: number; maxGrantAmount: number; focusAreas: string[] };
+}): string[] {
+  const missing: string[] = [];
+  if (!params.opp.eligibleNTEECodes?.includes(params.org.nteeCode)) missing.push('ntee_not_listed');
+  if (!params.opp.eligibleStates?.includes(params.org.state)) missing.push('state_not_listed');
+
+  const orgAreas = new Set((params.org.focusAreas ?? []).map(s => s.toLowerCase()));
+  const overlap = (params.opp.focusAreas ?? []).filter(a => orgAreas.has(String(a).toLowerCase())).length;
+  if (overlap === 0) missing.push('focus_areas_no_overlap');
+
+  const avgGrant = (params.opp.minGrantAmount + params.opp.maxGrantAmount) / 2;
+  if (Number.isFinite(avgGrant) && avgGrant > 0 && params.org.annualBudget > 0) {
+    const ratio = avgGrant / params.org.annualBudget;
+    if (ratio > 0.5) missing.push('grant_size_large_vs_budget');
+  }
+
+  return missing;
+}
+
 function seedOpportunities(nteeCode: string, state: string): GrantOpportunity[] {
   // Dev/demo fallback only; intentionally small and generic.
   return [
@@ -168,10 +189,17 @@ export function createCandidOpportunityFetcher(): OpportunityFetcher {
   return async params => {
     const baseUrl = process.env['CANDID_BASE_URL'] ?? 'https://api.candid.org/v3';
     const apiKey = process.env['CANDID_API_KEY'] ?? '';
+    const nodeEnv = process.env['NODE_ENV'] ?? 'development';
+    const isProd = nodeEnv === 'production';
     const limit = params.maxResults ?? 20;
 
     let opportunities: GrantOpportunity[] = [];
     try {
+      if (!apiKey.trim()) {
+        if (isProd) throw new Error('CANDID_API_KEY_MISSING');
+        opportunities = seedOpportunities(params.nteeCode, params.state);
+        // Continue to matching below.
+      } else {
       const resp = await fetch(`${baseUrl}/grants/search`, {
         method: 'POST',
         headers: {
@@ -186,31 +214,42 @@ export function createCandidOpportunityFetcher(): OpportunityFetcher {
           limit,
         }),
       });
-      if (!resp.ok) throw new Error('CANDID_NON_200');
-      const json: any = await resp.json();
-      const raws = Array.isArray(json?.grants) ? json.grants : [];
-      opportunities = raws.map(mapCandidGrant);
+        if (!resp.ok) throw new Error('CANDID_NON_200');
+        const json: any = await resp.json();
+        const raws = Array.isArray(json?.grants) ? json.grants : [];
+        opportunities = raws.map(mapCandidGrant);
+      }
     } catch {
+      if (isProd) {
+        throw new Error('CANDID_UNAVAILABLE');
+      }
       opportunities = seedOpportunities(params.nteeCode, params.state);
     }
 
     const matches: GrantMatch[] = opportunities.map(opp => {
+      const orgRuleInputs = {
+        nteeCode: params.nteeCode,
+        state: params.state,
+        annualBudget: params.annualBudget,
+        focusAreas: params.focusAreas,
+      };
+      const oppRuleInputs = {
+        eligibleNTEECodes: opp.eligibleNTEECodes,
+        eligibleStates: opp.eligibleStates,
+        minGrantAmount: opp.minGrantAmount,
+        maxGrantAmount: opp.maxGrantAmount,
+        focusAreas: opp.focusAreas,
+      };
       const { score, reasons } = calculateGrantMatchScore(
-        { nteeCode: params.nteeCode, state: params.state, annualBudget: params.annualBudget, focusAreas: params.focusAreas },
-        {
-          eligibleNTEECodes: opp.eligibleNTEECodes,
-          eligibleStates: opp.eligibleStates,
-          minGrantAmount: opp.minGrantAmount,
-          maxGrantAmount: opp.maxGrantAmount,
-          focusAreas: opp.focusAreas,
-        },
+        orgRuleInputs,
+        oppRuleInputs,
       );
       const urgency = urgencyFromDeadline(opp.applicationDeadline);
       return {
         opportunity: opp,
         matchScore: score,
         matchReasons: reasons,
-        missingCriteria: [],
+        missingCriteria: missingCriteriaFromRuleInputs({ org: orgRuleInputs, opp: oppRuleInputs }),
         urgency,
         recommendedAction: opp.requiresLetterOfInquiry
           ? 'Prepare Letter of Inquiry (internal draft only)'

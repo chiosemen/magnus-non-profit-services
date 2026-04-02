@@ -6,6 +6,8 @@ import { AgentHandoffService, OrgMemoryService } from '@magnus/org-autonomous-op
 import type { PrismaClient } from '@magnus/db/types';
 import { buildStewardOracleHandoffInput, STEWARD_ORACLE_HANDOFF_TITLE } from './stewardHandoffs';
 import { assertInternalSideEffectAllowed } from '../../autonomy/enforcement';
+import { assertOperationalMemoryKind } from '../../autonomousOps/operationalMemoryKinds';
+import { buildOperationalMemoryEnvelopeV1 } from '../../autonomousOps/operationalMemoryEnvelope';
 
 /**
  * STEWARD (roadmap) — persisted agent name remains `ComplianceWatchdog`.
@@ -107,24 +109,41 @@ export class ComplianceWatchdog {
     }
 
     let stewardMemoryAppended = false;
+    let stewardMemoryErrorCode: string | null = null;
     try {
       assertInternalSideEffectAllowed({ autonomyTier: ctx.autonomyTier, requiresHumanReview: ctx.requiresHumanReview, effect: 'memory' });
+      assertOperationalMemoryKind('ComplianceWatchdog', 'steward_compliance_scan');
       await this.memorySvc.appendOperational(org.id, {
         agentName: 'ComplianceWatchdog',
         kind: 'steward_compliance_scan',
-        payload: {
-          alertsEmitted: result.alerts.length,
-          highSeverityCount: highAlerts.length,
-          stewardHandoffCreated,
-          stewardHandoffSkipped,
-          skippedRules: result.skippedRules,
-        },
-        sourceRefs: [{ type: 'steward_scan', windowEnd: ctx.window.end.toISOString() }],
+        payload: buildOperationalMemoryEnvelopeV1({
+          asOf: ctx.window.end,
+          summary: `Compliance scan ran; ${result.alerts.length} alert(s) emitted; HIGH=${highAlerts.length}; handoff=${stewardHandoffCreated ? 'created' : stewardHandoffSkipped ? 'skipped' : 'none'}.`,
+          data: {
+            alertsEmitted: result.alerts.length,
+            highSeverityCount: highAlerts.length,
+            stewardHandoffCreated,
+            stewardHandoffSkipped,
+            skippedRules: result.skippedRules,
+          },
+        }),
+        sourceRefs: [
+          { type: 'steward_scan', windowStart: ctx.window.start.toISOString(), windowEnd: ctx.window.end.toISOString() },
+          { type: 'compliance_calendar_rows', ids: complianceCalendar.map(r => r.id).slice(0, 120) },
+          { type: 'grants', ids: grants.map(g => g.id).slice(0, 120) },
+          {
+            type: 'high_alerts',
+            alerts: highAlerts
+              .map(a => ({ dedupeKey: a.dedupeKey, alertType: a.type, title: a.title }))
+              .slice(0, 20),
+          },
+        ],
         confidence: 0.85,
       });
       stewardMemoryAppended = true;
     } catch {
       stewardMemoryAppended = false;
+      stewardMemoryErrorCode = 'memory_append_failed_or_blocked';
     }
 
     return {
@@ -135,6 +154,7 @@ export class ComplianceWatchdog {
       stewardHandoffCreated,
       stewardHandoffSkipped,
       stewardMemoryAppended,
+      stewardMemoryErrorCode,
     };
   }
 }

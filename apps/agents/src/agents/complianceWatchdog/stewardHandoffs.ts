@@ -15,9 +15,19 @@ export function buildStewardOracleHandoffInput(alerts: AlertEvent[]): CreateHand
   const high = alerts.filter(a => a.severity === 'HIGH');
   if (high.length === 0) return null;
 
-  const lines = high.map(a => `- **${a.title}** (${a.type})\n  ${a.body.split('\n')[0] ?? ''}`);
+  const ordered = high.slice().sort((a, b) => {
+    const t = String(a.type).localeCompare(String(b.type));
+    if (t !== 0) return t;
+    const title = String(a.title).localeCompare(String(b.title));
+    if (title !== 0) return title;
+    return String(a.dedupeKey).localeCompare(String(b.dedupeKey));
+  });
+
+  const lines = ordered.map(a => `- **${a.title}** (${a.type})\n  ${a.body.split('\n')[0] ?? ''}`);
   const body = [
     'STEWARD (ComplianceWatchdog) internal escalation for board / executive prep visibility.',
+    '',
+    `Why this is escalated: ${high.length} HIGH-severity alert(s) were emitted in this scan window.`,
     '',
     '**HIGH-severity compliance signals (verify in dashboard and source systems):**',
     '',
@@ -27,9 +37,10 @@ export function buildStewardOracleHandoffInput(alerts: AlertEvent[]): CreateHand
     'Internal only. No filing, email, or external workflow was triggered by this agent.',
   ].join('\n');
 
-  const sourceEvidence = high.map(a => ({
+  const sourceEvidence = ordered.map(a => ({
     type: 'steward_alert',
     alertType: a.type,
+    title: a.title,
     dedupeKey: a.dedupeKey,
   }));
 

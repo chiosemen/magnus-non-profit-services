@@ -68,6 +68,7 @@ Eligibility for **which** agent runs on a schedule is implemented in `packages/s
 - **Scheduler:** `apps/agents` — cron + per-org (or per-scope) runs.
 - **Audit:** `AgentRun` + `Alert`; extended fields on `AgentRun` for autonomy tier, review flags, and `sourceRefs` JSON.
 - **Stage 2 data:** `AgentHandoff`, `OrgContextFile`, `AgentOperationalMemoryEntry` — see [AUTONOMOUS_OPS_HANDOFF_AND_MEMORY.md](./AUTONOMOUS_OPS_HANDOFF_AND_MEMORY.md).
+- **Volunteer ops:** `VolunteerEvent` time ledger + executive/API surfaces; roster, in-kind valuation, and scheduling remain out of scope — see [AUTONOMOUS_OPS_VOLUNTEER_STATUS.md](./AUTONOMOUS_OPS_VOLUNTEER_STATUS.md).
 
 ---
 

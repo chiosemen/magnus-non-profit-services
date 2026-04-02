@@ -1,4 +1,6 @@
 import type { AgentRunContext } from '../../contracts/run';
+import type { AlertSeverity } from '@magnus/db/types';
+import { isKnownSeverity, type Destination } from '@magnus/org-autonomous-ops-context';
 
 /** Logical surface that produced cited data (dashboard / DB modules). */
 export type OracleSourceModule =
@@ -8,7 +10,8 @@ export type OracleSourceModule =
   | 'alerts_compliance_ops'
   | 'alerts_other_internal'
   | 'org_context'
-  | 'agent_handoffs';
+  | 'agent_handoffs'
+  | 'operational_obligations';
 
 export type OracleSourceRef = {
   module: OracleSourceModule;
@@ -36,7 +39,7 @@ export type GrantSummary = {
 export type OrgAlertRow = {
   id: string;
   type: string;
-  severity: string;
+  severity: AlertSeverity;
   title: string;
   createdAt: Date;
 };
@@ -58,6 +61,12 @@ const FINANCIAL_WATCH_ALERT_TYPES = new Set(['GRANT_UNDERSPEND_PACE', 'GRANT_OVE
 
 function isFinancialWatchAlert(type: string): boolean {
   return FINANCIAL_WATCH_ALERT_TYPES.has(type);
+}
+
+function truncateLabel(s: string, max: number): string {
+  const raw = String(s ?? '');
+  if (raw.length <= max) return raw;
+  return `${raw.slice(0, Math.max(0, max - 1))}…`;
 }
 
 function isComplianceOpsAlert(type: string): boolean {
@@ -96,6 +105,11 @@ export type OracleBriefingPacket = {
     openHandoffs: OpenHandoffRow[];
   };
   sourceIndex: OracleSourceRef[];
+  /**
+   * UI-style destinations for operators. These are stable identifiers, but may be unimplemented in this repo.
+   * Consumers must treat `status !== IMPLEMENTED` as non-clickable guidance only.
+   */
+  destinations: Record<string, Destination>;
   disclaimers: string[];
 };
 
@@ -131,6 +145,11 @@ export function buildOracleBriefingPacket(input: BuildOraclePacketInput): Oracle
     a => !isFinancialWatchAlert(a.type) && !isComplianceOpsAlert(a.type) && !a.type.startsWith('BOARD_'),
   );
 
+  // Fail-closed: executive packet ordering and rendering assumes known severity vocabulary.
+  for (const a of input.orgAlertsInWindow) {
+    if (!isKnownSeverity(a.severity)) throw new Error('UNKNOWN_ALERT_SEVERITY');
+  }
+
   const sourceIndex: OracleSourceRef[] = [];
 
   for (const c of input.complianceCalendar) {
@@ -151,21 +170,21 @@ export function buildOracleBriefingPacket(input: BuildOraclePacketInput): Oracle
     sourceIndex.push({
       module: 'alerts_financial_watch',
       ref: a.id,
-      label: `${a.type}: ${a.title}`,
+      label: truncateLabel(`${a.type}: ${a.title}`, 140),
     });
   }
   for (const a of complianceOps) {
     sourceIndex.push({
       module: 'alerts_compliance_ops',
       ref: a.id,
-      label: `${a.type}: ${a.title}`,
+      label: truncateLabel(`${a.type}: ${a.title}`, 140),
     });
   }
   for (const a of other.slice(0, 15)) {
     sourceIndex.push({
       module: 'alerts_other_internal',
       ref: a.id,
-      label: `${a.type}: ${a.title}`,
+      label: truncateLabel(`${a.type}: ${a.title}`, 140),
     });
   }
   for (const f of input.orgContextFiles) {
@@ -179,9 +198,23 @@ export function buildOracleBriefingPacket(input: BuildOraclePacketInput): Oracle
     sourceIndex.push({
       module: 'agent_handoffs',
       ref: h.id,
-      label: `${h.fromAgentName} → ${h.title.slice(0, 80)}`,
+      label: truncateLabel(`${h.fromAgentName} → ${h.title}`, 120),
     });
   }
+
+  // Derived obligations surface (no DB row ID); include as a bounded operator reference.
+  sourceIndex.push({
+    module: 'operational_obligations',
+    ref: 'derived:/api/org/autonomous-ops/obligations/active',
+    label: 'Active obligations (derived from Alerts, Handoffs, ComplianceCalendar)',
+  });
+
+  // Deterministic ordering for downstream stability (no semantic meaning).
+  sourceIndex.sort((a, b) => {
+    const m = a.module.localeCompare(b.module);
+    if (m !== 0) return m;
+    return a.ref.localeCompare(b.ref);
+  });
 
   return {
     orgId: org.id,
@@ -221,6 +254,14 @@ export function buildOracleBriefingPacket(input: BuildOraclePacketInput): Oracle
       openHandoffs: input.openHandoffs,
     },
     sourceIndex,
+    destinations: {
+      alerts: { href: '/app/autonomous-ops/alerts', status: 'UNIMPLEMENTED_IN_REPO' },
+      handoffs: { href: '/app/autonomous-ops/handoffs', status: 'UNIMPLEMENTED_IN_REPO' },
+      compliance: { href: '/app/compliance', status: 'UNIMPLEMENTED_IN_REPO' },
+      grants: { href: '/app/grants', status: 'UNIMPLEMENTED_IN_REPO' },
+      orgContext: { href: '/app/autonomous-ops/identity-files', status: 'UNIMPLEMENTED_IN_REPO' },
+      activeObligations: { href: '/api/org/autonomous-ops/obligations/active', status: 'IMPLEMENTED' },
+    },
     disclaimers: [
       'Internal draft only. Does not constitute board approval, legal advice, or authoritative financial statements.',
       'Figures and dates are rolled up from linked sources; verify in primary systems before distribution.',

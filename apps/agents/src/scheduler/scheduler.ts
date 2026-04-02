@@ -11,6 +11,7 @@ import { BoardIntelligenceOracle } from '../agents/boardIntelligenceOracle/Board
 import { FinancialSentinel } from '../agents/financialSentinel/FinancialSentinel';
 import { GrantIntelligenceHerald } from '../agents/grantIntelligenceHerald/GrantIntelligenceHerald';
 import { AutonomousOpsSettingsService, type AutonomousOpsSettings } from '@magnus/org-autonomous-ops-context';
+import { extractAutonomyBlockedTrace } from '../autonomy/blockedTrace';
 import { effectiveBoundaryMode, stampCtxForBoundary, type BoundaryMode } from '../autonomy/enforcement';
 
 export type SchedulerDeps = {
@@ -61,6 +62,8 @@ export class Scheduler {
           await this.runLogger.finishSuccess(runId, metrics);
         } catch (err) {
           if (runId) {
+            const blocked = extractAutonomyBlockedTrace(err);
+            if (blocked) Object.assign(metrics, { autonomyTrace: blocked });
             await this.runLogger.finishFailed(runId, err, metrics);
           }
           throw err;

@@ -50,7 +50,11 @@ test('upcoming deadline rule triggers within 30 days', () => {
     ],
     grantReportDeadlines: [],
   });
-  assert.equal(res.alerts.some(a => a.type === 'COMPLIANCE_DEADLINE_UPCOMING'), true);
+  const hit = res.alerts.find(a => a.type === 'COMPLIANCE_DEADLINE_UPCOMING');
+  assert.ok(hit);
+  assert.ok(Array.isArray(hit.recommendedActions));
+  const actions = hit.recommendedActions as any[];
+  assert.ok(actions.some(a => typeof a === 'object' && a && a.url === '/api/org/autonomous-ops/obligations/active'));
 });
 
 test('overdue deadline rule triggers when dueDate < windowEnd', () => {
@@ -75,7 +79,11 @@ test('overdue deadline rule triggers when dueDate < windowEnd', () => {
     ],
     grantReportDeadlines: [],
   });
-  assert.equal(res.alerts.some(a => a.type === 'COMPLIANCE_DEADLINE_OVERDUE'), true);
+  const hit = res.alerts.find(a => a.type === 'COMPLIANCE_DEADLINE_OVERDUE');
+  assert.ok(hit);
+  assert.ok(Array.isArray(hit.recommendedActions));
+  const actions = hit.recommendedActions as any[];
+  assert.ok(actions.some(a => typeof a === 'object' && a && a.url === '/api/org/autonomous-ops/obligations/active'));
 });
 
 test('grant report overdue emits HIGH GRANT_REPORT_DEADLINE_OVERDUE', () => {
@@ -102,6 +110,9 @@ test('grant report overdue emits HIGH GRANT_REPORT_DEADLINE_OVERDUE', () => {
   const hit = res.alerts.find(a => a.type === 'GRANT_REPORT_DEADLINE_OVERDUE');
   assert.ok(hit);
   assert.equal(hit!.severity, 'HIGH');
+  assert.ok(Array.isArray(hit!.recommendedActions));
+  const actions = hit!.recommendedActions as any[];
+  assert.ok(actions.some(a => typeof a === 'object' && a && a.url === '/api/org/autonomous-ops/obligations/active'));
 });
 
 test('dedupeKey stable for same windowEnd', () => {

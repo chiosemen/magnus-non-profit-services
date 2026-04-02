@@ -17,16 +17,18 @@ test('parseOrgIdentityForGrantProfile extracts NTEE and state codes from ORG_IDE
   ].join('\n');
 
   const parsed = parseOrgIdentityForGrantProfile({ orgIdentityMarkdown: md, annualRevenueUsdSnapshot: 120000 });
-  assert.ok(parsed);
-  assert.equal(parsed!.nteeCode, 'B20');
-  assert.equal(parsed!.primaryState, 'CA');
-  assert.equal(parsed!.annualBudgetUsd, 120000);
-  assert.ok(parsed!.focusAreas.length > 0);
+  assert.ok(parsed.profile);
+  assert.equal(parsed.profile!.nteeCode, 'B20');
+  assert.equal(parsed.profile!.primaryState, 'CA');
+  assert.equal(parsed.profile!.annualBudgetUsd, 120000);
+  assert.ok(parsed.profile!.focusAreas.length > 0);
 });
 
-test('parseOrgIdentityForGrantProfile returns null when required fields missing', () => {
+test('parseOrgIdentityForGrantProfile reports missing when required fields missing', () => {
   const md = ['# ORG_IDENTITY', '', '## Mission', 'x', '', '## Sector / NTEE', '(Add)'].join('\n');
   const parsed = parseOrgIdentityForGrantProfile({ orgIdentityMarkdown: md, annualRevenueUsdSnapshot: null });
-  assert.equal(parsed, null);
+  assert.equal(parsed.profile, null);
+  assert.ok(parsed.missing.includes('missing_ntee_code') || parsed.missing.includes('missing_primary_state'));
+  assert.ok(parsed.missing.includes('missing_annual_budget_usd'));
 });
 

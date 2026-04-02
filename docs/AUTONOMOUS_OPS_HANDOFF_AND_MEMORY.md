@@ -41,6 +41,8 @@ Consumers should treat handoff bodies as **draft internal context**, not externa
 
 - **Lifecycle:** `OPEN` → `ACKNOWLEDGED` → `RESOLVED`, or `OPEN` / `ACKNOWLEDGED` → `CANCELLED`. Terminal states: `RESOLVED`, `CANCELLED`. Invalid transitions return `409 INVALID_TRANSITION`.
 - **Audit:** append-only `AgentHandoffAuditEntry` rows (`CREATED`, `STATUS_CHANGED`) with `actorType` `agent` | `user` | `system`.
+  - **CREATED** `detail` includes `requiresHumanReview`, `relatedAgentRunId`, `urgency`, `fromAgentName`, `toAgentName`, and `sourceEvidence` so the trail is self-contained.
+  - **STATUS_CHANGED** `detail` always includes `handoffRequiresHumanReview` and `relatedAgentRunId` (snapshot at transition time), merged with caller-supplied terminal evidence (`resolutionSummary`, `cancellationReason`, etc.). See `docs/product/MAGNUS_ACCORD_APPROVAL_TRACEABILITY.md` for pilot semantics (workflow closure ≠ external approval).
 - **Limits:** title ≤ 500 chars; body ≤ 128 KiB UTF-8; `sourceEvidence` must be a JSON **array** if present.
 - **org-dashboard-api (JWT org scope):**
   - `POST /api/org/autonomous-ops/handoffs` — create (`fromAgentName`, `toAgentName`, `title`, `body`, optional `urgency`, `requiresHumanReview`, `sourceEvidence`, `relatedAgentRunId` scoped to org `AgentRun`).

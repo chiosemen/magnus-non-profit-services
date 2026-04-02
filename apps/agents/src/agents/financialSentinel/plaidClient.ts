@@ -7,6 +7,8 @@ export type PlaidClient = {
   getCashBalance(params: { accessToken: string }): Promise<{ cashBalanceUsd: number }>;
 };
 
+export type PlaidClientErrorCode = 'PLAID_MISCONFIGURED' | 'PLAID_NON_200';
+
 function isoDate(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
@@ -17,6 +19,7 @@ export function createPlaidClientFromEnv(): PlaidClient {
   const secret = process.env['PLAID_SECRET'] ?? '';
 
   async function postJson(path: string, body: unknown): Promise<any> {
+    if (!clientId.trim() || !secret.trim()) throw new Error('PLAID_MISCONFIGURED');
     const resp = await fetch(`${baseUrl}${path}`, {
       method: 'POST',
       headers: {

@@ -87,3 +87,32 @@ test('skips early period grants', () => {
   assert.equal(r.alerts.length, 0);
   assert.ok(r.skippedRules.some(s => s.includes('early_period')));
 });
+
+test('skips invalid or negative spend inputs (fail-closed)', () => {
+  const r = runFinancialSentinelRules({
+    ctx: baseCtx,
+    orgId: 'org-1',
+    grants: [
+      {
+        id: 'g_bad_nan',
+        funderName: 'Bad Spend NaN',
+        totalAmount: 100_000,
+        spentToDate: Number.NaN,
+        startDate: new Date('2026-01-01T00:00:00Z'),
+        endDate: new Date('2026-12-31T00:00:00Z'),
+      },
+      {
+        id: 'g_bad_neg',
+        funderName: 'Bad Spend Negative',
+        totalAmount: 100_000,
+        spentToDate: -5,
+        startDate: new Date('2026-01-01T00:00:00Z'),
+        endDate: new Date('2026-12-31T00:00:00Z'),
+      },
+    ],
+  });
+
+  assert.equal(r.alerts.length, 0);
+  assert.ok(r.skippedRules.includes('grant:g_bad_nan:invalid_spent'));
+  assert.ok(r.skippedRules.includes('grant:g_bad_neg:negative_spent'));
+});

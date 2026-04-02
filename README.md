@@ -13,6 +13,10 @@ Engines:
 
 Bounded agent program (stages, autonomy tiers, persona mapping): [`docs/AUTONOMOUS_OPS_ROADMAP.md`](docs/AUTONOMOUS_OPS_ROADMAP.md). Handoff and org identity storage: [`docs/AUTONOMOUS_OPS_HANDOFF_AND_MEMORY.md`](docs/AUTONOMOUS_OPS_HANDOFF_AND_MEMORY.md).
 
+**Magnus Accord — client-readable framing:** [`docs/product/MAGNUS_ACCORD_PRODUCT_POSITIONING.md`](docs/product/MAGNUS_ACCORD_PRODUCT_POSITIONING.md) · [`docs/product/MAGNUS_ACCORD_MATURITY_MAP.md`](docs/product/MAGNUS_ACCORD_MATURITY_MAP.md).
+
+**Pilot launch (canonical):** [`docs/product/MAGNUS_ACCORD_PILOT_LAUNCH_PACKAGE.md`](docs/product/MAGNUS_ACCORD_PILOT_LAUNCH_PACKAGE.md) · [`docs/product/MAGNUS_ACCORD_FEATURE_DIRECTORY.md`](docs/product/MAGNUS_ACCORD_FEATURE_DIRECTORY.md) · [`docs/product/MAGNUS_ACCORD_CONNECTOR_REGISTRY.md`](docs/product/MAGNUS_ACCORD_CONNECTOR_REGISTRY.md) (code: `connectorRegistry.ts`) · [`docs/product/MAGNUS_ACCORD_ACTION_MATRIX.md`](docs/product/MAGNUS_ACCORD_ACTION_MATRIX.md) (code: `accordActionMatrix.ts`).
+
 ## Setup
 
 PR hardening checklist: `docs/PR_CHECKLIST.md`

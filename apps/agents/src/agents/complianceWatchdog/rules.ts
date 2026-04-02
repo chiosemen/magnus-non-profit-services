@@ -50,6 +50,21 @@ export function runComplianceWatchdogRules(inputs: ComplianceWatchdogInputs): Co
   const alerts: AlertEvent[] = [];
   const skippedRules: string[] = [];
 
+  const operatorActions = [
+    {
+      label: 'Review active obligations (derived operator view)',
+      kind: 'navigate',
+      url: '/api/org/autonomous-ops/obligations/active',
+      sourceRefs: [{ type: 'dest', href: '/api/org/autonomous-ops/obligations/active', status: 'IMPLEMENTED' }],
+    },
+    {
+      label: 'Review executive operator board',
+      kind: 'navigate',
+      url: '/app/autonomous-ops/executive',
+      sourceRefs: [{ type: 'dest', href: '/app/autonomous-ops/executive', status: 'UNIMPLEMENTED_IN_REPO' }],
+    },
+  ];
+
   // Rule 1: Filing threshold alert
   if (org.annualRevenue !== null && org.annualRevenue >= 50_000 && org.uses990Postcard) {
     alerts.push({
@@ -61,6 +76,7 @@ export function runComplianceWatchdogRules(inputs: ComplianceWatchdogInputs): Co
       title: 'Form 990 filing threshold crossed',
       body: `Annual revenue is ${org.annualRevenue.toFixed(2)} which exceeds $50,000. Organization is marked as using 990 postcard flow.`,
       recommendedActions: [
+        ...operatorActions,
         'Review filing type eligibility for current tax year.',
         'Prepare Form 990/990-EZ as required.',
       ],
@@ -89,7 +105,10 @@ export function runComplianceWatchdogRules(inputs: ComplianceWatchdogInputs): Co
         type: 'COMPLIANCE_DEADLINE_OVERDUE',
         title: 'Compliance deadline overdue',
         body: `${item.deadlineType} deadline was due on ${due.toISOString().slice(0, 10)} and is not filed.`,
-        recommendedActions: ['File immediately or update status to FILED if already completed.'],
+        recommendedActions: [
+          ...operatorActions,
+          'File immediately or update status to FILED if already completed.',
+        ],
         dedupeKey: complianceDedupeKey({
           agentName: ctx.agentName,
           scopeType: ctx.scope.type,
@@ -107,7 +126,10 @@ export function runComplianceWatchdogRules(inputs: ComplianceWatchdogInputs): Co
         type: 'COMPLIANCE_DEADLINE_UPCOMING',
         title: 'Compliance deadline upcoming',
         body: `${item.deadlineType} deadline is due on ${due.toISOString().slice(0, 10)} and is not filed.`,
-        recommendedActions: ['Start preparation and ensure tasks are assigned.'],
+        recommendedActions: [
+          ...operatorActions,
+          'Start preparation and ensure tasks are assigned.',
+        ],
         dedupeKey: complianceDedupeKey({
           agentName: ctx.agentName,
           scopeType: ctx.scope.type,
@@ -130,7 +152,10 @@ export function runComplianceWatchdogRules(inputs: ComplianceWatchdogInputs): Co
         type: 'GRANT_REPORT_DEADLINE_OVERDUE',
         title: 'Grant report deadline overdue',
         body: `Grant report "${d.title}" was due on ${d.dueDate.toISOString().slice(0, 10)} (verify status with finance).`,
-        recommendedActions: ['Confirm submission status and update grant records if already filed.'],
+        recommendedActions: [
+          ...operatorActions,
+          'Confirm submission status and update grant records if already filed.',
+        ],
         dedupeKey: complianceDedupeKey({
           agentName: ctx.agentName,
           scopeType: ctx.scope.type,
@@ -148,7 +173,10 @@ export function runComplianceWatchdogRules(inputs: ComplianceWatchdogInputs): Co
         type: 'GRANT_REPORT_DEADLINE_UPCOMING',
         title: 'Grant report deadline upcoming',
         body: `Grant report "${d.title}" is due on ${d.dueDate.toISOString().slice(0, 10)}.`,
-        recommendedActions: ['Confirm reporting requirements and start drafting report.'],
+        recommendedActions: [
+          ...operatorActions,
+          'Confirm reporting requirements and start drafting report.',
+        ],
         dedupeKey: complianceDedupeKey({
           agentName: ctx.agentName,
           scopeType: ctx.scope.type,

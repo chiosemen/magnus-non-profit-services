@@ -42,8 +42,24 @@ export function runFinancialSentinelRules(inputs: SentinelInputs): {
   const asOf = ctx.window.end;
 
   for (const g of inputs.grants) {
+    if (!(g.startDate instanceof Date) || Number.isNaN(g.startDate.getTime())) {
+      skippedRules.push(`grant:${g.id}:invalid_dates`);
+      continue;
+    }
+    if (!(g.endDate instanceof Date) || Number.isNaN(g.endDate.getTime())) {
+      skippedRules.push(`grant:${g.id}:invalid_dates`);
+      continue;
+    }
     if (g.totalAmount <= 0) {
       skippedRules.push(`grant:${g.id}:non_positive_budget`);
+      continue;
+    }
+    if (!Number.isFinite(g.spentToDate)) {
+      skippedRules.push(`grant:${g.id}:invalid_spent`);
+      continue;
+    }
+    if (g.spentToDate < 0) {
+      skippedRules.push(`grant:${g.id}:negative_spent`);
       continue;
     }
     const periodMs = g.endDate.getTime() - g.startDate.getTime();
@@ -86,6 +102,7 @@ export function runFinancialSentinelRules(inputs: SentinelInputs): {
         body: [
           `Grant ends in ~${daysToEnd} day(s) on ${g.endDate.toISOString().slice(0, 10)}.`,
           `As of ${asOf.toISOString().slice(0, 10)}, time elapsed is ${(timeRatio * 100).toFixed(0)}% but spend is ${(spendRatio * 100).toFixed(1)}%.`,
+          `Inputs used (grant record snapshot): total=${g.totalAmount.toFixed(2)}, spent_to_date=${g.spentToDate.toFixed(2)}, start=${g.startDate.toISOString().slice(0, 10)}, end=${g.endDate.toISOString().slice(0, 10)}.`,
           'This is a conservative heuristic for restricted-fund timing / closeout risk. Verify with accounting and grant management.',
         ].join('\n'),
         recommendedActions: [
@@ -115,6 +132,7 @@ export function runFinancialSentinelRules(inputs: SentinelInputs): {
         body: [
           `As of ${asOf.toISOString().slice(0, 10)}, about ${(timeRatio * 100).toFixed(0)}% of the grant period has elapsed.`,
           `Spend is ${(spendRatio * 100).toFixed(1)}% of the award (${g.spentToDate.toFixed(2)} / ${g.totalAmount.toFixed(2)}).`,
+          `Inputs used (grant record snapshot): total=${g.totalAmount.toFixed(2)}, spent_to_date=${g.spentToDate.toFixed(2)}, start=${g.startDate.toISOString().slice(0, 10)}, end=${g.endDate.toISOString().slice(0, 10)}.`,
           'Restricted funds may be at risk of underspend or timing issues — confirm with finance.',
         ].join('\n'),
         recommendedActions: [
@@ -141,6 +159,7 @@ export function runFinancialSentinelRules(inputs: SentinelInputs): {
         body: [
           `As of ${asOf.toISOString().slice(0, 10)}, about ${(timeRatio * 100).toFixed(0)}% of the grant period has elapsed.`,
           `Spend is ${(spendRatio * 100).toFixed(1)}% of the award (${g.spentToDate.toFixed(2)} / ${g.totalAmount.toFixed(2)}).`,
+          `Inputs used (grant record snapshot): total=${g.totalAmount.toFixed(2)}, spent_to_date=${g.spentToDate.toFixed(2)}, start=${g.startDate.toISOString().slice(0, 10)}, end=${g.endDate.toISOString().slice(0, 10)}.`,
           spendRatio > 1
             ? 'Spend exceeds the recorded award amount — verify data entry and encumbrances.'
             : 'Spend is ahead of linear pace — confirm projections and restrictions.',

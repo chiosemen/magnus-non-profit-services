@@ -27,11 +27,19 @@ export type IngestSemanticChunkInput = {
   sourceRefs?: unknown;
 };
 
+export type MemorySourceRef = {
+  type: string;
+  [k: string]: unknown;
+};
+
+export type MemorySourceRefs = MemorySourceRef[];
+
 const MAX_OPERATIONAL_KIND_LEN = 120;
 const MAX_AGENT_NAME_LEN = 120;
 const MAX_CURATED_BODY = 256_000;
 const MAX_SEMANTIC_CHUNK = 256_000;
 const DEFAULT_LIST_LIMIT = 200;
+const MAX_SOURCE_REFS = 120;
 
 export class OrgMemoryService {
   constructor(private readonly db: PrismaClient) {}
@@ -55,8 +63,15 @@ export class OrgMemoryService {
 
   private validateSourceRefs(raw: unknown): Prisma.InputJsonValue | undefined {
     if (raw === undefined || raw === null) return undefined;
-    if (typeof raw === 'object') return raw as Prisma.InputJsonValue;
-    throw new Error('INVALID_SOURCE_REFS');
+    if (!Array.isArray(raw)) throw new Error('INVALID_SOURCE_REFS');
+    if (raw.length > MAX_SOURCE_REFS) throw new Error('INVALID_SOURCE_REFS');
+    for (const item of raw) {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) throw new Error('INVALID_SOURCE_REFS');
+      const t = (item as { type?: unknown }).type;
+      if (typeof t !== 'string' || !t.trim()) throw new Error('INVALID_SOURCE_REFS');
+      if (t.trim().length > 80) throw new Error('INVALID_SOURCE_REFS');
+    }
+    return raw as Prisma.InputJsonValue;
   }
 
   async appendOperational(orgId: string, input: AppendOperationalMemoryInput) {
@@ -111,11 +126,15 @@ export class OrgMemoryService {
     await this.assertOrgExists(orgId);
     const row = await this.db.agentOperationalMemoryEntry.findFirst({ where: { id: entryId, orgId } });
     if (!row) throw new Error('ENTRY_NOT_FOUND');
+    if (disabled) {
+      const r = reason?.trim() ?? '';
+      if (!r) throw new Error('RECALL_DISABLED_REASON_REQUIRED');
+    }
     return this.db.agentOperationalMemoryEntry.update({
       where: { id: entryId },
       data: {
         recallDisabled: disabled,
-        recallDisabledReason: disabled ? (reason?.trim() || 'recall_disabled') : null,
+        recallDisabledReason: disabled ? (reason?.trim() ?? null) : null,
       },
     });
   }

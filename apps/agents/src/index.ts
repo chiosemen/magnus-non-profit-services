@@ -8,6 +8,7 @@ import { Scheduler } from './scheduler/scheduler';
 import { startCron } from './scheduler/cron';
 import { redactErrorMessage } from './security/redaction';
 import { prisma } from './db';
+import { assertDbShape, MAGNUS_ACCORD_AUTONOMOUS_OPS_SHAPE } from '@magnus/db/types';
 
 function parseArg(name: string): string | undefined {
   const prefix = `--${name}=`;
@@ -46,6 +47,8 @@ async function main(): Promise<void> {
   try {
     // Fail-closed: DB must be reachable at boot.
     await prisma.$queryRaw`SELECT 1`;
+    // Fail-closed: schema must be compatible with Autonomous Ops persistence.
+    await assertDbShape(prisma, MAGNUS_ACCORD_AUTONOMOUS_OPS_SHAPE);
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error(redactErrorMessage(err));

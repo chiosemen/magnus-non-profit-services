@@ -9,6 +9,15 @@ import { registerOrgIdentityFilesRoutes } from './orgIdentityFilesRoutes';
 import { registerAgentHandoffRoutes } from './agentHandoffRoutes';
 import { registerMemoryRoutes } from './memoryRoutes';
 import { registerAutonomousOpsSettingsRoutes } from './autonomousOpsSettingsRoutes';
+import { registerControlTowerRoutes } from './controlTowerRoutes';
+import { registerAlertLifecycleRoutes } from './alertLifecycleRoutes';
+import { registerExecutiveRollupRoutes } from './executiveRollupRoutes';
+import { registerObligationRoutes } from './obligationRoutes';
+import { registerDonorEventRoutes } from './donorEventRoutes';
+import { registerVolunteerEventRoutes } from './volunteerEventRoutes';
+import prisma from '@magnus/db/client';
+import type { PrismaClient } from '@magnus/db/types';
+import { assertDbShape, MAGNUS_ACCORD_AUTONOMOUS_OPS_SHAPE } from '@magnus/db/types';
 
 try {
   validateEnv('org-dashboard-api');
@@ -30,6 +39,12 @@ registerOrgIdentityFilesRoutes(app, jwtAuth);
 registerAgentHandoffRoutes(app, jwtAuth);
 registerMemoryRoutes(app, jwtAuth);
 registerAutonomousOpsSettingsRoutes(app, jwtAuth);
+registerControlTowerRoutes(app, jwtAuth);
+registerAlertLifecycleRoutes(app, jwtAuth);
+registerExecutiveRollupRoutes(app, jwtAuth);
+registerObligationRoutes(app, jwtAuth);
+registerDonorEventRoutes(app, jwtAuth);
+registerVolunteerEventRoutes(app, jwtAuth);
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
@@ -74,8 +89,21 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
 });
 
 const port = parseInt(process.env['PORT'] ?? '4010', 10);
-app.listen(port, () => {
-  // Intentionally minimal logging.
+
+async function boot(): Promise<void> {
+  // Fail-closed: DB reachable + schema compatible for all Autonomous Ops routes.
+  await (prisma as unknown as PrismaClient).$queryRaw`SELECT 1`;
+  await assertDbShape(prisma as any, MAGNUS_ACCORD_AUTONOMOUS_OPS_SHAPE);
+
+  app.listen(port, () => {
+    // Intentionally minimal logging.
+    // eslint-disable-next-line no-console
+    console.log(`org-dashboard-api listening on ${port}`);
+  });
+}
+
+boot().catch(err => {
   // eslint-disable-next-line no-console
-  console.log(`org-dashboard-api listening on ${port}`);
+  console.error(err instanceof Error ? err.message : String(err));
+  process.exit(1);
 });

@@ -62,3 +62,29 @@ test('HERALD packet alert emitted and LOI prep triggered only for LOI+threshold 
   assert.deepEqual(r.loiPrepOpportunityIds, ['opp-loi']);
 });
 
+test('HERALD packet source index is deterministic and includes missing criteria when present', () => {
+  const r = runGrantIntelligenceHeraldRules({
+    ctx: ctx(),
+    org: { id: 'org-1', name: 'Test Org', ein: '12-3456789' },
+    orgIdentityFileId: 'file-1',
+    matches: [
+      match({
+        opportunity: { ...(match({}).opportunity), id: 'opp-b', funderName: 'Zeta', programName: 'Beta' },
+        missingCriteria: ['state_not_listed', 'focus_areas_no_overlap'],
+      }),
+      match({
+        opportunity: { ...(match({}).opportunity), id: 'opp-a', funderName: 'Alpha', programName: 'Alpha Program' },
+        missingCriteria: [],
+      }),
+    ],
+  });
+
+  const body = String(r.alerts[0]?.body);
+  const idx = body.indexOf('missing_criteria: state_not_listed; focus_areas_no_overlap');
+  assert.ok(idx > 0);
+
+  const aPos = body.indexOf('`candid_opportunity` → `opp-a`');
+  const bPos = body.indexOf('`candid_opportunity` → `opp-b`');
+  assert.ok(aPos > 0 && bPos > 0 && aPos < bPos);
+});
+

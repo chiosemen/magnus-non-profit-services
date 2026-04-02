@@ -53,4 +53,7 @@ test('buildStewardOracleHandoffInput batches HIGH alerts for ORACLE with stable 
   assert.ok(input!.body.includes('FORM_990_THRESHOLD_CROSSED'));
   assert.ok(Array.isArray(input!.sourceEvidence));
   assert.equal((input!.sourceEvidence as unknown[]).length, 2);
+  const evidence = input!.sourceEvidence as any[];
+  assert.ok(evidence.every(e => e && e.type === 'steward_alert' && typeof e.alertType === 'string' && typeof e.dedupeKey === 'string'));
+  assert.ok(evidence.every(e => typeof e.title === 'string' && e.title.length > 0));
 });

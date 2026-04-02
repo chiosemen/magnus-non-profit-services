@@ -141,6 +141,12 @@ export function registerAgentHandoffRoutes(app: Express, jwtAuth: RequestHandler
       if (err instanceof Error && err.message === 'INVALID_TRANSITION') {
         return res.status(409).json({ error: 'INVALID_TRANSITION' });
       }
+      if (err instanceof Error && err.message === 'RESOLUTION_REQUIRED') {
+        return res.status(400).json({ error: 'RESOLUTION_REQUIRED' });
+      }
+      if (err instanceof Error && err.message === 'CANCELLATION_REASON_REQUIRED') {
+        return res.status(400).json({ error: 'CANCELLATION_REASON_REQUIRED' });
+      }
       return next(err);
     }
   });

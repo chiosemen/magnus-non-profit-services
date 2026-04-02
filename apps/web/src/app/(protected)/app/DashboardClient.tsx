@@ -54,6 +54,14 @@ export default function DashboardClient() {
           <div className="cardTitle">Backend</div>
           <p className="cardBody">All dashboard data is fetched from `/api/*` endpoints, not direct DB reads from pages.</p>
         </div>
+        <div className="card">
+          <div className="cardTitle">Onboarding & Pilot Setup</div>
+          <ul className="cardBody" style={{ margin: 0, paddingLeft: 18, lineHeight: 1.55 }}>
+            <li>Verify <a href="/app/autonomous-ops/directory" style={{textDecoration:'underline'}}>Directory & Memory</a> context files</li>
+            <li>Configure <a href="/app/autonomous-ops/connectors" style={{textDecoration:'underline'}}>Connectors</a> for your org</li>
+            <li>Review <a href="/app/autonomous-ops/rules" style={{textDecoration:'underline'}}>Authority Rules</a></li>
+          </ul>
+        </div>
       </div>
     </div>
   );

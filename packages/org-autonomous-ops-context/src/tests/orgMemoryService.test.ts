@@ -100,6 +100,7 @@ test('appendOperational stores confidence and lists excluding recallDisabled by 
     agentName: 'A',
     kind: 'digest',
     payload: { x: 1 },
+    sourceRefs: [{ type: 'test_ref', id: '1' }],
     confidence: 0.7,
   });
   assert.equal(operational.length, 1);
@@ -112,10 +113,29 @@ test('appendOperational stores confidence and lists excluding recallDisabled by 
   assert.equal(listed3.length, 1);
 });
 
+test('setOperationalRecallDisabled fails closed without reason', async () => {
+  const { db, orgId, operational } = makeMockDb();
+  const svc = new OrgMemoryService(db);
+  await svc.appendOperational(orgId, {
+    agentName: 'A',
+    kind: 'digest',
+    payload: { x: 1 },
+    sourceRefs: [{ type: 'test_ref', id: 'x' }],
+  });
+  await assert.rejects(
+    () => svc.setOperationalRecallDisabled(orgId, operational[0].id, true, '  '),
+    /RECALL_DISABLED_REASON_REQUIRED/,
+  );
+});
+
 test('createCurated and deactivateCurated affect active list', async () => {
   const { db, orgId, curated } = makeMockDb();
   const svc = new OrgMemoryService(db);
-  const item = await svc.createCurated(orgId, { body: 'Lesson learned', confidence: 0.9 });
+  const item = await svc.createCurated(orgId, {
+    body: 'Lesson learned',
+    confidence: 0.9,
+    sourceRefs: [{ type: 'test_ref', id: '2' }],
+  });
   assert.equal(curated.length, 1);
   let act = await svc.listCurated(orgId);
   assert.equal(act.length, 1);
@@ -130,7 +150,10 @@ test('createCurated and deactivateCurated affect active list', async () => {
 test('searchSemantic uses keyword match and exposes disclaimer', async () => {
   const { db, orgId } = makeMockDb();
   const svc = new OrgMemoryService(db);
-  await svc.ingestSemanticChunk(orgId, { chunkText: 'Board prefers Q4 reports early.' });
+  await svc.ingestSemanticChunk(orgId, {
+    chunkText: 'Board prefers Q4 reports early.',
+    sourceRefs: [{ type: 'test_ref', id: '3' }],
+  });
   const res = await svc.searchSemantic(orgId, 'Q4');
   assert.equal(res.matchMode, 'keyword_insensitive_contains');
   assert.equal(res.semanticReady, false);
@@ -147,8 +170,34 @@ test('invalid confidence on append throws', async () => {
         agentName: 'A',
         kind: 'k',
         payload: {},
+        sourceRefs: [{ type: 'test_ref', id: '4' }],
         confidence: Number.NaN,
       }),
     /INVALID_CONFIDENCE/,
+  );
+});
+
+test('invalid sourceRefs throws (must be array of typed refs)', async () => {
+  const { db, orgId } = makeMockDb();
+  const svc = new OrgMemoryService(db);
+  await assert.rejects(
+    () =>
+      svc.appendOperational(orgId, {
+        agentName: 'A',
+        kind: 'k',
+        payload: {},
+        sourceRefs: { type: 'x' },
+      }),
+    /INVALID_SOURCE_REFS/,
+  );
+  await assert.rejects(
+    () =>
+      svc.appendOperational(orgId, {
+        agentName: 'A',
+        kind: 'k',
+        payload: {},
+        sourceRefs: [{}],
+      }),
+    /INVALID_SOURCE_REFS/,
   );
 });

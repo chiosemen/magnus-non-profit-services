@@ -4,6 +4,12 @@ export type HeraldSourceModule = 'candid_opportunity' | 'org_identity' | 'handof
 
 export type HeraldSourceRef = { module: HeraldSourceModule; ref: string; label: string; url?: string };
 
+function truncateLabel(text: string, max: number): string {
+  const s = String(text ?? '');
+  if (s.length <= max) return s;
+  return `${s.slice(0, Math.max(0, max - 1))}…`;
+}
+
 export type HeraldReviewPacket = {
   orgId: string;
   orgName: string;
@@ -21,6 +27,7 @@ export type HeraldReviewPacket = {
     requiresLetterOfInquiry: boolean;
     recommendedAction: string;
     matchReasons: string[];
+    missingCriteria: string[];
   }>;
   sourceIndex: HeraldSourceRef[];
   disclaimers: string[];
@@ -45,10 +52,12 @@ export function buildHeraldReviewPacket(params: {
     sourceIndex.push({
       module: 'candid_opportunity',
       ref: m.opportunity.id,
-      label: `${m.opportunity.funderName} — ${m.opportunity.programName}`,
-      url: m.opportunity.applicationUrl,
+      label: truncateLabel(`${m.opportunity.funderName} — ${m.opportunity.programName}`, 140),
+      url: m.opportunity.applicationUrl ? truncateLabel(m.opportunity.applicationUrl, 220) : undefined,
     });
   }
+
+  sourceIndex.sort((a, b) => (a.module === b.module ? a.ref.localeCompare(b.ref) : a.module.localeCompare(b.module)));
 
   return {
     orgId: params.org.id,
@@ -66,11 +75,13 @@ export function buildHeraldReviewPacket(params: {
       applicationUrl: m.opportunity.applicationUrl,
       requiresLetterOfInquiry: m.opportunity.requiresLetterOfInquiry,
       recommendedAction: m.recommendedAction,
-      matchReasons: m.matchReasons.slice(0, 6),
+      matchReasons: m.matchReasons.map(r => truncateLabel(r, 140)).slice(0, 6),
+      missingCriteria: (m.missingCriteria ?? []).slice(0, 8),
     })),
     sourceIndex,
     disclaimers: [
       'Internal draft packet. Do not submit or contact funders automatically.',
+      'Score is a deterministic sum of rule checks; it is not a fit guarantee.',
       'Matches are rule-scored; verify eligibility, deadlines, and requirements on the funder site.',
       'No claims of fit beyond listed match reasons; staff must confirm.',
     ],
@@ -108,6 +119,7 @@ export function formatHeraldReviewPacketMarkdown(packet: HeraldReviewPacket): st
       lines.push(`  - urgency: ${m.urgency}`);
       lines.push(`  - recommended_action: ${m.recommendedAction}`);
       if (m.matchReasons.length > 0) lines.push(`  - match_reasons: ${m.matchReasons.join('; ')}`);
+      if (m.missingCriteria.length > 0) lines.push(`  - missing_criteria: ${m.missingCriteria.join('; ')}`);
     }
   }
 

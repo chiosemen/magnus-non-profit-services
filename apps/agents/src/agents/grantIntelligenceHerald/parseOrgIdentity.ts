@@ -6,6 +6,12 @@ export type ParsedOrgGrantProfile = {
   warnings: string[];
 };
 
+export type ParseOrgIdentityForGrantProfileResult = {
+  profile: ParsedOrgGrantProfile | null;
+  missing: string[];
+  warnings: string[];
+};
+
 function extractSection(md: string, header: string): string {
   const re = new RegExp(`^##\\s+${header}\\s*$`, 'mi');
   const m = re.exec(md);
@@ -46,8 +52,9 @@ function parseNtee(text: string): string | null {
 export function parseOrgIdentityForGrantProfile(params: {
   orgIdentityMarkdown: string;
   annualRevenueUsdSnapshot: number | null;
-}): ParsedOrgGrantProfile | null {
+}): ParseOrgIdentityForGrantProfileResult {
   const warnings: string[] = [];
+  const missing: string[] = [];
   const md = params.orgIdentityMarkdown ?? '';
 
   const sector = extractSection(md, 'Sector / NTEE');
@@ -55,30 +62,42 @@ export function parseOrgIdentityForGrantProfile(params: {
   const focus = extractSection(md, 'Mission');
 
   const nteeCode = parseNtee(sector);
-  if (!nteeCode) warnings.push('missing_ntee_code');
+  if (!nteeCode) {
+    warnings.push('missing_ntee_code');
+    missing.push('missing_ntee_code');
+  }
 
   const states = parseTwoLetterStates(footprint);
   const primaryState = states[0] ?? null;
-  if (!primaryState) warnings.push('missing_primary_state');
+  if (!primaryState) {
+    warnings.push('missing_primary_state');
+    missing.push('missing_primary_state');
+  }
 
   const annualBudgetUsd =
     params.annualRevenueUsdSnapshot && Number.isFinite(params.annualRevenueUsdSnapshot) && params.annualRevenueUsdSnapshot > 0
       ? Math.round(params.annualRevenueUsdSnapshot)
       : 0;
-  if (annualBudgetUsd <= 0) warnings.push('missing_annual_budget_usd');
+  if (annualBudgetUsd <= 0) {
+    warnings.push('missing_annual_budget_usd');
+    missing.push('missing_annual_budget_usd');
+  }
 
   // Best-effort focus areas: try Mission section bullets/commas.
   const focusAreas = parseFocusAreas(focus);
   if (focusAreas.length === 0) warnings.push('missing_focus_areas');
 
-  if (!nteeCode || !primaryState || annualBudgetUsd <= 0) return null;
+  const profile =
+    nteeCode && primaryState && annualBudgetUsd > 0
+      ? {
+          nteeCode,
+          primaryState,
+          annualBudgetUsd,
+          focusAreas,
+          warnings,
+        }
+      : null;
 
-  return {
-    nteeCode,
-    primaryState,
-    annualBudgetUsd,
-    focusAreas,
-    warnings,
-  };
+  return { profile, missing, warnings };
 }
 

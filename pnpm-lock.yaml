@@ -367,6 +367,9 @@ importers:
       '@magnus/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@magnus/org-autonomous-ops-context':
+        specifier: workspace:*
+        version: link:../../packages/org-autonomous-ops-context
       bcryptjs:
         specifier: ^2.4.3
         version: 2.4.3
@@ -498,6 +501,9 @@ importers:
       '@magnus/db':
         specifier: workspace:*
         version: link:../db
+      '@magnus/subscription':
+        specifier: workspace:*
+        version: link:../subscription
     devDependencies:
       '@types/node':
         specifier: ^22.5.0

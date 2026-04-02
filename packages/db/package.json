@@ -12,6 +12,10 @@
     "./types": {
       "types": "./dist/types.d.ts",
       "default": "./dist/types.js"
+    },
+    "./schemaGuards": {
+      "types": "./dist/schemaGuards.d.ts",
+      "default": "./dist/schemaGuards.js"
     }
   },
   "scripts": {
@@ -21,6 +25,7 @@
     "prisma:migrate": "pnpm prisma migrate dev",
     "prisma:deploy": "pnpm prisma migrate deploy",
     "prisma:studio": "pnpm prisma studio",
+    "verify:schema": "pnpm build && node dist/verifyDbShape.js --profile=autonomous_ops",
     "test": "pnpm build && node --test dist/tests"
   },
   "dependencies": {

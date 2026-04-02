@@ -37,6 +37,28 @@ export const MAX_HANDOFF_BODY_BYTES = 128_000;
 export class AgentHandoffService {
   constructor(private readonly db: PrismaClient) {}
 
+  private assertTerminalEvidence(next: AgentHandoffStatus, detail: Record<string, unknown> | null | undefined): void {
+    if (next !== 'RESOLVED' && next !== 'CANCELLED') return;
+
+    const d = detail ?? null;
+    if (!d) {
+      if (next === 'RESOLVED') throw new Error('RESOLUTION_REQUIRED');
+      throw new Error('CANCELLATION_REASON_REQUIRED');
+    }
+
+    if (next === 'RESOLVED') {
+      const summary = typeof d['resolutionSummary'] === 'string' ? d['resolutionSummary'].trim() : '';
+      const evidence = Array.isArray(d['resolutionEvidence']) ? d['resolutionEvidence'] : null;
+      const hasEvidence = Array.isArray(evidence) && evidence.length > 0;
+      if (summary.length >= 3 || hasEvidence) return;
+      throw new Error('RESOLUTION_REQUIRED');
+    }
+
+    const reason = typeof d['cancellationReason'] === 'string' ? d['cancellationReason'].trim() : '';
+    if (reason.length >= 3) return;
+    throw new Error('CANCELLATION_REASON_REQUIRED');
+  }
+
   private async assertOrgExists(orgId: string): Promise<void> {
     const o = await this.db.organization.findUnique({ where: { id: orgId }, select: { id: true } });
     if (!o) throw new Error('ORG_NOT_FOUND');
@@ -90,7 +112,14 @@ export class AgentHandoffService {
         toStatus: 'OPEN',
         actorType: 'system',
         actorName: input.fromAgentName.trim(),
-        detail: { sourceEvidence: input.sourceEvidence ?? null } as Prisma.InputJsonValue,
+        detail: {
+          sourceEvidence: input.sourceEvidence ?? null,
+          requiresHumanReview: handoff.requiresHumanReview,
+          relatedAgentRunId: handoff.relatedAgentRunId ?? null,
+          urgency: handoff.urgency,
+          fromAgentName: handoff.fromAgentName,
+          toAgentName: handoff.toAgentName,
+        } as Prisma.InputJsonValue,
       },
     });
 
@@ -108,6 +137,8 @@ export class AgentHandoffService {
     const allowed = ALLOWED_TRANSITIONS[h.status];
     if (!allowed.includes(next)) throw new Error('INVALID_TRANSITION');
 
+    this.assertTerminalEvidence(next, input.detail);
+
     const updated = await this.db.agentHandoff.update({
       where: { id: h.id },
       data: {
@@ -115,6 +146,17 @@ export class AgentHandoffService {
         resolvedAt: next === 'RESOLVED' || next === 'CANCELLED' ? new Date() : h.resolvedAt,
       },
     });
+
+    const traceAtTransition = {
+      handoffRequiresHumanReview: h.requiresHumanReview,
+      relatedAgentRunId: h.relatedAgentRunId ?? null,
+    };
+    const callerDetail =
+      input.detail === undefined || input.detail === null ? {} : (input.detail as Record<string, unknown>);
+    const mergedDetail: Prisma.InputJsonValue = {
+      ...callerDetail,
+      ...traceAtTransition,
+    } as Prisma.InputJsonValue;
 
     await this.db.agentHandoffAuditEntry.create({
       data: {
@@ -124,7 +166,7 @@ export class AgentHandoffService {
         toStatus: next,
         actorType: input.actorType,
         actorName: input.actorName ?? undefined,
-        detail: input.detail === undefined || input.detail === null ? undefined : (input.detail as Prisma.InputJsonValue),
+        detail: mergedDetail,
       },
     });
 
