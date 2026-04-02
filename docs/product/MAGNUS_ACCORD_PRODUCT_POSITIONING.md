@@ -4,7 +4,7 @@ This document is the **canonical client-readable framing** for Magnus Accord in 
 
 Technical depth lives in the linked docs below. Operator deploy truth lives in the production checklist.
 
-**Related:** [Pilot launch package](./MAGNUS_ACCORD_PILOT_LAUNCH_PACKAGE.md) · [Feature directory](./MAGNUS_ACCORD_FEATURE_DIRECTORY.md) · [Connector registry](./MAGNUS_ACCORD_CONNECTOR_REGISTRY.md) · [Action matrix](./MAGNUS_ACCORD_ACTION_MATRIX.md) · [Maturity map](./MAGNUS_ACCORD_MATURITY_MAP.md) · [Autonomous Ops roadmap](../AUTONOMOUS_OPS_ROADMAP.md) · [Production truth checklist](../PRODUCTION_TRUTH_CHECKLIST.md) · [Handoff and memory](../AUTONOMOUS_OPS_HANDOFF_AND_MEMORY.md) · [Volunteer operations status](../AUTONOMOUS_OPS_VOLUNTEER_STATUS.md)
+**Related:** [Commercial packages](./MAGNUS_ACCORD_PACKAGES.md) · [Client feature matrix](./MAGNUS_ACCORD_CLIENT_FEATURE_MATRIX.md) · [Pilot launch package](./MAGNUS_ACCORD_PILOT_LAUNCH_PACKAGE.md) · [Feature directory](./MAGNUS_ACCORD_FEATURE_DIRECTORY.md) · [Connector registry](./MAGNUS_ACCORD_CONNECTOR_REGISTRY.md) · [Action matrix](./MAGNUS_ACCORD_ACTION_MATRIX.md) · [Maturity map](./MAGNUS_ACCORD_MATURITY_MAP.md) · [Autonomous Ops roadmap](../AUTONOMOUS_OPS_ROADMAP.md) · [Production truth checklist](../PRODUCTION_TRUTH_CHECKLIST.md) · [Handoff and memory](../AUTONOMOUS_OPS_HANDOFF_AND_MEMORY.md) · [Volunteer operations status](../AUTONOMOUS_OPS_VOLUNTEER_STATUS.md)
 
 ---
 

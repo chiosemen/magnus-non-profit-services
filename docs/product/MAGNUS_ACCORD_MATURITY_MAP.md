@@ -2,7 +2,7 @@
 
 This map classifies **implemented capabilities** by **product maturity**. It is **not** a deploy health report: for greenfield production claims, use the [production truth checklist](../PRODUCTION_TRUTH_CHECKLIST.md) and schema verification.
 
-**Related:** [Pilot launch package](./MAGNUS_ACCORD_PILOT_LAUNCH_PACKAGE.md) · [Feature directory](./MAGNUS_ACCORD_FEATURE_DIRECTORY.md) · [Connector registry](./MAGNUS_ACCORD_CONNECTOR_REGISTRY.md) · [Action matrix](./MAGNUS_ACCORD_ACTION_MATRIX.md) · [Product positioning](./MAGNUS_ACCORD_PRODUCT_POSITIONING.md) · [Autonomous Ops roadmap](../AUTONOMOUS_OPS_ROADMAP.md) · [Handoff and memory](../AUTONOMOUS_OPS_HANDOFF_AND_MEMORY.md) · [Volunteer operations status](../AUTONOMOUS_OPS_VOLUNTEER_STATUS.md)
+**Related:** [Commercial packages](./MAGNUS_ACCORD_PACKAGES.md) · [Client feature matrix](./MAGNUS_ACCORD_CLIENT_FEATURE_MATRIX.md) · [Pilot launch package](./MAGNUS_ACCORD_PILOT_LAUNCH_PACKAGE.md) · [Feature directory](./MAGNUS_ACCORD_FEATURE_DIRECTORY.md) · [Connector registry](./MAGNUS_ACCORD_CONNECTOR_REGISTRY.md) · [Action matrix](./MAGNUS_ACCORD_ACTION_MATRIX.md) · [Product positioning](./MAGNUS_ACCORD_PRODUCT_POSITIONING.md) · [Autonomous Ops roadmap](../AUTONOMOUS_OPS_ROADMAP.md) · [Handoff and memory](../AUTONOMOUS_OPS_HANDOFF_AND_MEMORY.md) · [Volunteer operations status](../AUTONOMOUS_OPS_VOLUNTEER_STATUS.md)
 
 ---
 

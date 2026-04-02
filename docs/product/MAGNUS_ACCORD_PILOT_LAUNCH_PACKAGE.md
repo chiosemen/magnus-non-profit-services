@@ -2,7 +2,7 @@
 
 This document is the **official in-repo definition** of what the **pilot launch set** includes and excludes. It is written for **business and operator** readers and is grounded in this repository’s behavior—not a sales brief.
 
-**Related:** [Feature directory](./MAGNUS_ACCORD_FEATURE_DIRECTORY.md) · [Product positioning](./MAGNUS_ACCORD_PRODUCT_POSITIONING.md) · [Maturity map](./MAGNUS_ACCORD_MATURITY_MAP.md) · [Production truth checklist](../PRODUCTION_TRUTH_CHECKLIST.md) · [Autonomous Ops roadmap](../AUTONOMOUS_OPS_ROADMAP.md)
+**Related:** [Packages](./MAGNUS_ACCORD_PACKAGES.md) · [Client feature matrix](./MAGNUS_ACCORD_CLIENT_FEATURE_MATRIX.md) · [Feature directory](./MAGNUS_ACCORD_FEATURE_DIRECTORY.md) · [Product positioning](./MAGNUS_ACCORD_PRODUCT_POSITIONING.md) · [Maturity map](./MAGNUS_ACCORD_MATURITY_MAP.md) · [Production truth checklist](../PRODUCTION_TRUTH_CHECKLIST.md) · [Autonomous Ops roadmap](../AUTONOMOUS_OPS_ROADMAP.md)
 
 ---
 

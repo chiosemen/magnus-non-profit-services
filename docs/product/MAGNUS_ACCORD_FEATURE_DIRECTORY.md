@@ -1,6 +1,6 @@
 # Magnus Accord — feature directory
 
-This directory lists **capabilities** and whether they are **client-facing in the pilot web app**, **implemented for APIs/operators only**, or **not available**. It complements the [connector registry](./MAGNUS_ACCORD_CONNECTOR_REGISTRY.md), [pilot launch package](./MAGNUS_ACCORD_PILOT_LAUNCH_PACKAGE.md), and [maturity map](./MAGNUS_ACCORD_MATURITY_MAP.md).
+This directory lists **capabilities** and whether they are **client-facing in the pilot web app**, **implemented for APIs/operators only**, or **not available**. It complements [commercial packages](./MAGNUS_ACCORD_PACKAGES.md), [client feature matrix](./MAGNUS_ACCORD_CLIENT_FEATURE_MATRIX.md), the [connector registry](./MAGNUS_ACCORD_CONNECTOR_REGISTRY.md), [pilot launch package](./MAGNUS_ACCORD_PILOT_LAUNCH_PACKAGE.md), and [maturity map](./MAGNUS_ACCORD_MATURITY_MAP.md).
 
 **Rules used here**
 

@@ -2,6 +2,8 @@
 
 This checklist is a **truth gate** for any environment claiming to run Magnus Accord dashboard and Autonomous Ops surfaces.
 
+**See also:** [Pilot production-readiness audit](../product/MAGNUS_ACCORD_PILOT_PRODUCTION_READINESS_AUDIT.md) (matrix, blockers, GO/NO-GO) · [Pilot runbook](../operations/MAGNUS_ACCORD_PILOT_RUNBOOK.md) · [Prelaunch checklist](../operations/MAGNUS_ACCORD_PRELAUNCH_CHECKLIST.md).
+
 Non-negotiables:
 - **No “green” deploy** if DB schema is behind.
 - **No “healthy” state** if env validation fails.
