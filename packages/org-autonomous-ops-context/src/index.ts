@@ -7,6 +7,31 @@ export {
 export type { OrgIdentityTemplateInput } from './templates';
 export { defaultMarkdownForKind } from './templates';
 export {
+  MAGNUS_TEMPLATE_VERSION,
+  magnusTemplateComment,
+  extractMagnusTemplateMeta,
+  hasMagnusTemplateMarker,
+} from './orgContextTemplateMarkers';
+
+export {
+  parseOrgIdentityForGrantProfile,
+} from './orgIdentityParsers/grantProfile';
+export type {
+  ParsedOrgGrantProfile,
+  ParseOrgIdentityForGrantProfileResult,
+} from './orgIdentityParsers/grantProfile';
+
+export {
+  buildOrgContextValidationReport,
+} from './orgContextValidation';
+export type {
+  OrgContextConfiguredState,
+  OrgContextKindStatus,
+  OrgContextFileReportRow,
+  OrgContextValidationReport,
+  BuildOrgContextValidationReportInput,
+} from './orgContextValidation';
+export {
   AgentHandoffService,
   HANDOFF_AUDIT_ACTIONS,
   MAX_HANDOFF_TITLE_CHARS,
@@ -45,6 +70,26 @@ export type {
   MemorySufficiencyStats,
   MemorySufficiencyEvaluation,
 } from './memorySufficiency';
+export { loadMemorySufficiencyStatsForOrg } from './memorySufficiencyStats';
+
+export {
+  buildPilotReadiness,
+  rollUpPilotReadiness,
+} from './pilotReadiness';
+export type {
+  ReadinessCategory,
+  PilotReadinessDimension,
+  PilotReadinessOverall,
+  PilotReadinessSnapshot,
+  BuildPilotReadinessInput,
+} from './pilotReadiness';
+
+export { buildLaunchReadinessReport } from './launchReadiness';
+export type {
+  LaunchReadinessStatus,
+  LaunchReadinessReport,
+  BuildLaunchReadinessInput as BuildLaunchReadinessReportInput,
+} from './launchReadiness';
 
 export { AutonomousOpsSettingsService } from './autonomySettingsService';
 export type {
@@ -129,3 +174,13 @@ export type {
   LaunchAgentPilotPositioning,
   LaunchAgentPolicyRow,
 } from './launchAgentPolicyReadModel';
+
+export { buildOperationsLog } from './operationsLog';
+export type {
+  BuildOperationsLogInput,
+  OperationsLogActorKind,
+  OperationsLogEvidenceLink,
+  OperationsLogPrimaryRef,
+  OperationsLogRow,
+  OperationsLogRowType,
+} from './operationsLog';

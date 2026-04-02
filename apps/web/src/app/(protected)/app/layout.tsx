@@ -16,6 +16,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             <Link className="pill" href="/app/autonomous-ops/connectors">Connectors</Link>
             <Link className="pill" href="/app/autonomous-ops/rules">Rules</Link>
             <Link className="pill" href="/app/autonomous-ops/control-tower">Audit</Link>
+            <Link className="pill" href="/app/autonomous-ops/operations-log">Ops log</Link>
+            <Link className="pill" href="/app/autonomous-ops/readiness">Readiness</Link>
             <Link className="pill" href="/">Marketing</Link>
             <Link className="pill" href="/tools">Tools</Link>
             <form action="/api/auth/logout" method="post">

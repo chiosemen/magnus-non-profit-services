@@ -7,17 +7,18 @@ import { verifySession } from '@/lib/session';
 
 export const runtime = 'nodejs';
 
+/** Report-only JSON for scripts; same validation as `GET /api/autonomous-ops/directory` → `report`. */
 export async function GET() {
   const token = cookies().get(AUTH_COOKIE_NAME)?.value;
   if (!token) return Response.json({ error: 'AUTH_REQUIRED' }, { status: 401 });
 
-  let payload: { orgId: string; workerId: string };
+  let payload: { orgId: string };
   try {
     const p = verifyAppToken(token);
     if (!p.sessionId) return Response.json({ error: 'SESSION_MISSING' }, { status: 401 });
     const session = await verifySession(p.sessionId);
     if (!session) return Response.json({ error: 'SESSION_INVALID' }, { status: 401 });
-    payload = { orgId: p.orgId, workerId: p.workerId };
+    payload = { orgId: p.orgId };
   } catch {
     return Response.json({ error: 'AUTH_INVALID' }, { status: 401 });
   }
@@ -42,13 +43,5 @@ export async function GET() {
     annualRevenueUsdSnapshot,
   });
 
-  return Response.json({
-    files: files.map(f => ({
-      id: f.id,
-      kind: f.kind,
-      content: f.content,
-      updatedAt: f.updatedAt.toISOString(),
-    })),
-    report,
-  });
+  return Response.json({ orgId: payload.orgId, report });
 }

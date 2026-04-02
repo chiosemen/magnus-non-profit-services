@@ -1,4 +1,5 @@
 import type { OrgContextFileKind } from '@magnus/db/types';
+import { magnusTemplateComment } from './orgContextTemplateMarkers';
 
 export type OrgIdentityTemplateInput = {
   id: string;
@@ -22,6 +23,7 @@ export function defaultMarkdownForKind(kind: OrgContextFileKind, org: OrgIdentit
   if (kind === 'ORG_IDENTITY') {
     return [
       '# ORG_IDENTITY',
+      magnusTemplateComment('ORG_IDENTITY'),
       '',
       '<!-- source-linked: prisma.Organization snapshot at file creation; safe to edit below -->',
       '',
@@ -57,6 +59,7 @@ export function defaultMarkdownForKind(kind: OrgContextFileKind, org: OrgIdentit
   if (kind === 'ORG_SOUL') {
     return [
       '# ORG_SOUL',
+      magnusTemplateComment('ORG_SOUL'),
       '',
       '<!-- org voice and boundaries for autonomous internal drafts -->',
       '',
@@ -77,6 +80,7 @@ export function defaultMarkdownForKind(kind: OrgContextFileKind, org: OrgIdentit
   if (kind === 'ORG_AGENTS') {
     return [
       '# ORG_AGENTS',
+      magnusTemplateComment('ORG_AGENTS'),
       '',
       '<!-- which agents/workflows are enabled; autonomy by workflow -->',
       '',
@@ -99,6 +103,7 @@ export function defaultMarkdownForKind(kind: OrgContextFileKind, org: OrgIdentit
   if (kind === 'ORG_MEMORY') {
     return [
       '# ORG_MEMORY',
+      magnusTemplateComment('ORG_MEMORY'),
       '',
       '<!-- curated durable learnings; not raw logs -->',
       '',
@@ -114,6 +119,7 @@ export function defaultMarkdownForKind(kind: OrgContextFileKind, org: OrgIdentit
   }
   return [
     '# ORG_HEARTBEAT',
+    magnusTemplateComment('ORG_HEARTBEAT'),
     '',
     '<!-- cadence for autonomous checks; org timezone should match scheduler env -->',
     '',

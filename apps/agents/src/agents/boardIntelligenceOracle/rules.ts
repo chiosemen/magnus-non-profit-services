@@ -1,5 +1,6 @@
 import type { AlertEvent } from '../../contracts/events';
 import type { AgentRunContext } from '../../contracts/run';
+import type { OrgContextValidationReport } from '@magnus/org-autonomous-ops-context';
 import {
   buildOracleBriefingPacket,
   formatPreBoardBriefingPacket,
@@ -15,7 +16,26 @@ import {
 
 export type { ComplianceRow, GrantSummary, OrgAlertRow, OpenHandoffRow, OrgContextRow };
 
-export type OracleInputs = BuildOraclePacketInput;
+export type OracleInputs = BuildOraclePacketInput & {
+  orgContextValidationReport?: OrgContextValidationReport;
+};
+
+function formatOrgContextGapBody(report: OrgContextValidationReport): string {
+  const lines = [
+    'Some org context files are still templates or missing minimum operator content. Weekly and pre-board briefings still run, but governance signals may be thin.',
+    '',
+    '**Per-file status** (see `/app/autonomous-ops/directory` in pilot):',
+  ];
+  for (const row of report.rows) {
+    lines.push(`- [${row.kind}] ${row.status} (${row.configuredState}) — ${row.blockers.join('; ') || 'ok'}`);
+  }
+  lines.push('', '**Suggested actions**');
+  for (const a of report.operatorActions.slice(0, 5)) {
+    lines.push(`- ${a}`);
+  }
+  lines.push('', 'Internal only; no external send.');
+  return lines.join('\n');
+}
 
 export function oracleDedupeKey(params: {
   agentName: string;
@@ -42,7 +62,33 @@ export function runBoardIntelligenceOracleRules(inputs: OracleInputs): {
   const weeklyBody = formatWeeklyExecutiveSummary(packet);
   const preBoardBody = formatPreBoardBriefingPacket(packet);
 
+  const gapAlerts: AlertEvent[] = [];
+  const vr = inputs.orgContextValidationReport;
+  if (vr && vr.rows.some(r => r.status !== 'READY')) {
+    gapAlerts.push({
+      agentName: ctx.agentName,
+      scopeType: ctx.scope.type,
+      scopeId: org.id,
+      severity: 'LOW',
+      type: 'ORACLE_ORG_CONTEXT_INCOMPLETE',
+      title: `Org context incomplete — ${org.name}`,
+      body: formatOrgContextGapBody(vr),
+      recommendedActions: [
+        'Review org context files in the Directory / identity surfaces.',
+        'Complete ORG_IDENTITY grant fields (NTEE, state, annual revenue) before relying on grant matching.',
+      ],
+      dedupeKey: oracleDedupeKey({
+        agentName: ctx.agentName,
+        scopeType: ctx.scope.type,
+        scopeId: org.id,
+        alertType: 'ORACLE_ORG_CONTEXT_INCOMPLETE',
+        windowEnd: ctx.window.end,
+      }),
+    });
+  }
+
   const alerts: AlertEvent[] = [
+    ...gapAlerts,
     {
       agentName: ctx.agentName,
       scopeType: ctx.scope.type,

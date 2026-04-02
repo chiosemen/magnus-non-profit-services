@@ -16,8 +16,174 @@ function parseOwnerType(raw: unknown): AlertOwnerType | null {
   return OWNER_TYPES.includes(raw as AlertOwnerType) ? (raw as AlertOwnerType) : null;
 }
 
+function parseTake(raw: unknown): number {
+  const n = raw === undefined ? NaN : parseInt(String(raw), 10);
+  if (!Number.isFinite(n) || n <= 0) return 50;
+  return Math.min(n, 200);
+}
+
+function parseIsoDate(raw: unknown): Date | null {
+  if (raw === undefined || raw === null) return null;
+  if (typeof raw !== 'string') return null;
+  const d = new Date(raw);
+  if (!Number.isFinite(d.getTime())) return null;
+  return d;
+}
+
+function serializeAlert(a: {
+  id: string;
+  agentName: string;
+  scopeType: string;
+  scopeId: string;
+  severity: unknown;
+  status: AlertStatus;
+  type: string;
+  title: string;
+  body: string;
+  recommendedActions: unknown;
+  dedupeKey: string;
+  createdAt: Date;
+  acknowledgedAt: Date | null;
+  resolvedAt: Date | null;
+  resolutionSummary: string | null;
+  ownerType: AlertOwnerType | null;
+  ownerId: string | null;
+  ownerName: string | null;
+  relatedAgentRunId: string | null;
+  relatedHandoffId: string | null;
+}) {
+  return {
+    id: a.id,
+    agentName: a.agentName,
+    scopeType: a.scopeType,
+    scopeId: a.scopeId,
+    severity: a.severity,
+    status: a.status,
+    type: a.type,
+    title: a.title,
+    body: a.body,
+    recommendedActions: a.recommendedActions,
+    dedupeKey: a.dedupeKey,
+    createdAt: a.createdAt.toISOString(),
+    acknowledgedAt: a.acknowledgedAt ? a.acknowledgedAt.toISOString() : null,
+    resolvedAt: a.resolvedAt ? a.resolvedAt.toISOString() : null,
+    resolutionSummary: a.resolutionSummary,
+    ownerType: a.ownerType,
+    ownerId: a.ownerId,
+    ownerName: a.ownerName,
+    relatedAgentRunId: a.relatedAgentRunId,
+    relatedHandoffId: a.relatedHandoffId,
+  };
+}
+
 export function registerAlertLifecycleRoutes(app: Express, jwtAuth: RequestHandler): void {
   const svc = new AlertLifecycleService(prisma as unknown as PrismaClient);
+
+  // Pilot read surface: ORG-scoped alerts only (scopeType=ORG, scopeId=orgId).
+  // This is intentionally narrow to avoid implying grant/worker alert browsing semantics.
+  app.get('/api/org/autonomous-ops/alerts', jwtAuth, async (req, res, next) => {
+    try {
+      const orgId = (req as { auth?: { orgId: string } }).auth?.orgId as string;
+      const take = parseTake(req.query.take);
+      const status = parseAlertStatus(req.query.status);
+      const agentName = typeof req.query.agentName === 'string' ? req.query.agentName : null;
+      const since = parseIsoDate(req.query.since);
+      const until = parseIsoDate(req.query.until);
+      if (req.query.status !== undefined && !status) return res.status(400).json({ error: 'INVALID_STATUS' });
+      if (req.query.since !== undefined && !since) return res.status(400).json({ error: 'INVALID_SINCE' });
+      if (req.query.until !== undefined && !until) return res.status(400).json({ error: 'INVALID_UNTIL' });
+
+      const items = await prisma.alert.findMany({
+        where: {
+          scopeType: 'ORG',
+          scopeId: orgId,
+          ...(status ? { status } : {}),
+          ...(agentName ? { agentName } : {}),
+          ...(since || until
+            ? {
+                createdAt: {
+                  ...(since ? { gte: since } : {}),
+                  ...(until ? { lte: until } : {}),
+                },
+              }
+            : {}),
+        },
+        orderBy: { createdAt: 'desc' },
+        take,
+        select: {
+          id: true,
+          agentName: true,
+          scopeType: true,
+          scopeId: true,
+          severity: true,
+          status: true,
+          type: true,
+          title: true,
+          body: true,
+          recommendedActions: true,
+          dedupeKey: true,
+          createdAt: true,
+          acknowledgedAt: true,
+          resolvedAt: true,
+          resolutionSummary: true,
+          ownerType: true,
+          ownerId: true,
+          ownerName: true,
+          relatedAgentRunId: true,
+          relatedHandoffId: true,
+        },
+      });
+
+      return res.json({
+        orgId,
+        scope: { type: 'ORG' as const, id: orgId },
+        take,
+        alerts: items.map(serializeAlert),
+        disclaimers: [
+          'Pilot read surface: returns ORG-scoped alerts only.',
+          'Use /api/org/autonomous-ops/alerts/:id/audit for the append-only decision trail (status/owner/link).',
+        ],
+      });
+    } catch (err) {
+      return next(err);
+    }
+  });
+
+  app.get('/api/org/autonomous-ops/alerts/:id', jwtAuth, async (req, res, next) => {
+    try {
+      const orgId = (req as { auth?: { orgId: string } }).auth?.orgId as string;
+      const a = await prisma.alert.findUnique({
+        where: { id: req.params.id },
+        select: {
+          id: true,
+          agentName: true,
+          scopeType: true,
+          scopeId: true,
+          severity: true,
+          status: true,
+          type: true,
+          title: true,
+          body: true,
+          recommendedActions: true,
+          dedupeKey: true,
+          createdAt: true,
+          acknowledgedAt: true,
+          resolvedAt: true,
+          resolutionSummary: true,
+          ownerType: true,
+          ownerId: true,
+          ownerName: true,
+          relatedAgentRunId: true,
+          relatedHandoffId: true,
+        },
+      });
+      if (!a) return res.status(404).json({ error: 'ALERT_NOT_FOUND' });
+      if (a.scopeType !== 'ORG' || a.scopeId !== orgId) return res.status(403).json({ error: 'ALERT_FORBIDDEN' });
+      return res.json({ alert: serializeAlert(a) });
+    } catch (err) {
+      return next(err);
+    }
+  });
 
   app.patch('/api/org/autonomous-ops/alerts/:id/status', jwtAuth, async (req, res, next) => {
     try {

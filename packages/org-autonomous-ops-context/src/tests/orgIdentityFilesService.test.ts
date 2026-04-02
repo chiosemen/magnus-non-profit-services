@@ -107,6 +107,7 @@ test('ORG_IDENTITY seed contains source-linked header and org fields', async () 
   const svc = new OrgIdentityFilesService(db);
   await svc.ensureDefaults(orgId);
   const row = await svc.get(orgId, 'ORG_IDENTITY');
+  assert.match(String(row?.content), /magnus:template kind=ORG_IDENTITY/);
   assert.match(String(row?.content), /source-linked: prisma\.Organization/);
   assert.match(String(row?.content), /Test Org/);
   assert.match(String(row?.content), /12-3456789/);

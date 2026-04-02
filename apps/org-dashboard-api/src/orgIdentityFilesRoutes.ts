@@ -1,10 +1,43 @@
 import type { Express, RequestHandler } from 'express';
 import prisma from '@magnus/db/client';
-import type { PrismaClient } from '@magnus/db/types';
-import { OrgIdentityFilesService, parseOrgContextFileKind } from '@magnus/org-autonomous-ops-context';
+import type { OrgContextFileKind, PrismaClient } from '@magnus/db/types';
+import {
+  OrgIdentityFilesService,
+  buildOrgContextValidationReport,
+  parseOrgContextFileKind,
+} from '@magnus/org-autonomous-ops-context';
 
 export function registerOrgIdentityFilesRoutes(app: Express, jwtAuth: RequestHandler): void {
   const svc = new OrgIdentityFilesService(prisma as unknown as PrismaClient);
+
+  app.get('/api/org/autonomous-ops/identity-files/report', jwtAuth, async (req, res, next) => {
+    try {
+      const orgId = (req as { auth?: { orgId: string } }).auth?.orgId as string;
+      const [orgRow, files] = await Promise.all([
+        prisma.organization.findUnique({
+          where: { id: orgId },
+          select: { annualRevenue: true },
+        }),
+        svc.list(orgId, { ensureDefaults: true }),
+      ]);
+      const annualRevenueUsdSnapshot =
+        orgRow?.annualRevenue === null || orgRow?.annualRevenue === undefined ? null : Number(orgRow.annualRevenue);
+      const filesByKind = Object.fromEntries(files.map(f => [f.kind, { content: f.content }])) as Partial<
+        Record<OrgContextFileKind, { content: string }>
+      >;
+      const report = buildOrgContextValidationReport({
+        orgId,
+        filesByKind,
+        annualRevenueUsdSnapshot,
+      });
+      return res.json({ orgId, report });
+    } catch (err) {
+      if (err instanceof Error && err.message === 'ORG_NOT_FOUND') {
+        return res.status(404).json({ error: 'ORG_NOT_FOUND' });
+      }
+      return next(err);
+    }
+  });
 
   app.get('/api/org/autonomous-ops/identity-files', jwtAuth, async (req, res, next) => {
     try {

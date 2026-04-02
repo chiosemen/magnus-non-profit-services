@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import type { OrgContextValidationReport } from '@magnus/org-autonomous-ops-context';
 import { runBoardIntelligenceOracleRules } from '../agents/boardIntelligenceOracle/rules';
 
 const baseCtx = {
@@ -45,4 +46,38 @@ test('ORACLE emits weekly summary and pre-board packet with compliance and grant
   assert.ok(String(pre?.body).includes('`c1`'));
   assert.ok(String(pre?.body).includes('`g1`'));
   assert.ok(String(pre?.body).includes('Acme Foundation'));
+});
+
+test('ORACLE prepends org-context gap alert when validation report has non-READY rows', () => {
+  const r = runBoardIntelligenceOracleRules({
+    ctx: baseCtx,
+    org: { id: 'org-1', name: 'Test Org', ein: '12-3456789' },
+    complianceCalendar: [],
+    grants: [],
+    orgAlertsInWindow: [],
+    openHandoffs: [],
+    orgContextFiles: [],
+    orgContextValidationReport: {
+      orgId: 'org-1',
+      asOfIso: '2026-06-15T12:00:00.000Z',
+      expectedKinds: ['ORG_IDENTITY'],
+      rows: [
+        {
+          kind: 'ORG_IDENTITY',
+          label: 'Org identity',
+          purpose: 'p',
+          whatBreaksIfMissing: 'w',
+          requiredForPilot: 'required',
+          status: 'PARTIAL',
+          configuredState: 'template_unedited',
+          blockers: ['missing_ntee_code'],
+          warnings: [],
+        },
+      ],
+      grantProfileMissingCodes: ['missing_ntee_code'],
+      operatorActions: ['Edit ORG_IDENTITY'],
+    } as OrgContextValidationReport,
+  });
+  assert.equal(r.alerts.length, 3);
+  assert.equal(r.alerts[0]?.type, 'ORACLE_ORG_CONTEXT_INCOMPLETE');
 });

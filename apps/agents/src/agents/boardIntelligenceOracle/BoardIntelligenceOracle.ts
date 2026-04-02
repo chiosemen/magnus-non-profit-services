@@ -3,7 +3,8 @@ import type { AgentRunContext } from '../../contracts/run';
 import { prisma } from '../../db';
 import { runBoardIntelligenceOracleRules } from './rules';
 import type { OrgAlertRow, OpenHandoffRow, OrgContextRow } from './oraclePacket';
-import type { AlertSeverity } from '@magnus/db/types';
+import type { AlertSeverity, OrgContextFileKind, PrismaClient } from '@magnus/db/types';
+import { OrgIdentityFilesService, buildOrgContextValidationReport } from '@magnus/org-autonomous-ops-context';
 
 /**
  * ORACLE — Board Intelligence: bounded internal briefings from compliance, grants,
@@ -22,11 +23,13 @@ export class BoardIntelligenceOracle {
 
     const org = await prisma.organization.findUnique({
       where: { id: orgId },
-      select: { id: true, name: true, ein: true },
+      select: { id: true, name: true, ein: true, annualRevenue: true },
     });
     if (!org) throw new Error('Organization not found');
 
-    const [complianceCalendar, grants, orgAlertsRaw, openHandoffsRaw, orgContextFilesRaw] =
+    const idSvc = new OrgIdentityFilesService(prisma as unknown as PrismaClient);
+
+    const [complianceCalendar, grants, orgAlertsRaw, openHandoffsRaw, contextFilesFull] =
       await Promise.all([
         prisma.complianceCalendar.findMany({
           where: { orgId: org.id },
@@ -59,11 +62,18 @@ export class BoardIntelligenceOracle {
           take: 40,
           select: { id: true, title: true, fromAgentName: true, createdAt: true },
         }),
-        prisma.orgContextFile.findMany({
-          where: { orgId: org.id },
-          select: { id: true, kind: true, updatedAt: true },
-        }),
+        idSvc.list(org.id, { ensureDefaults: true }),
       ]);
+
+    const orgContextFilesRaw = contextFilesFull.map(f => ({ id: f.id, kind: f.kind, updatedAt: f.updatedAt }));
+
+    const orgContextValidationReport = buildOrgContextValidationReport({
+      orgId: org.id,
+      filesByKind: Object.fromEntries(contextFilesFull.map(f => [f.kind, { content: f.content }])) as Partial<
+        Record<OrgContextFileKind, { content: string }>
+      >,
+      annualRevenueUsdSnapshot: org.annualRevenue == null ? null : Number(org.annualRevenue),
+    });
 
     const orgAlertsInWindow: OrgAlertRow[] = orgAlertsRaw.map(a => ({
       id: a.id,
@@ -88,7 +98,8 @@ export class BoardIntelligenceOracle {
 
     const result = runBoardIntelligenceOracleRules({
       ctx,
-      org,
+      org: { id: org.id, name: org.name, ein: org.ein },
+      orgContextValidationReport,
       complianceCalendar: complianceCalendar.map(r => ({
         id: r.id,
         dueDate: r.dueDate,

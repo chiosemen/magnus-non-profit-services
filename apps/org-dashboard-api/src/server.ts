@@ -15,6 +15,7 @@ import { registerExecutiveRollupRoutes } from './executiveRollupRoutes';
 import { registerObligationRoutes } from './obligationRoutes';
 import { registerDonorEventRoutes } from './donorEventRoutes';
 import { registerVolunteerEventRoutes } from './volunteerEventRoutes';
+import { registerOperationsLogRoutes } from './operationsLogRoutes';
 import prisma from '@magnus/db/client';
 import type { PrismaClient } from '@magnus/db/types';
 import { assertDbShape, MAGNUS_ACCORD_AUTONOMOUS_OPS_SHAPE } from '@magnus/db/types';
@@ -45,6 +46,7 @@ registerExecutiveRollupRoutes(app, jwtAuth);
 registerObligationRoutes(app, jwtAuth);
 registerDonorEventRoutes(app, jwtAuth);
 registerVolunteerEventRoutes(app, jwtAuth);
+registerOperationsLogRoutes(app, jwtAuth);
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 

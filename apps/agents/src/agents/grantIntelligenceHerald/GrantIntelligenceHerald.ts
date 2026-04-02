@@ -1,10 +1,15 @@
 import type { AlertSink } from '../../sinks/AlertSink';
 import type { AgentRunContext } from '../../contracts/run';
 import { prisma } from '../../db';
-import type { PrismaClient } from '@magnus/db/types';
-import { AgentHandoffService, OrgMemoryService } from '@magnus/org-autonomous-ops-context';
+import type { OrgContextFileKind, PrismaClient } from '@magnus/db/types';
+import {
+  AgentHandoffService,
+  OrgIdentityFilesService,
+  OrgMemoryService,
+  buildOrgContextValidationReport,
+  parseOrgIdentityForGrantProfile,
+} from '@magnus/org-autonomous-ops-context';
 import { createCandidOpportunityFetcher, type GrantMatch, type OpportunityFetcher } from './opportunityClient';
-import { parseOrgIdentityForGrantProfile } from './parseOrgIdentity';
 import { runGrantIntelligenceHeraldRules } from './rules';
 import { assertInternalSideEffectAllowed } from '../../autonomy/enforcement';
 import { assertOperationalMemoryKind } from '../../autonomousOps/operationalMemoryKinds';
@@ -35,19 +40,33 @@ export class GrantIntelligenceHerald {
     });
     if (!org) throw new Error('Organization not found');
 
-    const orgIdentity = await prisma.orgContextFile.findUnique({
-      where: { orgId_kind: { orgId: org.id, kind: 'ORG_IDENTITY' } },
-      select: { id: true, content: true, updatedAt: true },
-    });
+    const idSvc = new OrgIdentityFilesService(prisma as unknown as PrismaClient);
+    const contextFiles = await idSvc.list(org.id, { ensureDefaults: true });
+    const orgIdentity = contextFiles.find(f => f.kind === 'ORG_IDENTITY');
 
     const annualRevenueUsdSnapshot = org.annualRevenue === null ? null : Number(org.annualRevenue);
-    const parsed = orgIdentity
-      ? parseOrgIdentityForGrantProfile({ orgIdentityMarkdown: orgIdentity.content, annualRevenueUsdSnapshot })
-      : null;
+    const filesByKind = Object.fromEntries(contextFiles.map(f => [f.kind, { content: f.content }])) as Partial<
+      Record<OrgContextFileKind, { content: string }>
+    >;
+    const validation = buildOrgContextValidationReport({
+      orgId: org.id,
+      filesByKind,
+      annualRevenueUsdSnapshot,
+    });
+    const idRow = validation.rows.find(r => r.kind === 'ORG_IDENTITY');
+
+    const parsed = parseOrgIdentityForGrantProfile({
+      orgIdentityMarkdown: orgIdentity?.content ?? '',
+      annualRevenueUsdSnapshot,
+    });
     const profile = parsed?.profile ?? null;
 
     if (!profile) {
-      const missing = parsed?.missing ?? ['missing_org_identity'];
+      const missing = (parsed && parsed.missing.length > 0
+        ? parsed.missing
+        : orgIdentity
+          ? ['grant_profile_incomplete']
+          : ['missing_org_identity']) as string[];
       const missingLines =
         missing.length === 0
           ? ['- (unknown)']
@@ -56,6 +75,7 @@ export class GrantIntelligenceHerald {
               if (m === 'missing_ntee_code') return '- NTEE code missing in **Sector / NTEE** (e.g. `B20`)';
               if (m === 'missing_primary_state') return '- State footprint missing in **State footprint** (e.g. `CA`)';
               if (m === 'missing_annual_budget_usd') return '- Annual revenue snapshot missing (set `Organization.annualRevenue`)';
+              if (m === 'grant_profile_incomplete') return '- Grant profile incomplete (NTEE, state, and/or annual revenue)';
               return `- ${m}`;
             });
 
@@ -67,6 +87,13 @@ export class GrantIntelligenceHerald {
         '',
         'Update `ORG_IDENTITY` with the sections above (headers must match), then rerun HERALD.',
         '- Optional: add focus areas as bullet points under **Mission**',
+        '',
+        `ORG_IDENTITY configured state: ${idRow?.configuredState ?? 'unknown'}`,
+        ...(idRow?.configuredState === 'template_unedited'
+          ? [
+              'Seeded template detected (`magnus:template` in file). Edit the required sections; you may remove that comment when finished.',
+            ]
+          : []),
         '',
         `ORG_IDENTITY source ref: ${orgIdentity?.id ?? '(none)'}`,
         `ORG_IDENTITY updatedAt: ${orgIdentity?.updatedAt?.toISOString() ?? '(none)'}`,

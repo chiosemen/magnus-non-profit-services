@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseOrgIdentityForGrantProfile } from '../agents/grantIntelligenceHerald/parseOrgIdentity';
+import { parseOrgIdentityForGrantProfile } from '@magnus/org-autonomous-ops-context';
 
 test('parseOrgIdentityForGrantProfile extracts NTEE and state codes from ORG_IDENTITY', () => {
   const md = [
