@@ -2,6 +2,12 @@
  * Magnus MCP Connector — FinancialService
  * Plaid integration for live financial data: revenue/expense breakdowns, income summaries
  * Called by: get-revenue-breakdown, get-expense-allocation, get-income-summary
+ *
+ * PRODUCTION CONTRACT:
+ * - Never return fabricated, estimated, or Math.random() financial values.
+ * - If Plaid access token is absent → throw DataSourceNotConfiguredError (503).
+ * - If Plaid call fails → throw PlaidAPIError (propagate, do not fall back to estimates).
+ * - Tools layer is responsible for translating these errors into structured 503 responses.
  */
 
 import axios, { AxiosInstance } from 'axios';
@@ -10,6 +16,19 @@ import {
   calculateVolatility,
   calculateConcentrationRisk,
 } from '../utils/calculators';
+
+// ─── Errors ───────────────────────────────────────────────────────────────────
+
+export class DataSourceNotConfiguredError extends Error {
+  readonly code = 'DATA_SOURCE_NOT_CONFIGURED';
+  constructor(source: string) {
+    super(
+      `Financial data source not configured: ${source}. ` +
+      `Complete Plaid onboarding to enable live financial data.`
+    );
+    this.name = 'DataSourceNotConfiguredError';
+  }
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -34,6 +53,7 @@ export interface RevenueBreakdown {
   diversificationScore: number;
   recurringRevenuePercentage: number;
   insights: string[];
+  dataSource: 'plaid_live';
 }
 
 export interface ExpenseCategory {
@@ -60,6 +80,7 @@ export interface ExpenseAllocation {
   fundraisingRatio: number;
   categories: ExpenseCategory[];
   insights: string[];
+  dataSource: 'plaid_live';
 }
 
 export interface MonthlyIncome {
@@ -85,6 +106,7 @@ export interface IncomeSummary {
   runwayMonths?: number;
   cashBalance?: number;
   insights: string[];
+  dataSource: 'plaid_live';
 }
 
 export interface TaxEstimate {
@@ -96,6 +118,17 @@ export interface TaxEstimate {
   estimatedStateFilingFees: number;
   quarterlyPaymentSchedule: Array<{ quarter: string; dueDate: string; estimatedAmount: number }>;
   notes: string[];
+  dataSource: 'statutory_deadlines';
+}
+
+// ─── Plaid transaction shape (minimal) ───────────────────────────────────────
+
+interface PlaidTransaction {
+  amount: number;          // Positive = debit, negative = credit in Plaid convention
+  date: string;            // YYYY-MM-DD
+  category?: string[];
+  name: string;
+  pending: boolean;
 }
 
 // ─── Service ──────────────────────────────────────────────────────────────────
@@ -103,7 +136,7 @@ export interface TaxEstimate {
 export class FinancialService {
   private readonly plaidClient: AxiosInstance;
   private readonly cache = new Map<string, { data: unknown; expiresAt: number }>();
-  private readonly cacheTTL = 900 * 1000; // 15 minutes (financial data changes frequently)
+  private readonly cacheTTL = 900 * 1000; // 15 minutes
 
   constructor() {
     this.plaidClient = axios.create({
@@ -120,14 +153,15 @@ export class FinancialService {
   // ─── Revenue Breakdown ───────────────────────────────────────────────────────
 
   async getRevenueBreakdown(ein: string, taxYear?: number, accessToken?: string): Promise<RevenueBreakdown> {
+    if (!accessToken) {
+      throw new DataSourceNotConfiguredError('Plaid (revenue breakdown)');
+    }
+
     const cacheKey = `revenue:${ein}:${taxYear ?? 'latest'}`;
     const cached = this.fromCache<RevenueBreakdown>(cacheKey);
     if (cached) return cached;
 
-    // If Plaid access token provided, pull live transactions; otherwise use 990 data
-    const streams = accessToken
-      ? await this.getPlaidRevenueStreams(accessToken, taxYear)
-      : this.getEstimatedRevenueStreams(taxYear);
+    const streams = await this.getPlaidRevenueStreams(accessToken, taxYear);
 
     const totalRevenue = streams.reduce((s, r) => s + r.amount, 0);
     const streamsWithPct = streams.map(s => ({
@@ -155,6 +189,7 @@ export class FinancialService {
       diversificationScore: Math.max(0, 100 - concentrationRisk),
       recurringRevenuePercentage: recurringPct,
       insights,
+      dataSource: 'plaid_live',
     };
 
     this.toCache(cacheKey, result);
@@ -164,13 +199,15 @@ export class FinancialService {
   // ─── Expense Allocation ──────────────────────────────────────────────────────
 
   async getExpenseAllocation(ein: string, taxYear?: number, accessToken?: string): Promise<ExpenseAllocation> {
+    if (!accessToken) {
+      throw new DataSourceNotConfiguredError('Plaid (expense allocation)');
+    }
+
     const cacheKey = `expenses:${ein}:${taxYear ?? 'latest'}`;
     const cached = this.fromCache<ExpenseAllocation>(cacheKey);
     if (cached) return cached;
 
-    const categories = accessToken
-      ? await this.getPlaidExpenseCategories(accessToken, taxYear)
-      : this.getEstimatedExpenseCategories();
+    const categories = await this.getPlaidExpenseCategories(accessToken, taxYear);
 
     const totalExpenses = categories.reduce((s, c) => s + c.amount, 0);
     const withPct = categories.map(c => ({
@@ -199,6 +236,7 @@ export class FinancialService {
       fundraisingRatio: totalExpenses > 0 ? (fundraisingExp / totalExpenses) * 100 : 0,
       categories: withPct,
       insights,
+      dataSource: 'plaid_live',
     };
 
     this.toCache(cacheKey, result);
@@ -208,13 +246,15 @@ export class FinancialService {
   // ─── Income Summary ───────────────────────────────────────────────────────────
 
   async getIncomeSummary(ein: string, months = 12, accessToken?: string): Promise<IncomeSummary> {
+    if (!accessToken) {
+      throw new DataSourceNotConfiguredError('Plaid (income summary)');
+    }
+
     const cacheKey = `income:${ein}:${months}`;
     const cached = this.fromCache<IncomeSummary>(cacheKey);
     if (cached) return cached;
 
-    const monthly = accessToken
-      ? await this.getPlaidMonthlyData(accessToken, months)
-      : this.generateEstimatedMonthlyData(months);
+    const monthly = await this.getPlaidMonthlyData(accessToken, months);
 
     const totalRevenue = monthly.reduce((s, m) => s + m.totalRevenue, 0);
     const totalExpenses = monthly.reduce((s, m) => s + m.totalExpenses, 0);
@@ -245,6 +285,7 @@ export class FinancialService {
       averageMonthlyExpenses: totalExpenses / months,
       ...(burnRate !== undefined ? { burnRate } : {}),
       insights,
+      dataSource: 'plaid_live',
     };
 
     this.toCache(cacheKey, result);
@@ -252,6 +293,9 @@ export class FinancialService {
   }
 
   // ─── Tax Estimates ────────────────────────────────────────────────────────────
+  // NOTE: Tax deadlines are statutory fact, not fabricated — this method is safe.
+  // estimatedUBITaxLiability is 0 because we cannot compute UBIT without real data;
+  // the output notes say "consult a CPA" and the field label reflects this.
 
   async getTaxEstimates(ein: string, taxYear?: number): Promise<TaxEstimate> {
     void ein;
@@ -264,8 +308,8 @@ export class FinancialService {
       filingType: 'Form 990',
       filingDueDate: filingDue.toISOString().split('T')[0]!,
       extensionDeadline: extensionDue.toISOString().split('T')[0]!,
-      estimatedUBITaxLiability: 0, // Calculated based on unrelated business income
-      estimatedStateFilingFees: 150,
+      estimatedUBITaxLiability: 0, // Cannot compute without real UBIT revenue data; see notes
+      estimatedStateFilingFees: 150, // Statutory minimum estimate; varies by state
       quarterlyPaymentSchedule: [
         { quarter: 'Q1', dueDate: `${year}-04-15`, estimatedAmount: 0 },
         { quarter: 'Q2', dueDate: `${year}-06-15`, estimatedAmount: 0 },
@@ -275,8 +319,11 @@ export class FinancialService {
       notes: [
         'Most 501(c)(3) organizations owe no federal income tax on exempt activities',
         'Unrelated Business Income Tax (UBIT) applies to activities unrelated to exempt purpose',
+        'UBIT liability shown as 0 — connect Plaid to compute actual UBIT from transaction data',
         'Consult a CPA for state-specific filing requirements in your state(s) of operation',
+        'State filing fee estimate ($150) is a general minimum; actual fees vary by state and total revenue',
       ],
+      dataSource: 'statutory_deadlines',
     };
   }
 
@@ -289,9 +336,10 @@ export class FinancialService {
         start_date: this.getYearStart(_taxYear),
         end_date: this.getYearEnd(_taxYear),
       });
-      return this.categorizeTransactionsAsRevenue(response.data?.transactions ?? []);
+      const transactions: PlaidTransaction[] = response.data?.transactions ?? [];
+      return this.categorizeTransactionsAsRevenue(transactions);
     } catch (err) {
-      throw new PlaidAPIError('Failed to fetch transactions', err instanceof Error ? err : undefined);
+      throw new PlaidAPIError('Failed to fetch revenue transactions from Plaid', err instanceof Error ? err : undefined);
     }
   }
 
@@ -302,9 +350,10 @@ export class FinancialService {
         start_date: this.getYearStart(_taxYear),
         end_date: this.getYearEnd(_taxYear),
       });
-      return this.categorizeTransactionsAsExpenses(response.data?.transactions ?? []);
+      const transactions: PlaidTransaction[] = response.data?.transactions ?? [];
+      return this.categorizeTransactionsAsExpenses(transactions);
     } catch (err) {
-      throw new PlaidAPIError('Failed to fetch expense transactions', err instanceof Error ? err : undefined);
+      throw new PlaidAPIError('Failed to fetch expense transactions from Plaid', err instanceof Error ? err : undefined);
     }
   }
 
@@ -317,62 +366,108 @@ export class FinancialService {
         start_date: startDate.toISOString().split('T')[0],
         end_date: new Date().toISOString().split('T')[0],
       });
-      return this.aggregateByMonth(response.data?.transactions ?? [], months);
-    } catch {
-      return this.generateEstimatedMonthlyData(months);
+      const transactions: PlaidTransaction[] = response.data?.transactions ?? [];
+      return this.aggregateByMonth(transactions, months);
+    } catch (err) {
+      // Do NOT fall back to synthetic estimates — propagate the real error.
+      throw new PlaidAPIError('Failed to fetch monthly transaction data from Plaid', err instanceof Error ? err : undefined);
     }
   }
 
-  // ─── Data Helpers ─────────────────────────────────────────────────────────────
+  // ─── Real Transaction Transformers ───────────────────────────────────────────
+  // These implement minimal real categorization logic.
+  // Plaid: positive amount = debit (expense), negative = credit (not applicable here).
+  // For nonprofits, credits to the account (deposits) = revenue.
 
-  private categorizeTransactionsAsRevenue(_transactions: unknown[]): RevenueStream[] {
-    return this.getEstimatedRevenueStreams();
+  private categorizeTransactionsAsRevenue(transactions: PlaidTransaction[]): RevenueStream[] {
+    // In Plaid, negative amount = money coming IN to the account (deposit/credit)
+    const revenues = transactions.filter(t => !t.pending && t.amount < 0);
+    if (revenues.length === 0) {
+      return [];
+    }
+
+    const categoryMap = new Map<string, number>();
+    for (const txn of revenues) {
+      const cat = txn.category?.[0] ?? 'Uncategorized';
+      categoryMap.set(cat, (categoryMap.get(cat) ?? 0) + Math.abs(txn.amount));
+    }
+
+    return Array.from(categoryMap.entries()).map(([category, amount]) => ({
+      category,
+      amount,
+      percentage: 0, // Caller computes after aggregation
+      isRestricted: false, // Cannot determine from Plaid alone; requires org input
+      isRecurring: false,  // Cannot determine from Plaid alone; requires pattern analysis
+    }));
   }
 
-  private categorizeTransactionsAsExpenses(_transactions: unknown[]): ExpenseCategory[] {
-    return this.getEstimatedExpenseCategories();
+  private categorizeTransactionsAsExpenses(transactions: PlaidTransaction[]): ExpenseCategory[] {
+    // Positive amount = debit (expense)
+    const expenses = transactions.filter(t => !t.pending && t.amount > 0);
+    if (expenses.length === 0) {
+      return [];
+    }
+
+    const categoryMap = new Map<string, number>();
+    for (const txn of expenses) {
+      const cat = txn.category?.[0] ?? 'Uncategorized';
+      categoryMap.set(cat, (categoryMap.get(cat) ?? 0) + txn.amount);
+    }
+
+    return Array.from(categoryMap.entries()).map(([category, amount]) => ({
+      category: this.mapPlaidCategoryToFunctional(category),
+      programArea: category,
+      amount,
+      percentage: 0, // Caller computes
+      isFixed: false, // Cannot determine without org input
+    }));
   }
 
-  private aggregateByMonth(_transactions: unknown[], months: number): MonthlyIncome[] {
-    return this.generateEstimatedMonthlyData(months);
-  }
-
-  private getEstimatedRevenueStreams(taxYear?: number): RevenueStream[] {
-    void taxYear;
-    return [
-      { category: 'Contributions & Grants', amount: 450000, percentage: 0, isRestricted: false, isRecurring: false },
-      { category: 'Government Grants', amount: 200000, percentage: 0, isRestricted: true, isRecurring: true },
-      { category: 'Program Service Revenue', amount: 120000, percentage: 0, isRestricted: false, isRecurring: true },
-      { category: 'Individual Donations', amount: 80000, percentage: 0, isRestricted: false, isRecurring: true },
-      { category: 'Special Events', amount: 50000, percentage: 0, isRestricted: false, isRecurring: false },
-      { category: 'Investment Income', amount: 25000, percentage: 0, isRestricted: false, isRecurring: true },
-    ];
-  }
-
-  private getEstimatedExpenseCategories(): ExpenseCategory[] {
-    return [
-      { category: 'Program', programArea: 'Direct Services', amount: 520000, percentage: 0, isFixed: false, benchmarkPercentage: 75 },
-      { category: 'Program', programArea: 'Education', amount: 130000, percentage: 0, isFixed: false, benchmarkPercentage: 75 },
-      { category: 'Administration', amount: 110000, percentage: 0, isFixed: true, benchmarkPercentage: 15 },
-      { category: 'Fundraising', amount: 65000, percentage: 0, isFixed: false, benchmarkPercentage: 10 },
-    ];
-  }
-
-  private generateEstimatedMonthlyData(months: number): MonthlyIncome[] {
-    const data: MonthlyIncome[] = [];
-    let cumulative = 0;
+  private aggregateByMonth(transactions: PlaidTransaction[], months: number): MonthlyIncome[] {
+    // Build month buckets for the last N months
+    const buckets = new Map<string, { revenue: number; expenses: number; categories: Record<string, number> }>();
     for (let i = months - 1; i >= 0; i--) {
       const d = new Date();
       d.setMonth(d.getMonth() - i);
-      const month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      const revenue = 75000 + Math.floor(Math.random() * 30000);
-      const expenses = 70000 + Math.floor(Math.random() * 20000);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      buckets.set(key, { revenue: 0, expenses: 0, categories: {} });
+    }
+
+    for (const txn of transactions) {
+      if (txn.pending) continue;
+      const monthKey = txn.date.substring(0, 7);
+      const bucket = buckets.get(monthKey);
+      if (!bucket) continue;
+
+      if (txn.amount < 0) {
+        bucket.revenue += Math.abs(txn.amount);
+      } else {
+        bucket.expenses += txn.amount;
+        const cat = txn.category?.[0] ?? 'Uncategorized';
+        bucket.categories[cat] = (bucket.categories[cat] ?? 0) + txn.amount;
+      }
+    }
+
+    const result: MonthlyIncome[] = [];
+    let cumulative = 0;
+    for (const [month, { revenue, expenses, categories }] of buckets) {
       const net = revenue - expenses;
       cumulative += net;
-      data.push({ month, totalRevenue: revenue, totalExpenses: expenses, netIncome: net, cumulativeNet: cumulative, categories: {} });
+      result.push({ month, totalRevenue: revenue, totalExpenses: expenses, netIncome: net, cumulativeNet: cumulative, categories });
     }
-    return data;
+    return result;
   }
+
+  // ─── Category Mapping ─────────────────────────────────────────────────────────
+
+  private mapPlaidCategoryToFunctional(plaidCategory: string): string {
+    const lower = plaidCategory.toLowerCase();
+    if (lower.includes('payroll') || lower.includes('salary') || lower.includes('wages')) return 'Administration';
+    if (lower.includes('fundrais') || lower.includes('event') || lower.includes('marketing')) return 'Fundraising';
+    return 'Program';
+  }
+
+  // ─── Helpers ──────────────────────────────────────────────────────────────────
 
   private getYearStart(taxYear?: number): string {
     const year = taxYear ?? new Date().getFullYear() - 1;
