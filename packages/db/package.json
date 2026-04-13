@@ -26,7 +26,7 @@
     "prisma:deploy": "pnpm prisma migrate deploy",
     "prisma:studio": "pnpm prisma studio",
     "verify:schema": "pnpm build && node dist/verifyDbShape.js --profile=autonomous_ops",
-    "test": "pnpm build && node --test dist/tests"
+    "test": "pnpm build && tsc -p tsconfig.test.json && node --test dist/tests"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0"
