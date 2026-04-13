@@ -91,3 +91,19 @@ test('Server: accepts valid token and attempts execution', async () => {
   // OR a NOT_FOUND because no orgs exist. But NOT a 401 or 404.
   assert.ok(res.status !== 401 && res.status !== 404 && res.status !== 400, `Unexpected status: ${res.status}`);
 });
+
+test('Server: restricts unauthorized cross-org EIN access (dispatcher AuthZ)', async () => {
+  const res = await fetch(`${baseUrl}/tools/execute`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${validToken}` },
+    body: JSON.stringify({ 
+      toolName: 'get-revenue-breakdown', 
+      params: { ein: 'cross-org-unauthorized-ein' } 
+    })
+  });
+  
+  const body = await res.json();
+  // Since the user is mocked and no such org is registered in WorkerService, checkEINAuthorization will return false
+  assert.equal(res.status, 403);
+  assert.equal(body.error, 'FORBIDDEN_EIN');
+});

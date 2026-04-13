@@ -60,6 +60,55 @@ function authMiddleware(req: Request, res: Response, next: express.NextFunction)
 // Global Audit Middleware
 app.use('/tools', authMiddleware, auditMiddleware);
 
+// Rate Limiting
+import { RateLimiterMemory, RateLimiterRedis } from 'rate-limiter-flexible';
+import Redis from 'ioredis';
+
+let rateLimiter: RateLimiterMemory | RateLimiterRedis;
+if (process.env.REDIS_URL) {
+  const redisClient = new Redis(process.env.REDIS_URL, { enableOfflineQueue: false });
+  rateLimiter = new RateLimiterRedis({
+    storeClient: redisClient,
+    keyPrefix: 'mcp_rl',
+    points: 100, // 100 requests
+    duration: 60, // per 1 minute
+  });
+} else {
+  // eslint-disable-next-line no-console
+  console.warn('⚠️ WARNING: REDIS_URL not set. MCP Rate limiting will be memory-only (not safe for multi-instance).');
+  rateLimiter = new RateLimiterMemory({
+    keyPrefix: 'mcp_rl',
+    points: 100,
+    duration: 60,
+  });
+}
+
+function rateLimitMiddleware(req: Request, res: Response, next: express.NextFunction) {
+  const identifier = (req as any).userId ?? req.ip ?? 'anonymous';
+  rateLimiter.consume(identifier)
+    .then(() => {
+      next();
+    })
+    .catch(() => {
+      res.status(429).json({ error: 'TOO_MANY_REQUESTS' });
+    });
+}
+
+app.use('/tools', rateLimitMiddleware);
+
+import WorkerService from './services/WorkerService';
+const workerService = new WorkerService();
+
+// Central Authorization check for EIN
+async function checkEINAuthorization(userId: string, requestedEin: string): Promise<boolean> {
+  try {
+    const profile = await workerService.getMultiOrgProfile(userId);
+    return profile.organizations.some((o: { ein: string }) => o.ein === requestedEin);
+  } catch (err) {
+    return false; // Error (like NotFound) means unauthorized
+  }
+}
+
 app.post('/tools/execute', async (req: Request, res: Response) => {
   const { toolName, params } = req.body;
   if (!toolName || typeof toolName !== 'string') {
@@ -73,9 +122,20 @@ app.post('/tools/execute', async (req: Request, res: Response) => {
     return;
   }
 
+  const userId = (req as any).userId;
+
+  // Central Authz Check
+  if (params && typeof params.ein === 'string') {
+    const isAuthorized = await checkEINAuthorization(userId, params.ein);
+    if (!isAuthorized) {
+      res.status(403).json({ error: 'FORBIDDEN_EIN', message: `Not authorized to access data for EIN ${params.ein}` });
+      return;
+    }
+  }
+
   try {
     const context = {
-      userId: (req as any).userId,
+      userId,
       orgId: (req as any).orgId,
     };
     // Cast tool to any to bypass strict parameter count type checking
