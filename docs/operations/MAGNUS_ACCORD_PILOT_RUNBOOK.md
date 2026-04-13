@@ -73,7 +73,7 @@ pnpm --filter @magnus/db prisma:deploy
 
 ## 3) Required environment variables and secrets
 
-Values are **validated at process start** only where noted; `apps/web` has **no** central `validateEnv`—set these in hosting explicitly.
+Values are **validated at process start** only where noted. `apps/web` now uses startup instrumentation (`apps/web/src/instrumentation.ts`) plus `apps/web/src/lib/env.ts`; set these in hosting explicitly.
 
 ### 3.1 `apps/org-dashboard-api`
 
@@ -104,14 +104,16 @@ Validated by `validateEnv('org-dashboard-api')` (`packages/config/src/envValidat
 
 ### 3.3 `apps/web` (Next.js)
 
-Not validated at app boot; **must** be set for server routes:
+Validated at app boot by `apps/web/src/instrumentation.ts`; **must** be set for server routes:
 
 | Variable | Rule |
 | --- | --- |
 | `DATABASE_URL` | Required for Prisma in API routes and server components using `@magnus/db` |
 | `JWT_SECRET` | Same secret as token signing; **≥ 32 characters** (`apps/web/src/lib/auth.ts`) |
+| `ORG_DASHBOARD_API_BASE_URL` | Optional absolute `http(s)` URL; enables same-origin `/api/org/*` proxy to `org-dashboard-api` |
 
-**If intentionally not configured:** Autonomous Ops API routes return **500** or **401** on first use—do not present the pilot as working until both are set.
+**If `DATABASE_URL` / `JWT_SECRET` are missing or invalid:** the app fails closed at startup.  
+**If `ORG_DASHBOARD_API_BASE_URL` is intentionally not configured:** same-origin `/api/org/*` returns **`501 ORG_DASHBOARD_API_BASE_URL_NOT_CONFIGURED`**; use the dashboard API base URL directly for audit evidence.
 
 ### 3.4 Optional adjacent services (not required for core pilot surfaces)
 
@@ -189,7 +191,7 @@ Not validated at app boot; **must** be set for server routes:
 1. Same payload as §8: `activeObligations` array.  
 2. **Handoffs and compliance** rows appear when matching DB rows exist; **alert** obligations only for board-prep filter.  
 3. **Primary `destination` links** (`/app/autonomous-ops/alerts/…`, `/app/compliance/…`) are marked **`UNIMPLEMENTED_IN_REPO`** in code—**no** matching `page.tsx` in `apps/web`.  
-4. **Evidence links** (`/api/org/autonomous-ops/alerts/:id/audit`, `/api/org/autonomous-ops/handoffs/:id/audit`) are implemented on **`org-dashboard-api`**, not Next. **If** the web origin does not reverse-proxy `/api/org/*` to the dashboard service, browser clicks **404**—use **curl** with `Authorization: Bearer <jwt>` against the dashboard **base URL** (`apps/org-dashboard-api/src/alertLifecycleRoutes.ts`, `agentHandoffRoutes.ts`).
+4. **Evidence links** (`/api/org/autonomous-ops/alerts/:id/audit`, `/api/org/autonomous-ops/handoffs/:id/audit`) are implemented on **`org-dashboard-api`** and exposed through the web BFF at `apps/web/src/app/api/org/[...path]/route.ts`. **If** `ORG_DASHBOARD_API_BASE_URL` is configured, same-origin browser clicks forward the authenticated session token to the dashboard service. **If not**, the route returns **`501 ORG_DASHBOARD_API_BASE_URL_NOT_CONFIGURED`**—use **curl** with `Authorization: Bearer <jwt>` against the dashboard **base URL** instead (`apps/org-dashboard-api/src/alertLifecycleRoutes.ts`, `agentHandoffRoutes.ts`).
 
 ---
 

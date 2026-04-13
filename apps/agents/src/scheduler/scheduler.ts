@@ -142,7 +142,8 @@ export class Scheduler {
 
   private async runForScopes(agentName: AgentName, scopeType: ScopeType, ids: string[], window: { start: Date; end: Date }): Promise<void> {
     // Concurrency is bounded to avoid stampeding the DB.
-    const concurrency = 5;
+    const envConcurrency = process.env.AGENT_MAX_ORG_CONCURRENCY;
+    const concurrency = envConcurrency ? Math.max(1, parseInt(envConcurrency, 10)) : 5;
     let idx = 0;
     let errors = 0;
     const workers: Array<Promise<void>> = [];

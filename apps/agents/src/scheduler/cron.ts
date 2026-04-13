@@ -6,53 +6,65 @@ export function startCron(env: AgentsEnv, scheduler: Scheduler): void {
   const tz = env.AGENTS_TIMEZONE;
 
   // Nightly 02:15 local — STEWARD (ComplianceWatchdog) internal compliance scan
-  cron.schedule('15 2 * * *', () => {
-    const window = dailyWindowAtLocalHour(2, 15);
-    scheduler.runScheduled('ComplianceWatchdog', window).catch(() => {
-      // Fail closed: scheduler process should exit on cron failure to avoid silent drift.
-      process.exit(1);
-    });
-  }, tz ? { timezone: tz } : undefined);
+  if (env.AGENT_ENABLE_COMPLIANCE_WATCHDOG) {
+    cron.schedule('15 2 * * *', () => {
+      const window = dailyWindowAtLocalHour(2, 15);
+      scheduler.runScheduled('ComplianceWatchdog', window).catch(() => {
+        // Fail closed: scheduler process should exit on cron failure to avoid silent drift.
+        process.exit(1);
+      });
+    }, tz ? { timezone: tz } : undefined);
+  }
 
   // Daily 09:30 local time
-  cron.schedule('30 9 * * *', () => {
-    const window = dailyWindowAtLocalHour(9, 30);
-    scheduler.runScheduled('GrantLifecycleManager', window).catch(() => {
-      process.exit(1);
-    });
-  }, tz ? { timezone: tz } : undefined);
+  if (env.AGENT_ENABLE_GRANT_MANAGER) {
+    cron.schedule('30 9 * * *', () => {
+      const window = dailyWindowAtLocalHour(9, 30);
+      scheduler.runScheduled('GrantLifecycleManager', window).catch(() => {
+        process.exit(1);
+      });
+    }, tz ? { timezone: tz } : undefined);
+  }
 
   // Daily 10:00 local time — financial watch (grant pace; internal alerts only)
-  cron.schedule('0 10 * * *', () => {
-    const window = dailyWindowAtLocalHour(10, 0);
-    scheduler.runScheduled('FinancialSentinel', window).catch(() => {
-      process.exit(1);
-    });
-  }, tz ? { timezone: tz } : undefined);
+  if (env.AGENT_ENABLE_FINANCIAL_SENTINEL) {
+    cron.schedule('0 10 * * *', () => {
+      const window = dailyWindowAtLocalHour(10, 0);
+      scheduler.runScheduled('FinancialSentinel', window).catch(() => {
+        process.exit(1);
+      });
+    }, tz ? { timezone: tz } : undefined);
+  }
 
   // Weekly Monday 08:00 local time — board / executive prep digest
-  cron.schedule('0 8 * * 1', () => {
-    const window = weeklyWindowMondayAt(8, 0);
-    scheduler.runScheduled('BoardIntelligenceOracle', window).catch(() => {
-      process.exit(1);
-    });
-  }, tz ? { timezone: tz } : undefined);
+  if (env.AGENT_ENABLE_BOARD_ORACLE) {
+    cron.schedule('0 8 * * 1', () => {
+      const window = weeklyWindowMondayAt(8, 0);
+      scheduler.runScheduled('BoardIntelligenceOracle', window).catch(() => {
+        process.exit(1);
+      });
+    }, tz ? { timezone: tz } : undefined);
+  }
 
   // Weekly Tuesday 07:30 local time — HERALD grant opportunity review (internal)
-  cron.schedule('30 7 * * 2', () => {
-    const window = weeklyWindowTuesdayAt(7, 30);
-    scheduler.runScheduled('GrantIntelligenceHerald', window).catch(() => {
-      process.exit(1);
-    });
-  }, tz ? { timezone: tz } : undefined);
+  if (env.AGENT_ENABLE_GRANT_HERALD) {
+    cron.schedule('30 7 * * 2', () => {
+      const window = weeklyWindowTuesdayAt(7, 30);
+      scheduler.runScheduled('GrantIntelligenceHerald', window).catch(() => {
+        process.exit(1);
+      });
+    }, tz ? { timezone: tz } : undefined);
+  }
 
   // Weekly Monday 09:00 local time
-  cron.schedule('0 9 * * 1', () => {
-    const window = weeklyWindowMondayAt(9, 0);
-    scheduler.runScheduled('WorkerIncomeOptimizer', window).catch(() => {
-      process.exit(1);
-    });
-  }, tz ? { timezone: tz } : undefined);
+  if (env.AGENT_ENABLE_WORKER_INCOME_OPTIMIZER) {
+    cron.schedule('0 9 * * 1', () => {
+      const window = weeklyWindowMondayAt(9, 0);
+      scheduler.runScheduled('WorkerIncomeOptimizer', window).catch(() => {
+        process.exit(1);
+      });
+    }, tz ? { timezone: tz } : undefined);
+  }
 }
 
 function dailyWindowAtLocalHour(hour: number, minute: number): { start: Date; end: Date } {

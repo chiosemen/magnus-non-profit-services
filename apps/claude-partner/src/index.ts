@@ -62,7 +62,17 @@ async function main(): Promise<void> {
 }
 
 main().catch(err => {
-  // eslint-disable-next-line no-console
-  console.error(err instanceof Error ? err.message : String(err));
+  // Observability seed: emulate Sentry/Otel capture hook
+  if (process.env.SENTRY_DSN) {
+    console.error(JSON.stringify({
+      level: 'fatal',
+      type: 'sentry_emulation_event',
+      message: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined,
+    }));
+  } else {
+    // eslint-disable-next-line no-console
+    console.error(err instanceof Error ? err.message : String(err));
+  }
   process.exit(1);
 });

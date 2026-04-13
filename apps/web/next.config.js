@@ -20,6 +20,11 @@
 
 const isDev = process.env.NODE_ENV !== 'production';
 
+// Fail early if canonical validation fails
+if (process.env.SKIP_ENV_VALIDATION !== 'true') {
+  require('@magnus/config/dist/envValidator').validateEnvForService('web');
+}
+
 const ContentSecurityPolicy = [
   "default-src 'self'",
   // Next.js inline scripts required for hydration; no eval

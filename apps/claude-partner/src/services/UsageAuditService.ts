@@ -49,9 +49,17 @@ export class UsageAuditService {
     const agg = await this.db.claudeUsageLog.aggregate({
       where: { orgId, timestamp: { gte: start, lt: end } },
       _sum: { tokenCount: true, cost: true },
+      _max: { tokenCount: true }, // Simple anomaly detection seed
     });
 
     const tokenCount = agg._sum.tokenCount ?? 0;
+    const maxTokenSpike = agg._max.tokenCount ?? 0;
+    
+    // Anomaly seed: warn internally if a single inference exceeded massive token count
+    if (global.process && process.env.NODE_ENV === 'production' && maxTokenSpike > 30000) {
+      console.warn(`[ANOMALY-DETECTED] Org ${orgId} exhibited a massive token spike: ${maxTokenSpike} tokens in a single request.`);
+    }
+
     const cost = agg._sum.cost ? new Prisma.Decimal(agg._sum.cost as any) : new Prisma.Decimal(0);
     return {
       orgId,
@@ -80,8 +88,16 @@ export class UsageAuditService {
     });
     if (!cfg || !cfg.enabled) throw new Error('CLAUDE_NOT_ENABLED');
 
-    const cap = cfg.monthlyTokenCap;
-    if (!Number.isFinite(cap) || cap <= 0) throw new Error('USAGE_CAP_INVALID');
+    const dbCap = cfg.monthlyTokenCap;
+    if (!Number.isFinite(dbCap) || dbCap <= 0) throw new Error('USAGE_CAP_INVALID');
+
+    const globalCapEnv = process.env.CLAUDE_PARTNER_USAGE_CAP;
+    const globalCap = globalCapEnv ? parseInt(globalCapEnv, 10) : undefined;
+    
+    // Fail-closed bound: minimum of DB configuration or environmental ceiling.
+    const cap = globalCap !== undefined && Number.isFinite(globalCap) 
+        ? Math.min(dbCap, globalCap) 
+        : dbCap;
 
     const usage = await this.getMonthlyUsage(orgId, at);
     if (usage.tokenCount > cap) {

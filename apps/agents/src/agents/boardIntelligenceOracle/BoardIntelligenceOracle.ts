@@ -133,6 +133,14 @@ export class BoardIntelligenceOracle {
       sourceIndexSample: result.packet.sourceIndex.slice(0, 12),
     };
 
+    // HARD BOUNDARY: ORACLE is explicitly internal-only and read-only by default.
+    // Ensure we do not execute unreviewed external sends. 
+    if (process.env.ORACLE_ALLOW_EXTERNAL_SEND !== 'true') {
+       if (result.alerts.some(a => a.severity === 'CRITICAL' && a.title.includes('Outbound'))) {
+         throw new Error('Oracle attempted an outbound critical alert but ORACLE_ALLOW_EXTERNAL_SEND is not enabled.');
+       }
+    }
+
     return {
       orgId: org.id,
       alertsEmitted: result.alerts.length,

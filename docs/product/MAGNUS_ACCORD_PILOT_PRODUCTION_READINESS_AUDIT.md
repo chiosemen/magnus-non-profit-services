@@ -15,11 +15,11 @@
 | **Schema parity at runtime** | **READY** | `org-dashboard-api` and `apps/agents` call `assertDbShape(..., MAGNUS_ACCORD_AUTONOMOUS_OPS_SHAPE)` at boot (`apps/org-dashboard-api/src/server.ts`, `apps/agents/src/index.ts`). Wrong schema → process exit. |
 | **`org-dashboard-api` service** | **READY_WITH_RUNBOOK** | Express app registers identity files, handoffs, memory, settings, control tower, alerts, executive rollup, obligations, donor/volunteer events, operations log. **Requires** `DATABASE_URL`, `JWT_SECRET` (≥32) via `@magnus/config` (`packages/config/src/envValidator.ts`). **CORS** is `origin: false`—callers must proxy or same-origin. |
 | **`apps/agents` scheduler** | **BLOCKED_BY_ENV** *unless runbook* | Boots with schema guard; `AGENTS_ENABLED` must be `true` for cron (`apps/agents/src/index.ts`). **Production forbids** `AGENTS_ALERT_SINK=console` (`apps/agents/src/config/env.ts`). Without enabled cron + `AGENTS_ALERT_SINK=db`, scheduled agents do not produce DB-backed alerts—**pilot “watch” claims are false.** |
-| **`apps/web` Next app** | **BLOCKED_BY_ENV** *implicit* | No `validateEnv` at web startup; routes use `@magnus/db` Prisma and `JWT_SECRET` in `apps/web/src/lib/auth.ts`. **Missing `DATABASE_URL` / `JWT_SECRET` fails at runtime** on first DB/API use—not fail-fast at `next start`. Operators must set env explicitly in hosting. |
+| **`apps/web` Next app** | **READY_WITH_RUNBOOK** | Startup instrumentation validates `DATABASE_URL` and `JWT_SECRET` at node boot (`apps/web/src/instrumentation.ts`, `apps/web/src/lib/env.ts`). `ORG_DASHBOARD_API_BASE_URL` is optional, but if set it must be an absolute `http(s)` URL for same-origin `/api/org/*` proxying. Operators still need to set hosting env explicitly. |
 | **Protected routes / auth** | **READY** | Autonomous Ops pages use `requireAuthOrRedirect`; API routes verify cookie + session (`verifyAppToken`, `verifySession`) pattern in `apps/web/src/app/api/autonomous-ops/*/route.ts`. |
 | **Executive board** | **READY_WITH_RUNBOOK** | `GET /api/autonomous-ops/executive/board` uses `buildExecutiveBoard` with direct Prisma in web (`apps/web/src/app/api/autonomous-ops/executive/board/route.ts`). Depends on DB + auth only—not `org-dashboard-api`. **Executive is not in the main app nav** (`apps/web/src/app/(protected)/app/layout.tsx`)—operators must deep-link `/app/autonomous-ops/executive`. |
 | **Active obligations** | **READY_WITH_RUNBOOK** | `buildActiveObligations` returns data, but **alert obligations are filtered to board-prep types only** (`BoardIntelligenceOracle` + specific alert types) (`packages/org-autonomous-ops-context/src/activeObligations.ts`). Empty list is **honest**, not broken. |
-| **Obligation / evidence deep links** | **NO_GO_FOR_PILOT** *(as browser UX)* / **READY_WITH_RUNBOOK** *(as API truth)* | Primary `destination` hrefs (`/app/autonomous-ops/alerts/:id`, `/app/autonomous-ops/handoffs/:id`, `/app/compliance/:id`) have **no corresponding `page.tsx` in `apps/web`**—marked `UNIMPLEMENTED_IN_REPO` in code. Evidence links use **`/api/org/...`** paths implemented on **`org-dashboard-api`**, not on Next—**there is no `apps/web/src/app/api/org/` tree.** Same-origin clicks **404** unless infra **reverse-proxies** `/api/org/*` to `org-dashboard-api`. |
+| **Obligation / evidence deep links** | **READY_WITH_RUNBOOK** | Primary `destination` hrefs (`/app/autonomous-ops/alerts/:id`, `/app/autonomous-ops/handoffs/:id`, `/app/compliance/:id`) still have **no corresponding `page.tsx` in `apps/web`**—marked `UNIMPLEMENTED_IN_REPO` in code. Evidence links now have a same-origin BFF at `apps/web/src/app/api/org/[...path]/route.ts`; when `ORG_DASHBOARD_API_BASE_URL` is configured, the web app forwards the authenticated session token to **`org-dashboard-api`**. If it is not configured, the route fails closed with **`501 ORG_DASHBOARD_API_BASE_URL_NOT_CONFIGURED`** and operators must use the dashboard API base URL directly. |
 | **Control tower / portfolio accountability** | **READY** | `ControlTowerClient` fetches **`/api/autonomous-ops/portfolio-accountability`** (Next route → Prisma). Rollups work without `org-dashboard-api` for this page. |
 | **Operations log** | **READY** | Next: `GET /api/autonomous-ops/operations-log` builds log via Prisma. Duplicate API exists on dashboard (`registerOperationsLogRoutes`) for JWT clients. |
 | **Readiness / onboarding** | **READY** | `GET /api/autonomous-ops/readiness` + `/app/autonomous-ops/readiness`; human checklist in [MAGNUS_ACCORD_PILOT_ONBOARDING_CHECKLIST.md](./MAGNUS_ACCORD_PILOT_ONBOARDING_CHECKLIST.md). |
@@ -36,11 +36,10 @@
 ## 2) Top blockers (prioritized)
 
 1. **Agents not actually running** — `AGENTS_ENABLED` unset or alerts sinking to console in production → no meaningful scheduled agent output; pilot “watch” is hollow. (*BLOCKED_BY_ENV / ops*)  
-2. **Broken same-origin paths for `/api/org/*` from the browser** — Executive obligation “evidence” links point at dashboard API paths; **without reverse proxy**, operators get 404s. (*BLOCKED_BY_ENV* for unified UX; *honest* if APIs used via curl/Postman with JWT against dashboard host.)  
+2. **Same-origin `/api/org/*` proxy not configured in deployment** — Executive and operations-log evidence links now resolve through web, but **without `ORG_DASHBOARD_API_BASE_URL`**, the proxy returns **`501 ORG_DASHBOARD_API_BASE_URL_NOT_CONFIGURED`**. (*BLOCKED_BY_ENV* for unified UX; *honest* if APIs are used directly with JWT against dashboard host.)  
 3. **Dead-end “Go next” obligation destinations** — No alerts/handoffs/compliance **pages** in web; code marks `UNIMPLEMENTED_IN_REPO`. Expect **runbook + future UI** or accept API-only triage. (*BLOCKED_BY_CODE* for end-user navigation; *documented* truth.)  
-4. **Web env not validated at boot** — Misconfigured `DATABASE_URL` / `JWT_SECRET` → opaque 500s at first use. (*BLOCKED_BY_ENV* + *remediation: hosting checklist.*)  
-5. **Memory sufficiency** — Default thresholds make **reflection-grade readiness `NO_GO`** for typical fresh tenants until history is accumulated—**correct behavior**, not a bug; must be **disclosed** in pilot. (*NO_GO_FOR_PILOT* for reflection claims only.)  
-6. **MCP / pilot connector truth** — Any client belief that MCP equals compliance/finance reality is an **honesty failure**—operational **no-go** for that narrative ([PRODUCTION_TRUTH_CHECKLIST.md §4](../PRODUCTION_TRUTH_CHECKLIST.md)).
+4. **Memory sufficiency** — Default thresholds make **reflection-grade readiness `NO_GO`** for typical fresh tenants until history is accumulated—**correct behavior**, not a bug; must be **disclosed** in pilot. (*NO_GO_FOR_PILOT* for reflection claims only.)  
+5. **MCP / pilot connector truth** — Any client belief that MCP equals compliance/finance reality is an **honesty failure**—operational **no-go** for that narrative ([PRODUCTION_TRUTH_CHECKLIST.md §4](../PRODUCTION_TRUTH_CHECKLIST.md)).
 
 ---
 
@@ -54,7 +53,7 @@
 6. **Org context files**: populate all five canonical kinds with non-template content; use Directory + validation report ([MAGNUS_ACCORD_ORG_CONTEXT_FILES.md](./MAGNUS_ACCORD_ORG_CONTEXT_FILES.md)).  
 7. **Persist `OrgAutonomousOpsSettings`** with enabled agents allowed by subscription tier.  
 8. **Enterprise expansion**: Plaid/Candid API keys and data prerequisites via **custom setup**—not implied by web connector cards.  
-9. **If** staff must click audit links from Executive: **reverse-proxy** `/api/org/*` from the web origin to **`org-dashboard-api`**, or document **API hostname** + JWT usage instead.  
+9. **If** staff must click audit links from Executive: set **`ORG_DASHBOARD_API_BASE_URL`** on `apps/web` (or reverse-proxy externally) so same-origin `/api/org/*` forwards to **`org-dashboard-api`**; otherwise document the dashboard API hostname + JWT usage instead.  
 10. Walk [MAGNUS_ACCORD_PILOT_ONBOARDING_CHECKLIST.md](./MAGNUS_ACCORD_PILOT_ONBOARDING_CHECKLIST.md) before client demo.
 
 ---
@@ -76,10 +75,9 @@
 | Step | Type | Outcome |
 | --- | --- | --- |
 | A | **Ops / env** | Migrations + `verify:schema`; set all required secrets; enable agents with DB sink. |
-| B | **Ops / networking** | Either proxy `/api/org/*` to dashboard API **or** remove/replace in-UI evidence links with documented API base URL (product decision). |
+| B | **Ops / networking** | Configure `apps/web` `ORG_DASHBOARD_API_BASE_URL` (or an external proxy) so same-origin `/api/org/*` reaches dashboard API; otherwise keep evidence usage API-only in the runbook. |
 | C | **Docs / sales** | Align pitch with [MAGNUS_ACCORD_CLIENT_SALES_SHEET.md](./MAGNUS_ACCORD_CLIENT_SALES_SHEET.md) and [PRODUCTION_TRUTH_CHECKLIST.md](../PRODUCTION_TRUTH_CHECKLIST.md). |
-| D | **Optional code** | Add minimal web pages or BFF routes for alerts/handoffs/compliance **or** change obligation destinations to existing surfaces only—**only if** pilot requires in-app navigation (otherwise runbook-only). |
-| E | **Optional code** | Fail-fast env validation in `apps/web` startup—reduces silent misconfig. |
+| D | **Optional code** | Add minimal web pages for alerts/handoffs/compliance **or** change obligation destinations to existing surfaces only—**only if** pilot requires in-app navigation (otherwise runbook-only). |
 
 ---
 
@@ -98,7 +96,7 @@
 
 | Verdict | Condition |
 | --- | --- |
-| **GO (pilot)** | Migrations + schema verify **done**; **web + dashboard + DB** env set; **agents running** with **`AGENTS_ALERT_SINK=db`**; **sales/operator narrative** matches no-go boundaries; **MCP not sold as truth**; **obligation dead-ends and `/api/org` proxy** either **accepted in runbook** or **remediated**; clients informed that **memory reflection is `NO_GO` until thresholds** met. |
+| **GO (pilot)** | Migrations + schema verify **done**; **web + dashboard + DB** env set; **agents running** with **`AGENTS_ALERT_SINK=db`**; **sales/operator narrative** matches no-go boundaries; **MCP not sold as truth**; **obligation dead-ends and `/api/org` access** either configured through `ORG_DASHBOARD_API_BASE_URL` / external proxy or accepted in the runbook; clients informed that **memory reflection is `NO_GO` until thresholds** met. |
 | **NO-GO** | Schema drift or agents **off** while promising watch agents; **MCP or pilot rows** presented as production compliance/finance truth; **unified browser UX assumed** without `/api/org` routing; **reflection** marketed as shipped. |
 
 **Bottom line:** The stack can be **GO for an honest, operator-assisted pilot** when env, migrations, and agent scheduling are real and **marketing matches documented limits**. It is **NO-GO** if the client expects **self-serve connectors**, **click-through triage** for every obligation, **unified audit UI**, or **reflection** without meeting memory gates.

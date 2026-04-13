@@ -11,10 +11,12 @@ Non-negotiables:
 
 ## 1) Environment validation (process start)
 
-Each service fails fast at startup if required env vars are missing/invalid via `validateEnv(...)` in `@magnus/config`.
+Server services fail fast at startup if required env vars are missing/invalid, using either `validateEnv(...)` in `@magnus/config` or the web startup guard.
 
 Minimum required env vars (by service) are enforced in:
 - `packages/config/src/envValidator.ts`
+- `apps/web/src/instrumentation.ts`
+- `apps/web/src/lib/env.ts`
 
 ## 2) Database migration truth (schema shape)
 
@@ -49,4 +51,3 @@ The MCP connector services include explicit demo/stub behavior (seed/mock/random
 - `apps/mcp-connector/src/services/ComplianceService.ts` (mock state registrations)
 - `apps/mcp-connector/src/services/FinancialService.ts` (estimated streams; `Math.random()` monthly data)
 - `apps/mcp-connector/src/services/WorkerService.ts` (in-memory org registry)
-

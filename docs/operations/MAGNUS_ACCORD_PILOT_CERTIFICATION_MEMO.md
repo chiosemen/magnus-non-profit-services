@@ -46,7 +46,7 @@
 **Not certified** for broader early access because the repo truth has several gaps that are acceptable in a controlled pilot (with a runbook) but unsafe for broad EA expectations:
 
 - **Dead-end in-app destinations for obligations**: executive obligations point to `/app/autonomous-ops/alerts/:id`, `/app/autonomous-ops/handoffs/:id`, `/app/compliance/:id` which are explicitly `UNIMPLEMENTED_IN_REPO` and have no `page.tsx` implementations in `apps/web` (captured in `docs/product/MAGNUS_ACCORD_PILOT_PRODUCTION_READINESS_AUDIT.md` matrix).
-- **Evidence links need proxy or API tooling**: executive evidence URLs use `/api/org/...` endpoints implemented on `apps/org-dashboard-api`, not on Next; browser clicks 404 without reverse-proxying `/api/org/*` to the dashboard API (`docs/product/MAGNUS_ACCORD_PILOT_PRODUCTION_READINESS_AUDIT.md`).
+- **Evidence links need BFF config or API tooling**: executive evidence URLs use `/api/org/...` endpoints implemented on `apps/org-dashboard-api`. The web app can proxy them same-origin only when `ORG_DASHBOARD_API_BASE_URL` is configured; otherwise the route fails closed and operators must use the dashboard API directly (`docs/product/MAGNUS_ACCORD_PILOT_PRODUCTION_READINESS_AUDIT.md`).
 - **Connector self-serve is limited by design**: only Claude has real DB-backed status; MCP/grant-gen/worker-financial are pilot-only rows and MCP contains explicit stub/demo paths (production checklist §4; connector registry).
 - **Reflection / SOLARIS not implemented**; memory sufficiency defaults frequently yield `NO_GO` until history accumulates (audit matrix; maturity map references).
 
@@ -70,7 +70,7 @@ These are **non-negotiables** for controlled pilot certification.
 
 - **Environment correctness**
   - `apps/org-dashboard-api`: `DATABASE_URL`, `JWT_SECRET` (≥ 32 chars) must validate at start (`packages/config/src/envValidator.ts`).
-  - `apps/web`: `DATABASE_URL` + `JWT_SECRET` must be set even though the app does not fail-fast at boot; otherwise runtime 500/401 failures occur (audit matrix; runbook §3.3).
+- `apps/web`: `DATABASE_URL` + `JWT_SECRET` must be set; the app now fails closed at startup if either is missing/invalid. `ORG_DASHBOARD_API_BASE_URL` is optional, but must be configured if same-origin `/api/org/*` drilldown is part of the pilot workflow (audit matrix; runbook §3.3).
 
 - **Agents actually running**
   - `AGENTS_ENABLED=true` so cron scheduler runs; `AGENTS_ALERT_SINK=db`; `NODE_ENV=production` cannot use console sink (`docs/operations/MAGNUS_ACCORD_PILOT_RUNBOOK.md` §1; production audit top blockers).
