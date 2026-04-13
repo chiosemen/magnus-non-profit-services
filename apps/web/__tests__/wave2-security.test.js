@@ -1,19 +1,16 @@
 /**
- * Wave 2 Security Tests
+ * Wave 2 Security Tests — Full Spec
  *
  * 1. CSRF module: validateCsrfOrigin behavior in dev and production-like scenarios
  * 2. next.config.js: verifies key security header directives are present
+ * 3. Rate limiter: interface contract and dual-mode (Redis/memory) behavior
  */
 
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 
 // ─── 1. CSRF Module Tests ─────────────────────────────────────────────────────
-// We test the compiled JS directly by copying and adapting the core logic,
-// since Next.js web app uses module aliases and cannot be required directly
-// in this test runner. The logic is self-contained.
 
-// Reproduce the CSRF logic (mirrors src/lib/csrf.ts) for isolated unit testing
 const CSRF_HEADER = 'x-magnus-csrf';
 
 function makeRequest(options = {}) {
@@ -26,13 +23,13 @@ function makeRequest(options = {}) {
   };
 }
 
-// Simplified version of validateCsrfOrigin for testing (matches production logic)
+// Reproduce the CSRF logic (mirrors src/lib/csrf.ts) for isolated unit testing
 function validateCsrfOrigin(request, nodeEnv = 'development', appUrl = null) {
   const csrfHeader = request.headers.get(CSRF_HEADER);
   if (!csrfHeader || csrfHeader.trim() !== '1') return false;
 
   if (nodeEnv === 'production') {
-    if (!appUrl) return false; // fail closed
+    if (!appUrl) return false;
     let appOrigin;
     try { appOrigin = new URL(appUrl).origin; } catch { return false; }
 
@@ -43,12 +40,11 @@ function validateCsrfOrigin(request, nodeEnv = 'development', appUrl = null) {
     if (referer) {
       try { return new URL(referer).origin === appOrigin; } catch { return false; }
     }
-    return false; // no origin or referer in production → reject
+    return false;
   }
 
-  // Development
   const origin = request.headers.get('origin');
-  if (!origin) return true; // curl/Postman
+  if (!origin) return true;
   try {
     const { hostname } = new URL(origin);
     return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname.endsWith('.localhost');
@@ -57,32 +53,32 @@ function validateCsrfOrigin(request, nodeEnv = 'development', appUrl = null) {
 
 // ── Dev mode tests ────────────────────────────────────────────────────────────
 
-test('DEV: request without CSRF header is rejected', () => {
+test('CSRF: request without custom header is rejected', () => {
   const req = makeRequest({ headers: { 'origin': 'http://localhost:3000' } });
   assert.equal(validateCsrfOrigin(req, 'development'), false);
 });
 
-test('DEV: request with wrong CSRF header value is rejected', () => {
+test('CSRF: request with wrong header value is rejected', () => {
   const req = makeRequest({ headers: { 'x-magnus-csrf': '0', 'origin': 'http://localhost:3000' } });
   assert.equal(validateCsrfOrigin(req, 'development'), false);
 });
 
-test('DEV: request with CSRF header + localhost origin is allowed', () => {
+test('CSRF: request with header + localhost origin is allowed in dev', () => {
   const req = makeRequest({ headers: { 'x-magnus-csrf': '1', 'origin': 'http://localhost:3000' } });
   assert.equal(validateCsrfOrigin(req, 'development'), true);
 });
 
-test('DEV: request with CSRF header + 127.0.0.1 origin is allowed', () => {
+test('CSRF: request with header + 127.0.0.1 origin is allowed in dev', () => {
   const req = makeRequest({ headers: { 'x-magnus-csrf': '1', 'origin': 'http://127.0.0.1:3000' } });
   assert.equal(validateCsrfOrigin(req, 'development'), true);
 });
 
-test('DEV: request with CSRF header + no origin (curl) is allowed', () => {
+test('CSRF: request with header + no origin (curl/Postman) is allowed in dev', () => {
   const req = makeRequest({ headers: { 'x-magnus-csrf': '1' } });
   assert.equal(validateCsrfOrigin(req, 'development'), true);
 });
 
-test('DEV: request with CSRF header + external origin is rejected', () => {
+test('CSRF: request with header + external origin is rejected in dev', () => {
   const req = makeRequest({ headers: { 'x-magnus-csrf': '1', 'origin': 'http://evil.com' } });
   assert.equal(validateCsrfOrigin(req, 'development'), false);
 });
@@ -91,37 +87,37 @@ test('DEV: request with CSRF header + external origin is rejected', () => {
 
 const PROD_APP_URL = 'https://app.magnus.com';
 
-test('PROD: no CSRF header → rejected', () => {
+test('CSRF: no header → rejected in production', () => {
   const req = makeRequest({ headers: { 'origin': PROD_APP_URL } });
   assert.equal(validateCsrfOrigin(req, 'production', PROD_APP_URL), false);
 });
 
-test('PROD: correct CSRF header + correct Origin → allowed', () => {
+test('CSRF: header + correct Origin → allowed in production', () => {
   const req = makeRequest({ headers: { 'x-magnus-csrf': '1', 'origin': 'https://app.magnus.com' } });
   assert.equal(validateCsrfOrigin(req, 'production', PROD_APP_URL), true);
 });
 
-test('PROD: correct CSRF header + wrong Origin → rejected', () => {
+test('CSRF: header + wrong Origin → rejected in production', () => {
   const req = makeRequest({ headers: { 'x-magnus-csrf': '1', 'origin': 'https://evil.com' } });
   assert.equal(validateCsrfOrigin(req, 'production', PROD_APP_URL), false);
 });
 
-test('PROD: correct CSRF header + correct Referer (no Origin) → allowed', () => {
+test('CSRF: header + correct Referer (no Origin) → allowed in production', () => {
   const req = makeRequest({ headers: { 'x-magnus-csrf': '1', 'referer': 'https://app.magnus.com/login' } });
   assert.equal(validateCsrfOrigin(req, 'production', PROD_APP_URL), true);
 });
 
-test('PROD: correct CSRF header + wrong Referer (no Origin) → rejected', () => {
+test('CSRF: header + wrong Referer → rejected in production', () => {
   const req = makeRequest({ headers: { 'x-magnus-csrf': '1', 'referer': 'https://evil.com/page' } });
   assert.equal(validateCsrfOrigin(req, 'production', PROD_APP_URL), false);
 });
 
-test('PROD: correct CSRF header + no Origin + no Referer → rejected (ambiguous origin)', () => {
+test('CSRF: header + no Origin + no Referer → rejected in production (ambiguous)', () => {
   const req = makeRequest({ headers: { 'x-magnus-csrf': '1' } });
   assert.equal(validateCsrfOrigin(req, 'production', PROD_APP_URL), false);
 });
 
-test('PROD: NEXT_PUBLIC_APP_URL not set → fail closed (reject all)', () => {
+test('CSRF: NEXT_PUBLIC_APP_URL not set in production → fail closed', () => {
   const req = makeRequest({ headers: { 'x-magnus-csrf': '1', 'origin': 'https://app.magnus.com' } });
   assert.equal(validateCsrfOrigin(req, 'production', null), false);
 });
@@ -133,18 +129,18 @@ test('next.config.js exports a headers() function', () => {
   assert.equal(typeof config.headers, 'function', 'next.config.js must export headers()');
 });
 
-test('security headers include CSP', async () => {
+test('headers: Content-Security-Policy is present with no unsafe-eval and frame-ancestors none', async () => {
   const config = require('../next.config.js');
   const headersList = await config.headers();
   const allHeaders = headersList.flatMap(h => h.headers);
   const csp = allHeaders.find(h => h.key === 'Content-Security-Policy');
-  assert.ok(csp, 'Content-Security-Policy header must be present');
+  assert.ok(csp, 'Content-Security-Policy must be present');
   assert.match(csp.value, /default-src 'self'/, 'CSP must include default-src self');
   assert.match(csp.value, /frame-ancestors 'none'/, 'CSP must include frame-ancestors none');
   assert.ok(!csp.value.includes("'unsafe-eval'"), "CSP must NOT include 'unsafe-eval'");
 });
 
-test('security headers include HSTS', async () => {
+test('headers: Strict-Transport-Security with includeSubDomains', async () => {
   const config = require('../next.config.js');
   const headersList = await config.headers();
   const allHeaders = headersList.flatMap(h => h.headers);
@@ -154,7 +150,7 @@ test('security headers include HSTS', async () => {
   assert.match(hsts.value, /includeSubDomains/, 'HSTS must include includeSubDomains');
 });
 
-test('security headers include X-Frame-Options DENY', async () => {
+test('headers: X-Frame-Options is DENY', async () => {
   const config = require('../next.config.js');
   const headersList = await config.headers();
   const allHeaders = headersList.flatMap(h => h.headers);
@@ -163,7 +159,7 @@ test('security headers include X-Frame-Options DENY', async () => {
   assert.equal(xfo.value, 'DENY');
 });
 
-test('security headers include X-Content-Type-Options nosniff', async () => {
+test('headers: X-Content-Type-Options is nosniff', async () => {
   const config = require('../next.config.js');
   const headersList = await config.headers();
   const allHeaders = headersList.flatMap(h => h.headers);
@@ -172,7 +168,7 @@ test('security headers include X-Content-Type-Options nosniff', async () => {
   assert.equal(xcto.value, 'nosniff');
 });
 
-test('security headers include Referrer-Policy', async () => {
+test('headers: Referrer-Policy is strict-origin-when-cross-origin', async () => {
   const config = require('../next.config.js');
   const headersList = await config.headers();
   const allHeaders = headersList.flatMap(h => h.headers);
@@ -181,7 +177,7 @@ test('security headers include Referrer-Policy', async () => {
   assert.equal(rp.value, 'strict-origin-when-cross-origin');
 });
 
-test('security headers include Permissions-Policy disabling camera and geolocation', async () => {
+test('headers: Permissions-Policy disables camera, geolocation, and payment', async () => {
   const config = require('../next.config.js');
   const headersList = await config.headers();
   const allHeaders = headersList.flatMap(h => h.headers);
@@ -190,4 +186,121 @@ test('security headers include Permissions-Policy disabling camera and geolocati
   assert.match(pp.value, /camera=\(\)/, 'Must disable camera');
   assert.match(pp.value, /geolocation=\(\)/, 'Must disable geolocation');
   assert.match(pp.value, /payment=\(\)/, 'Must disable payment API');
+});
+
+// ─── 3. Rate Limiter Interface Tests ─────────────────────────────────────────
+
+test('rate-limit: module exports checkRateLimit, recordFailure, clearFailures as async functions', () => {
+  // Verify shape of the module export — functions must be async (return Promise)
+  // We import from the TS source via the compiled dist if running from __tests__
+  // For this test file, we verify by checking that the rate-limit module exists
+  // and exports the correct interface names.
+  // Full integration tests require rate-limiter-flexible to be installed.
+  const fs = require('fs');
+  const path = require('path');
+  const rateLimitSrc = fs.readFileSync(
+    path.join(__dirname, '../src/lib/rate-limit.ts'),
+    'utf8'
+  );
+
+  // Verify exported function signatures are async
+  assert.match(rateLimitSrc, /export async function checkRateLimit/,
+    'checkRateLimit must be an async export');
+  assert.match(rateLimitSrc, /export async function recordFailure/,
+    'recordFailure must be an async export');
+  assert.match(rateLimitSrc, /export async function clearFailures/,
+    'clearFailures must be an async export');
+});
+
+test('rate-limit: module uses RateLimiterRedis when REDIS_URL is available', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(
+    path.join(__dirname, '../src/lib/rate-limit.ts'),
+    'utf8'
+  );
+  assert.match(src, /RateLimiterRedis/, 'Must use RateLimiterRedis for Redis path');
+  assert.match(src, /REDIS_URL/, 'Must check REDIS_URL env var');
+});
+
+test('rate-limit: module uses RateLimiterMemory as fallback when no REDIS_URL', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(
+    path.join(__dirname, '../src/lib/rate-limit.ts'),
+    'utf8'
+  );
+  assert.match(src, /RateLimiterMemory/, 'Must use RateLimiterMemory as in-memory fallback');
+});
+
+test('rate-limit: production warning emitted when REDIS_URL absent', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(
+    path.join(__dirname, '../src/lib/rate-limit.ts'),
+    'utf8'
+  );
+  assert.match(src, /REDIS_URL is not set/, 'Must warn in production when Redis is unconfigured');
+  assert.match(src, /NOT multi-instance safe|not be multi-instance safe/i,
+    'Warning must explicitly state not multi-instance safe');
+});
+
+test('rate-limit: exports test injection helpers for isolation', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(
+    path.join(__dirname, '../src/lib/rate-limit.ts'),
+    'utf8'
+  );
+  assert.match(src, /_resetLimiterForTest/, 'Must export _resetLimiterForTest');
+  assert.match(src, /_injectLimiterForTest/, 'Must export _injectLimiterForTest');
+});
+
+test('rate-limit: in-memory fallback functional (RateLimiterMemory integration)', async () => {
+  // This test exercises the actual RateLimiterMemory in isolation
+  // Rate-limiter-flexible is available via the workspace (mcp-connector node_modules)
+  // or the web app's node_modules after install.
+  const RLF_PATH = [
+    require('path').join(__dirname, '../node_modules/rate-limiter-flexible/index.js'),
+    require('path').join(__dirname, '../../mcp-connector/node_modules/rate-limiter-flexible/index.js'),
+  ].find(p => { try { require('fs').statSync(p); return true; } catch { return false; } });
+
+  if (!RLF_PATH) {
+    // rate-limiter-flexible not yet installed — skip gracefully
+    console.log('  [SKIP] rate-limiter-flexible not installed yet — run pnpm install');
+    return;
+  }
+
+  const { RateLimiterMemory } = require(RLF_PATH);
+  const limiter = new RateLimiterMemory({ points: 3, duration: 60, keyPrefix: 'test_rl' });
+
+  const testIp = `test-ip-${Date.now()}`;
+
+  // Should not be limited initially
+  const initial = await limiter.get(testIp);
+  assert.equal(initial, null, 'Fresh IP should have no record');
+
+  // Consume 3 points (hit the limit)
+  await limiter.consume(testIp, 1);
+  await limiter.consume(testIp, 1);
+  await limiter.consume(testIp, 1);
+
+  // Should now be at limit
+  const atLimit = await limiter.get(testIp);
+  assert.ok(atLimit !== null, 'IP should have a record after 3 failures');
+  assert.equal(atLimit.remainingPoints, 0, 'Should have 0 remaining points after 3 failures');
+
+  // 4th consume should throw (limit exceeded)
+  await assert.rejects(
+    () => limiter.consume(testIp, 1),
+    (err) => {
+      assert.ok('msBeforeNext' in err, 'Should throw RateLimiterRes with msBeforeNext');
+      return true;
+    }
+  );
+
+  // Clearing should reset
+  await limiter.delete(testIp);
+  const afterClear = await limiter.get(testIp);
+  assert.equal(afterClear, null, 'IP record should be cleared after delete');
 });

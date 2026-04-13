@@ -1,116 +1,193 @@
 /**
- * Magnus Web — IP-based Sliding-Window Rate Limiter
+ * Magnus Web — Redis-Backed IP Rate Limiter (multi-instance safe)
  *
- * ⚠️  SINGLE-PROCESS ONLY WARNING:
- *   This implementation stores failure state in a Node.js process-local Map.
- *   In a multi-instance deployment (horizontal scaling, serverless cold starts,
- *   multiple Railway containers), each process has its own isolated state.
- *   An attacker can bypass this limit by distributing requests across instances.
+ * Architecture:
+ *   - When REDIS_URL is set: uses RateLimiterRedis (rate-limiter-flexible + ioredis)
+ *     → State is shared across all instances, pods, and Railway containers.
+ *     → Attack distribute-across-instances bypass is closed.
+ *   - When REDIS_URL is absent: falls back to RateLimiterMemory
+ *     → Single-process only. Acceptable for local dev; NOT production-safe.
+ *     → A startup warning is emitted so ops teams know Redis is unconfigured.
  *
- * PRODUCTION UPGRADE PATH (Wave 4):
- *   Replace with Redis-backed rate limiting using `ioredis` + the
- *   `rate-limiter-flexible` package (already in mcp-connector dependencies).
- *   The exported interface is designed to be drop-in replaceable:
+ * Design:
+ *   The `rate-limiter-flexible` library provides both RateLimiterRedis and
+ *   RateLimiterMemory behind a common interface. The login route uses
+ *   consume/get/delete from this unified interface.
  *
- *   ```typescript
- *   // Redis adapter (to be implemented):
- *   import { RateLimiterRedis } from 'rate-limiter-flexible';
- *   // checkRateLimit → limiter.consume(ip)
- *   // recordFailure → no-op (limiter.consume tracks internally)
- *   // clearFailures → limiter.delete(ip)
- *   ```
+ *   Strategy: fixed window (duration = WINDOW_SECS) with MAX_FAILURES points.
+ *   Each failed login attempt consumes 1 point. After MAX_FAILURES failures
+ *   in the window, the IP is blocked until the window resets.
+ *   On successful login, the IP's record is deleted via clearFailures().
  *
- * Sliding window logic:
- *   - Each IP stores an array of failure timestamps.
- *   - On each check, timestamps older than the window are pruned.
- *   - If the remaining count >= limit, the request is blocked (429).
- *   - On successful login, the IP's record is cleared.
+ * Environment:
+ *   REDIS_URL — e.g. redis://default:password@redis.railway.internal:6379
+ *   Optional; set this in production (Railway Redis, Upstash, etc.)
  *
- * GC:
- *   - A periodic sweep (every 5 min) removes IPs whose newest timestamp
- *     is older than the window, preventing unbounded memory growth.
+ * Exported interface (async, compatible with Redis I/O):
+ *   checkRateLimit(ip) → Promise<{ limited: true, retryAfterMs } | { limited: false }>
+ *   recordFailure(ip)  → Promise<void>
+ *   clearFailures(ip)  → Promise<void>
  */
 
-export const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+/* eslint-disable @typescript-eslint/no-require-imports */
+
+export const RATE_LIMIT_WINDOW_SECS = 15 * 60;   // 15 minutes
 export const RATE_LIMIT_MAX_FAILURES = 5;
-const GC_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
-/** Map<IP, sorted array of failure timestamps (epoch ms)> */
-const failures = new Map<string, number[]>();
+// ─── Minimal duck-typed interface matching rate-limiter-flexible ──────────────
 
-/**
- * Check whether an IP is currently rate-limited.
- * Returns `{ limited: true, retryAfterMs }` if the IP has exceeded the limit,
- * or `{ limited: false }` if the request may proceed.
- *
- * ⚠️ Single-process only — see module-level warning.
- */
-export function checkRateLimit(ip: string): { limited: true; retryAfterMs: number } | { limited: false } {
-    const now = Date.now();
-    const windowStart = now - RATE_LIMIT_WINDOW_MS;
+interface RLFRes {
+  consumedPoints: number;
+  remainingPoints: number;
+  msBeforeNext: number;
+  isFirstInDuration: boolean;
+}
 
-    const timestamps = failures.get(ip);
-    if (!timestamps || timestamps.length === 0) {
-        return { limited: false };
-    }
+interface RateLimiterLike {
+  get(key: string): Promise<RLFRes | null>;
+  consume(key: string, pointsToConsume?: number): Promise<RLFRes>;
+  delete(key: string): Promise<boolean>;
+}
 
-    // Prune entries older than the window
-    const recent = timestamps.filter((t) => t > windowStart);
-    if (recent.length === 0) {
-        failures.delete(ip);
-        return { limited: false };
-    }
-    failures.set(ip, recent);
+// ─── Lazy singleton ───────────────────────────────────────────────────────────
 
-    if (recent.length >= RATE_LIMIT_MAX_FAILURES) {
-        // Earliest failure in window determines when the window slides open
-        const retryAfterMs = recent[0]! + RATE_LIMIT_WINDOW_MS - now;
-        return { limited: true, retryAfterMs: Math.max(retryAfterMs, 1000) };
-    }
+let _limiter: RateLimiterLike | null = null;
 
-    return { limited: false };
+async function buildMemoryLimiter(): Promise<RateLimiterLike> {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { RateLimiterMemory } = require('rate-limiter-flexible') as any;
+  return new RateLimiterMemory({
+    points: RATE_LIMIT_MAX_FAILURES,
+    duration: RATE_LIMIT_WINDOW_SECS,
+    keyPrefix: 'magnus_login_rl',
+  }) as unknown as RateLimiterLike;
 }
 
 /**
- * Record a failed login attempt for an IP.
- * ⚠️ Single-process only — see module-level warning.
+ * Returns the shared rate limiter instance (Redis-backed if REDIS_URL set,
+ * in-memory otherwise). Initialised lazily on first call.
  */
-export function recordFailure(ip: string): void {
-    const now = Date.now();
-    const timestamps = failures.get(ip) ?? [];
-    timestamps.push(now);
-    failures.set(ip, timestamps);
+async function getLimiter(): Promise<RateLimiterLike> {
+  if (_limiter) return _limiter;
+
+  const redisUrl = process.env['REDIS_URL']?.trim();
+
+  if (redisUrl) {
+    // ── Redis path (multi-instance safe) ─────────────────────────────────────
+      try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { RateLimiterRedis } = require('rate-limiter-flexible') as Record<string, new (...a: unknown[]) => RateLimiterLike>;
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const RedisLib = require('ioredis') as { default?: new (...a: unknown[]) => unknown; new(...a: unknown[]): unknown };
+      const Redis = (RedisLib.default ?? RedisLib) as new (url: string, opts: Record<string, unknown>) => { connect(): Promise<void> };
+
+      const redis = new Redis(redisUrl, {
+        enableOfflineQueue: false,
+        maxRetriesPerRequest: 2,
+        connectTimeout: 2000,
+        lazyConnect: true,
+      });
+
+      // Test connection once. If it fails, fall back to in-memory with a loud warning.
+      await redis.connect();
+
+      _limiter = new RateLimiterRedis({
+        storeClient: redis,
+        keyPrefix: 'magnus_login_rl',
+        points: RATE_LIMIT_MAX_FAILURES,
+        duration: RATE_LIMIT_WINDOW_SECS,
+      }) as unknown as RateLimiterLike;
+
+      console.info('[magnus:rate-limit] Redis-backed rate limiter active (multi-instance safe).');
+
+    } catch (err) {
+      console.error(
+        '[magnus:rate-limit] Redis connection failed — falling back to in-memory limiter. ' +
+        'Login throttling will NOT be multi-instance safe until Redis is restored.\n',
+        err
+      );
+      _limiter = await buildMemoryLimiter();
+    }
+
+  } else {
+    // ── In-memory fallback (dev / single-instance) ────────────────────────────
+    if (process.env['NODE_ENV'] === 'production') {
+      console.warn(
+        '[magnus:rate-limit] ⚠️  REDIS_URL is not set. Using in-memory rate limiter. ' +
+        'Login throttling is NOT multi-instance safe. ' +
+        'Set REDIS_URL to a shared Redis instance in all production deployments.'
+      );
+    }
+    _limiter = await buildMemoryLimiter();
+  }
+
+  return _limiter;
+}
+
+// ─── Public interface ─────────────────────────────────────────────────────────
+
+/**
+ * Check whether an IP is currently rate-limited WITHOUT consuming a point.
+ * Call this before processing the request body.
+ */
+export async function checkRateLimit(
+  ip: string
+): Promise<{ limited: true; retryAfterMs: number } | { limited: false }> {
+  try {
+    const limiter = await getLimiter();
+    const res = await limiter.get(ip);
+    if (!res) return { limited: false };
+
+    if (res.remainingPoints <= 0) {
+      return { limited: true, retryAfterMs: Math.max(Math.ceil(res.msBeforeNext), 1000) };
+    }
+    return { limited: false };
+  } catch {
+    // Safety valve: if the limiter throws (e.g. Redis down mid-request),
+    // allow the request through. Credential validation still runs — open limiter ≠ free pass.
+    return { limited: false };
+  }
+}
+
+/**
+ * Record a failed login attempt for an IP (consumes one rate-limit point).
+ * Call after any 401/403 response on the login route.
+ */
+export async function recordFailure(ip: string): Promise<void> {
+  try {
+    const limiter = await getLimiter();
+    await limiter.consume(ip, 1);
+  } catch (err: unknown) {
+    // RateLimiterRes is thrown by consume() when the limit is already exceeded — expected.
+    if (err && typeof err === 'object' && 'msBeforeNext' in err) return;
+    console.error('[magnus:rate-limit] recordFailure error:', err);
+  }
 }
 
 /**
  * Clear all failure records for an IP (call on successful login).
- * ⚠️ Single-process only — see module-level warning.
  */
-export function clearFailures(ip: string): void {
-    failures.delete(ip);
+export async function clearFailures(ip: string): Promise<void> {
+  try {
+    const limiter = await getLimiter();
+    await limiter.delete(ip);
+  } catch (err) {
+    console.error('[magnus:rate-limit] clearFailures error:', err);
+  }
 }
 
 /**
- * Exposed for testing: returns current in-memory state size.
- * Do not use in production business logic.
+ * Exposed for testing only — resets the singleton so a fresh limiter is created.
+ * Do NOT call in production code.
  */
-export function _getFailureMapSize(): number {
-    return failures.size;
+export function _resetLimiterForTest(): void {
+  _limiter = null;
 }
 
-// ── Periodic garbage collection ──────────────────────────────────────────
-// Prevents unbounded memory growth from abandoned IPs.
-// Uses unref() so the timer does not prevent Node.js from exiting.
-const gcTimer = setInterval(() => {
-    const windowStart = Date.now() - RATE_LIMIT_WINDOW_MS;
-    for (const [ip, timestamps] of failures) {
-        const newest = timestamps[timestamps.length - 1];
-        if (newest === undefined || newest <= windowStart) {
-            failures.delete(ip);
-        }
-    }
-}, GC_INTERVAL_MS);
-
-if (typeof gcTimer === 'object' && 'unref' in gcTimer) {
-    gcTimer.unref();
+/**
+ * Exposed for testing only — inject a pre-built limiter instance.
+ * Do NOT call in production code.
+ */
+export function _injectLimiterForTest(limiter: RateLimiterLike): void {
+  _limiter = limiter;
 }

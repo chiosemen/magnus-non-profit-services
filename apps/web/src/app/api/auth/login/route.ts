@@ -12,9 +12,9 @@ export async function POST(req: Request) {
   // ── CSRF origin enforcement ────────────────────────────────────────
   if (!validateCsrfOrigin(req)) return csrfRejectionResponse();
 
-  // ── Rate-limit gate (in-memory, temporary until Redis) ────────────
+  // ── Rate-limit gate (Redis-backed when REDIS_URL set) ──────────────
   const ip = extractIp();
-  const rateCheck = checkRateLimit(ip);
+  const rateCheck = await checkRateLimit(ip);
   if (rateCheck.limited) {
     const retryAfterSec = Math.ceil(rateCheck.retryAfterMs / 1000);
     return Response.json(
@@ -31,7 +31,7 @@ export async function POST(req: Request) {
 
   const org = await prisma.organization.findUnique({ where: { ein } });
   if (!org) {
-    recordFailure(ip);
+    await recordFailure(ip);
     return Response.json({ error: 'ORG_NOT_FOUND' }, { status: 401 });
   }
 
@@ -40,20 +40,20 @@ export async function POST(req: Request) {
     select: { id: true, passwordHash: true },
   });
   if (!worker) {
-    recordFailure(ip);
+    await recordFailure(ip);
     return Response.json({ error: 'WORKER_NOT_FOUND' }, { status: 401 });
   }
 
   // Fail closed: reject login if no password hash is stored
   if (!worker.passwordHash) {
-    recordFailure(ip);
+    await recordFailure(ip);
     return Response.json({ error: 'CREDENTIALS_INVALID' }, { status: 401 });
   }
 
   // Compare raw password bytes — no trim/toLowerCase on password
   const valid = await bcrypt.compare(password, worker.passwordHash);
   if (!valid) {
-    recordFailure(ip);
+    await recordFailure(ip);
     return Response.json({ error: 'CREDENTIALS_INVALID' }, { status: 401 });
   }
 
@@ -62,12 +62,12 @@ export async function POST(req: Request) {
     select: { id: true },
   });
   if (!rel) {
-    recordFailure(ip);
+    await recordFailure(ip);
     return Response.json({ error: 'NOT_ASSOCIATED' }, { status: 401 });
   }
 
   // Login succeeded — clear rate-limit record for this IP
-  clearFailures(ip);
+  await clearFailures(ip);
 
   // Create server-side session row bound to the verified org
   const { sessionId, refreshToken } = await createSession(worker.id, org.id);
@@ -106,7 +106,7 @@ async function safeJson(req: Request): Promise<any | null> {
 
 /**
  * Extract client IP from request headers.
- * Prefers x-forwarded-for (set by reverse proxies / Vercel).
+ * Prefers x-forwarded-for (set by reverse proxies / Vercel / Railway).
  * Falls back to '127.0.0.1' in development.
  */
 function extractIp(): string {
