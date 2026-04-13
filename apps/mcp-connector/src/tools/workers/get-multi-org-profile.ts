@@ -14,7 +14,6 @@ import { NotFoundError } from '../../utils/errors';
 import { formatCurrency } from '../../utils/formatters';
 
 export const getMultiOrgProfileSchema = z.object({
-  user_id: z.string().describe('User ID to look up associated organizations'),
   eins: z.array(z.string()).optional().describe('Filter to specific EINs (default: all linked orgs)'),
   include_comparison: z.boolean().default(true),
 });
@@ -23,8 +22,12 @@ export type GetMultiOrgProfileInput = z.infer<typeof getMultiOrgProfileSchema>;
 
 const service = new WorkerService();
 
-export async function execute(input: GetMultiOrgProfileInput): Promise<string> {
-  const { user_id, eins, include_comparison } = getMultiOrgProfileSchema.parse(input);
+export async function execute(
+  input: GetMultiOrgProfileInput,
+  context: { userId: string; orgId: string }
+): Promise<string> {
+  const { eins, include_comparison } = getMultiOrgProfileSchema.parse(input);
+  const user_id = context.userId;
 
   try {
     const profile = await service.getMultiOrgProfile(user_id, eins);

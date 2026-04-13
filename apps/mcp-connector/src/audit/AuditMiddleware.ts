@@ -10,7 +10,7 @@ const logger = new AuditLogger();
 
 export function auditMiddleware(req: Request, res: Response, next: NextFunction): void {
   const startTime = Date.now();
-  const toolName = req.body?.method ?? req.path.split('/').pop() ?? 'unknown';
+  const toolName = req.body?.toolName ?? req.body?.method ?? req.path.split('/').pop() ?? 'unknown';
   const userId = (req as Request & { userId?: string }).userId ?? 'anonymous';
   const orgId = (req as Request & { orgId?: string }).orgId ?? 'unknown';
   const ipAddress = req.ip;
