@@ -51,3 +51,14 @@ jobs:
 
       - name: Prisma generate (unified)
         run: pnpm prisma:generate
+
+  docker-check:
+    name: Docker Build Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build MCP Connector Image
+        run: |
+          docker build -t mcp-connector:test -f apps/mcp-connector/Dockerfile .

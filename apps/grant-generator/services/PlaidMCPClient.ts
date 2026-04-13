@@ -97,6 +97,7 @@ export class PlaidMCPClient {
   // (In full implementation, this uses a machine-to-machine JWT from auth server)
   private getSystemToken(): string {
     const jwt = require('jsonwebtoken'); // Lazy require
+    const env = getEnv('grant-generator');
     return jwt.sign(
       {
         sub: 'system_grant_generator',
@@ -106,8 +107,8 @@ export class PlaidMCPClient {
         permissions: ['*'],
         sessionId: 'sys-session',
       },
-      process.env['JWT_SECRET'] ?? 'a-very-long-test-secret-at-least-32-chars',
-      { issuer: 'magnus-mcp-connector', audience: 'magnus-nonprofit-os', expiresIn: '5m' }
+      env.JWT_SECRET,
+      { issuer: env.JWT_ISSUER || 'magnus-mcp-connector', audience: env.JWT_AUDIENCE || 'magnus-nonprofit-os', expiresIn: '5m' }
     );
   }
 }

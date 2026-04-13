@@ -143,6 +143,13 @@ app.post('/tools/execute', async (req: Request, res: Response) => {
     // Tools return stringified json.
     res.type('json').send(result);
   } catch (err: any) {
+    if (process.env.SENTRY_DSN) {
+      console.error(JSON.stringify({
+        level: 'error', type: 'sentry_emulation_event_mcp',
+        message: err.message, stack: err.stack,
+        context: { toolName, userId }
+      }));
+    }
     console.error(`[Tool Execution] Error executing tool ${toolName}:`, err);
     res.status(500).json({ error: err.message || 'Internal Tool Error' });
   }

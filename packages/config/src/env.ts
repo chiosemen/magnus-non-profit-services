@@ -212,6 +212,9 @@ const serviceSchemas: Record<EnvServiceName, z.ZodTypeAny> = {
     OUTPUT_DIR: true,
     MAX_RETRIES: true,
     RETRY_DELAY_MS: true,
+    JWT_SECRET: true,
+    JWT_ISSUER: true,
+    JWT_AUDIENCE: true,
   }),
   'mcp-connector': allEnvSchema.pick({
     DATABASE_URL: true,

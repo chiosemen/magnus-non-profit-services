@@ -83,6 +83,13 @@ app.get('/api/org/grants', jwtAuth, async (req, res, next) => {
 
 // Generic error handler: keep output stable and avoid leaking internals.
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+  if (process.env.SENTRY_DSN) {
+    console.error(JSON.stringify({
+      level: 'error', type: 'sentry_emulation_event_org_dashboard',
+      message: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined,
+    }));
+  }
   const code = err instanceof Error && err.message === 'orgId_or_ein_required'
     ? 'ORG_ID_OR_EIN_REQUIRED'
     : 'INTERNAL_ERROR';

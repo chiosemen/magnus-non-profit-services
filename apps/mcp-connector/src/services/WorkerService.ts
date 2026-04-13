@@ -89,13 +89,9 @@ export interface WorkerPayrollSummary {
   topEarners: Array<{ title: string; compensation: number; isOfficer: boolean }>;
 }
 
-// ─── Service ──────────────────────────────────────────────────────────────────
+import { prisma } from '@magnus/db';
 
 export class WorkerService {
-  // In-memory registry: userId → orgs registered during this MCP session.
-  // Does NOT populate with seed data on cache miss — fails closed instead.
-  private orgRegistry = new Map<string, OrgProfile[]>();
-
   async getMultiOrgProfile(userId: string, eins?: string[]): Promise<MultiOrgProfile> {
     const orgs = await this.getOrgsForUser(userId, eins);
     if (!orgs.length) {
@@ -147,59 +143,67 @@ export class WorkerService {
   }
 
   async registerOrg(userId: string, org: OrgProfile): Promise<void> {
-    const existing = this.orgRegistry.get(userId) ?? [];
-    const idx = existing.findIndex(o => o.ein === org.ein);
-    if (idx >= 0) {
-      existing[idx] = org;
-    } else {
-      existing.push(org);
-    }
-    this.orgRegistry.set(userId, existing);
+    // This previously populated the cache. 
+    // In production, relationships are created via the dashboard explicitly.
+    // Given the MCP runs read-models locally, we shouldn't allow the MCP to arbitrarily 
+    // manufacture full org profile definitions.
+    throw new Error('Org mapping via MCP execution is prohibited. Configure via UI.');
   }
 
   async removeOrg(userId: string, ein: string): Promise<void> {
-    const existing = this.orgRegistry.get(userId) ?? [];
-    this.orgRegistry.set(userId, existing.filter(o => o.ein !== ein));
+    const org = await prisma.organization.findUnique({
+      where: { ein }
+    });
+    if (!org) return;
+    
+    await prisma.workerOrgRelationship.deleteMany({
+      where: { workerId: userId, orgId: org.id }
+    });
   }
 
   // ─── Private ─────────────────────────────────────────────────────────────────
 
   private async getOrgsForUser(userId: string, filterEINs?: string[]): Promise<OrgProfile[]> {
-    // Fail closed: if userId not in registry, return empty (not seed data).
-    // The caller (getMultiOrgProfile) throws NotFoundError on empty result.
-    let orgs = this.orgRegistry.get(userId) ?? [];
+    // Queries Prisma securely and deterministically
+    const relationships = await prisma.workerOrgRelationship.findMany({
+       where: { workerId: userId },
+       include: {
+         organization: true
+       }
+    });
+
+    const mappedOrgs: OrgProfile[] = relationships.map(rel => {
+      const dbOrg = rel.organization;
+      return {
+         ein: dbOrg.ein,
+         orgName: dbOrg.name,
+         city: 'Unknown', // Not tracked in Organization table
+         state: 'Unknown', // Not tracked in Organization table 
+         nteeCode: 'Unspecified',
+         taxYear: new Date().getFullYear(),
+         totalRevenue: dbOrg.annualRevenue ? Number(dbOrg.annualRevenue) : 0,
+         totalExpenses: 0, // Explicit zero uncalculated domain metrics
+         netAssets: 0,
+         employeeCount: 0,
+         volunteerCount: 0,
+         programRatio: 0,
+         filingStatus: 'unknown' as any, // Not verified natively
+         healthScore: 50,
+         lastSynced: dbOrg.updatedAt,
+      };
+    });
+
     if (filterEINs?.length) {
-      orgs = orgs.filter(o => filterEINs.includes(o.ein));
+       return mappedOrgs.filter(o => filterEINs.includes(o.ein));
     }
-    return orgs;
+    
+    return mappedOrgs;
   }
 
   private buildComparisonMetrics(orgs: OrgProfile[]): OrgComparison[] {
     if (orgs.length < 2) return [];
 
     const metrics: OrgComparison[] = [
-      {
-        metric: 'Program Ratio',
-        values: orgs.map(o => ({
-          ein: o.ein,
-          orgName: o.orgName,
-          value: o.programRatio,
-          formatted: `${o.programRatio.toFixed(1)}%`,
-        })),
-        bestEIN: orgs.reduce((best, o) => o.programRatio > (orgs.find(x => x.ein === best)?.programRatio ?? 0) ? o.ein : best, orgs[0]?.ein ?? ''),
-        insight: 'Higher program ratio indicates more spending on mission activities',
-      },
-      {
-        metric: 'Financial Health Score',
-        values: orgs.map(o => ({
-          ein: o.ein,
-          orgName: o.orgName,
-          value: o.healthScore,
-          formatted: `${o.healthScore}/100`,
-        })),
-        bestEIN: orgs.reduce((best, o) => o.healthScore > (orgs.find(x => x.ein === best)?.healthScore ?? 0) ? o.ein : best, orgs[0]?.ein ?? ''),
-        insight: 'Composite score based on ratios, reserves, and revenue stability',
-      },
       {
         metric: 'Total Revenue',
         values: orgs.map(o => ({
@@ -215,6 +219,7 @@ export class WorkerService {
 
     return metrics;
   }
+
 }
 
 export default WorkerService;
