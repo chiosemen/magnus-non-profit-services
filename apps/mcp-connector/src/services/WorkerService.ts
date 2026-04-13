@@ -2,10 +2,39 @@
  * Magnus MCP Connector — WorkerService
  * Multi-org worker profiles, cross-org analytics, payroll data
  * Called by: get-multi-org-profile, get-income-summary, get-tax-estimates
+ *
+ * PRODUCTION CONTRACT:
+ * - getMultiOrgProfile MUST NOT fall back to hardcoded seed org data for unknown users.
+ *   If no orgs are registered for a user, throw NotFoundError (fail closed).
+ * - getPayrollSummary MUST NOT return hardcoded payroll figures.
+ *   Until real payroll data (Plaid payroll, manual upload) is wired, throw
+ *   PayrollDataUnavailableError with FEATURE_NOT_CONFIGURED.
+ * - getSeedOrgs has been DELETED — do not re-add it.
+ * - The in-memory orgRegistry is preserved for worker registration during the current
+ *   MCP session (write-through pattern). It does NOT populate with fake data on miss.
+ *
+ * Activation path for getPayrollSummary:
+ *  1. Integrate payroll data source (Plaid payroll, Gusto, manual upload).
+ *  2. Set FEATURE_FLAG_WORKER_PAYROLL=true.
+ *  3. Replace the not-configured guard with real calculation logic.
  */
 
 import { NotFoundError } from '../utils/errors';
 import { formatCurrency } from '../utils/formatters';
+
+// ─── Errors ───────────────────────────────────────────────────────────────────
+
+export class PayrollDataUnavailableError extends Error {
+  readonly code = 'FEATURE_NOT_CONFIGURED';
+  constructor() {
+    super(
+      'Worker payroll data is not available. A live payroll data integration ' +
+      '(Plaid payroll, Gusto, or manual upload) must be configured before ' +
+      'payroll summaries can be returned. Do not use hardcoded figures.'
+    );
+    this.name = 'PayrollDataUnavailableError';
+  }
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -63,8 +92,9 @@ export interface WorkerPayrollSummary {
 // ─── Service ──────────────────────────────────────────────────────────────────
 
 export class WorkerService {
-  // In production these come from Prisma / DB; using in-memory store for dev
-  private orgRegistry = new Map<string, OrgProfile[]>(); // userId → orgs
+  // In-memory registry: userId → orgs registered during this MCP session.
+  // Does NOT populate with seed data on cache miss — fails closed instead.
+  private orgRegistry = new Map<string, OrgProfile[]>();
 
   async getMultiOrgProfile(userId: string, eins?: string[]): Promise<MultiOrgProfile> {
     const orgs = await this.getOrgsForUser(userId, eins);
@@ -106,30 +136,14 @@ export class WorkerService {
     };
   }
 
-  async getPayrollSummary(ein: string, taxYear?: number): Promise<WorkerPayrollSummary> {
-    const year = taxYear ?? new Date().getFullYear() - 1;
-    // In production: pull from Plaid payroll integration or manual upload
-    return {
-      orgId: ein,
-      taxYear: year,
-      totalPayroll: 420000,
-      employeeCount: 12,
-      averageSalary: 35000,
-      highestCompensation: 95000,
-      benefitsExpense: 63000,
-      payrollTaxLiability: 32130,
-      quarterlyPayroll: [
-        { quarter: 'Q1', amount: 105000 },
-        { quarter: 'Q2', amount: 105000 },
-        { quarter: 'Q3', amount: 105000 },
-        { quarter: 'Q4', amount: 105000 },
-      ],
-      topEarners: [
-        { title: 'Executive Director', compensation: 95000, isOfficer: true },
-        { title: 'Program Director', compensation: 72000, isOfficer: false },
-        { title: 'Development Director', compensation: 68000, isOfficer: false },
-      ],
-    };
+  /**
+   * Returns real payroll summary data from a configured payroll provider.
+   * Throws PayrollDataUnavailableError if no provider is configured.
+   *
+   * PRODUCTION CONTRACT: Never return hardcoded payroll figures.
+   */
+  async getPayrollSummary(_ein: string, _taxYear?: number): Promise<WorkerPayrollSummary> {
+    throw new PayrollDataUnavailableError();
   }
 
   async registerOrg(userId: string, org: OrgProfile): Promise<void> {
@@ -151,7 +165,9 @@ export class WorkerService {
   // ─── Private ─────────────────────────────────────────────────────────────────
 
   private async getOrgsForUser(userId: string, filterEINs?: string[]): Promise<OrgProfile[]> {
-    let orgs = this.orgRegistry.get(userId) ?? this.getSeedOrgs(userId);
+    // Fail closed: if userId not in registry, return empty (not seed data).
+    // The caller (getMultiOrgProfile) throws NotFoundError on empty result.
+    let orgs = this.orgRegistry.get(userId) ?? [];
     if (filterEINs?.length) {
       orgs = orgs.filter(o => filterEINs.includes(o.ein));
     }
@@ -198,29 +214,6 @@ export class WorkerService {
     ];
 
     return metrics;
-  }
-
-  private getSeedOrgs(userId: string): OrgProfile[] {
-    void userId;
-    return [
-      {
-        ein: '12-3456789',
-        orgName: 'Community Health Initiative',
-        city: 'Los Angeles',
-        state: 'CA',
-        nteeCode: 'E20',
-        taxYear: 2023,
-        totalRevenue: 925000,
-        totalExpenses: 878000,
-        netAssets: 312000,
-        employeeCount: 15,
-        volunteerCount: 42,
-        programRatio: 78.4,
-        filingStatus: 'current',
-        healthScore: 74,
-        lastSynced: new Date(),
-      },
-    ];
   }
 }
 

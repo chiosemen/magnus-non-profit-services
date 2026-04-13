@@ -2,6 +2,14 @@
  * Magnus MCP Connector — ComplianceService
  * Core compliance logic: 990 data, filing history, state registrations, status
  * Called by: get-990-data, check-compliance-status, get-filing-history, get-state-registrations
+ *
+ * PRODUCTION CONTRACT:
+ * - getStateRegistrations and getComplianceStatus.stateRegistrations must NEVER
+ *   return hardcoded or mock registrations.
+ * - If a real state registration data source is unavailable, return an explicit
+ *   DATA_SOURCE_NOT_CONFIGURED response. Do not return fake CA/NY registrations for all orgs.
+ * - ProPublica / IRS 990 paths are real external calls and are safe to use.
+ * - getMockStateRegistrations has been DELETED — it must not be re-added.
  */
 
 import axios, { AxiosInstance } from 'axios';
@@ -17,6 +25,21 @@ import {
   calculateFinancialHealthScore,
 } from '../utils/calculators';
 import { formatEIN } from '../utils/formatters';
+
+// ─── Errors ───────────────────────────────────────────────────────────────────
+
+export class StateRegistrationDataUnavailableError extends Error {
+  readonly code = 'DATA_SOURCE_NOT_CONFIGURED';
+  constructor() {
+    super(
+      'State charitable registration data is not available. ' +
+      'A live integration with a state registration data provider (e.g. Harbor Compliance, ' +
+      'CT Corp, or state-specific APIs) must be configured before this data can be returned. ' +
+      'Do not use mock registrations as a substitute.'
+    );
+    this.name = 'StateRegistrationDataUnavailableError';
+  }
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -53,7 +76,8 @@ export interface ComplianceStatus {
   daysUntilDue: number;
   isAtRisk: boolean;
   alerts: ComplianceAlert[];
-  stateRegistrations: StateRegistration[];
+  stateRegistrations: StateRegistration[] | null;
+  stateRegistrationsNote: string | null;
   lastUpdated: Date;
 }
 
@@ -252,8 +276,8 @@ export class ComplianceService {
       }
     }
 
-    const stateRegistrations = this.getMockStateRegistrations(cleanEIN);
-
+    // State registrations: not available without a live third-party integration.
+    // Return null + explicit note rather than fake data.
     return {
       ein: formatEIN(cleanEIN),
       orgName: String(org['name'] ?? ''),
@@ -264,15 +288,33 @@ export class ComplianceService {
       daysUntilDue,
       isAtRisk: alerts.some(a => a.severity === 'critical'),
       alerts,
-      stateRegistrations,
+      stateRegistrations: null,
+      stateRegistrationsNote:
+        'State registration data requires a live integration with a state registration ' +
+        'data provider. Configure STATE_REGISTRATION_PROVIDER to enable this field.',
       lastUpdated: new Date(),
     };
   }
 
+  /**
+   * Returns real state registration data from a configured provider.
+   * Throws StateRegistrationDataUnavailableError if no provider is configured.
+   *
+   * Production activation:
+   *  1. Wire a real provider (Harbor Compliance, CT Corp, state-specific APIs).
+   *  2. Set STATE_REGISTRATION_PROVIDER env var.
+   *  3. Remove the not-configured guard below.
+   *
+   * NEVER return mock/hardcoded registrations from this method.
+   */
   async getStateRegistrations(ein: string): Promise<StateRegistration[]> {
-    const cleanEIN = this.cleanEIN(ein);
-    // In production this calls state-specific charity registration APIs or a third-party aggregator
-    return this.getMockStateRegistrations(cleanEIN);
+    void ein;
+    const providerConfigured = Boolean(process.env['STATE_REGISTRATION_PROVIDER']?.trim());
+    if (!providerConfigured) {
+      throw new StateRegistrationDataUnavailableError();
+    }
+    // TODO: implement real provider call when STATE_REGISTRATION_PROVIDER is set
+    throw new StateRegistrationDataUnavailableError();
   }
 
   async getFinancialRatios(ein: string, taxYear?: number): Promise<FinancialRatios> {
@@ -351,30 +393,6 @@ export class ComplianceService {
     base.setMonth(base.getMonth() + 4); // IRS: 4.5 months after year end; using 4 for buffer
     base.setDate(15);
     return base;
-  }
-
-  private getMockStateRegistrations(ein: string): StateRegistration[] {
-    // Production: integrate with Harbor Compliance, CT Corp, or state-by-state APIs
-    void ein;
-    return [
-      {
-        state: 'California',
-        stateCode: 'CA',
-        status: 'active',
-        expirationDate: new Date(new Date().getFullYear() + 1, 0, 31).toISOString().split('T')[0]!,
-        renewalDueDate: new Date(new Date().getFullYear(), 10, 30).toISOString().split('T')[0]!,
-        annualReportRequired: true,
-        charitableSolicitationRequired: true,
-      },
-      {
-        state: 'New York',
-        stateCode: 'NY',
-        status: 'active',
-        renewalDueDate: new Date(new Date().getFullYear(), 5, 1).toISOString().split('T')[0]!,
-        annualReportRequired: true,
-        charitableSolicitationRequired: true,
-      },
-    ];
   }
 
   private gradeBenchmarks(programRatio: number, monthsOfReserves: number, healthScore: number): RatioBenchmarks {

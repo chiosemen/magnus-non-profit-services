@@ -118,19 +118,15 @@ export class GrantService {
     if (cached) return cached;
 
     try {
-      // Try Candid API first; fall back to curated seed data for dev/demo
-      let opportunities: GrantOpportunity[];
-      try {
-        const response = await this.candidClient.post('/grants/search', {
-          ntee_codes: [params.nteeCode],
-          states: [params.state],
-          min_grant: params.minGrantAmount ?? 5000,
-          limit: params.maxResults ?? 20,
-        });
-        opportunities = (response.data?.grants ?? []).map(this.mapCandidGrant.bind(this));
-      } catch {
-        opportunities = this.getSeedOpportunities(params.nteeCode, params.state);
-      }
+      // Candid API only — no seed/fallback data in production.
+      // If Candid is unavailable, throw CandidAPIError (fail closed).
+      const response = await this.candidClient.post('/grants/search', {
+        ntee_codes: [params.nteeCode],
+        states: [params.state],
+        min_grant: params.minGrantAmount ?? 5000,
+        limit: params.maxResults ?? 20,
+      });
+      const opportunities: GrantOpportunity[] = (response.data?.grants ?? []).map(this.mapCandidGrant.bind(this));
 
       const matches: GrantMatch[] = opportunities.map(opp => {
         const { score, reasons } = calculateGrantMatchScore({
@@ -307,7 +303,8 @@ export class GrantService {
     const deadlineRaw = g['deadline'];
     const applyUrlRaw = g['apply_url'];
     return {
-      id: String(g['id'] ?? Math.random().toString(36).slice(2)),
+      // Use the Candid-provided ID; empty string if absent (should not happen in real API responses).
+      id: String(g['id'] ?? ''),
       funderName: String(g['funder_name'] ?? ''),
       ...(funderEinRaw ? { funderEIN: String(funderEinRaw) } : {}),
       programName: String(g['program_name'] ?? ''),
@@ -329,30 +326,12 @@ export class GrantService {
     };
   }
 
-  private getSeedOpportunities(nteeCode: string, state: string): GrantOpportunity[] {
-    // Curated fallback data for development — replace with full Candid API in production
-    return [
-      {
-        id: 'seed-001',
-        funderName: 'Community Foundation of America',
-        programName: 'Nonprofit Capacity Building Grant',
-        description: 'Supports organizational development for established nonprofits serving local communities.',
-        focusAreas: ['Community Development', 'Capacity Building'],
-        eligibleNTEECodes: [nteeCode.slice(0, 1)],
-        eligibleStates: [state, 'All'],
-        minGrantAmount: 10000,
-        maxGrantAmount: 50000,
-        totalGiving: 2500000,
-        isRollingDeadline: false,
-        applicationDeadline: new Date(Date.now() + 90 * 86400000).toISOString().split('T')[0]!,
-        requiresLetterOfInquiry: true,
-        averageGrantSize: 25000,
-        grantCount: 40,
-        acceptsUnsolicited: false,
-        lastUpdated: new Date().toISOString(),
-      },
-    ];
-  }
+  /**
+   * getSeedOpportunities has been DELETED.
+   * Returning fabricated grant opportunities as a Candid API fallback was a truth violation.
+   * Callers now receive CandidAPIError when Candid is unavailable.
+   * Reactivation requires a real Candid API key and a verified connection.
+   */
 
   private inferFunderType(data: Record<string, unknown>): FunderProfile['type'] {
     const ntee = String(data['ntee_code'] ?? '');
