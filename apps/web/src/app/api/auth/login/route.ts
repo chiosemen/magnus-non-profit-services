@@ -3,11 +3,15 @@ import { cookies, headers } from 'next/headers';
 import { AUTH_COOKIE_NAME, REFRESH_COOKIE_NAME, signAppToken } from '@/lib/auth';
 import { createSession } from '@/lib/session';
 import { checkRateLimit, recordFailure, clearFailures } from '@/lib/rate-limit';
+import { validateCsrfOrigin, csrfRejectionResponse } from '@/lib/csrf';
 import bcrypt from 'bcryptjs';
 
 export const runtime = 'nodejs';
 
 export async function POST(req: Request) {
+  // ── CSRF origin enforcement ────────────────────────────────────────
+  if (!validateCsrfOrigin(req)) return csrfRejectionResponse();
+
   // ── Rate-limit gate (in-memory, temporary until Redis) ────────────
   const ip = extractIp();
   const rateCheck = checkRateLimit(ip);

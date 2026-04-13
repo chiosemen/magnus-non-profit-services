@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { AUTH_COOKIE_NAME, REFRESH_COOKIE_NAME, signAppToken, verifyAppToken } from '@/lib/auth';
 import { rotateSession } from '@/lib/session';
+import { validateCsrfOrigin, csrfRejectionResponse } from '@/lib/csrf';
 
 export const runtime = 'nodejs';
 
@@ -8,16 +9,20 @@ export const runtime = 'nodejs';
  * POST /api/auth/refresh
  *
  * Fail-closed refresh token rotation:
- *   1. Read refresh cookie (raw token) + access cookie (for sessionId)
- *   2. Decode access JWT (allow expired — we're refreshing)
- *   3. Call rotateSession(sessionId, rawToken)
+ *   1. Validate CSRF origin (must have X-Magnus-CSRF: 1 + matching origin)
+ *   2. Read refresh cookie (raw token) + access cookie (for sessionId)
+ *   3. Decode access JWT (allow expired — we're refreshing)
+ *   4. Call rotateSession(sessionId, rawToken)
  *      - validates hash match, not revoked, not expired
  *      - on hash mismatch → revokes session (token reuse attack)
  *      - replaces hash in DB, updates lastSeenAt
- *   4. Issue new access JWT + new refresh cookie
- *   5. Old refresh token is immediately invalid
+ *   5. Issue new access JWT + new refresh cookie
+ *   6. Old refresh token is immediately invalid
  */
-export async function POST() {
+export async function POST(req: Request) {
+    // ── CSRF origin enforcement ────────────────────────────────────────
+    if (!validateCsrfOrigin(req)) return csrfRejectionResponse();
+
     // ── 1. Read cookies ──────────────────────────────────────────────
     const refreshToken = cookies().get(REFRESH_COOKIE_NAME)?.value;
     const accessToken = cookies().get(AUTH_COOKIE_NAME)?.value;

@@ -2,6 +2,7 @@ import { prisma } from '@magnus/db/client';
 import { cookies } from 'next/headers';
 import { AUTH_COOKIE_NAME, REFRESH_COOKIE_NAME, signAppToken } from '@/lib/auth';
 import { createSession } from '@/lib/session';
+import { validateCsrfOrigin, csrfRejectionResponse } from '@/lib/csrf';
 import bcrypt from 'bcryptjs';
 
 export const runtime = 'nodejs';
@@ -10,6 +11,10 @@ const BCRYPT_ROUNDS = 12;
 const MIN_PASSWORD_LENGTH = 8;
 
 export async function POST(req: Request) {
+  // ── CSRF origin enforcement ────────────────────────────────────────
+  if (!validateCsrfOrigin(req)) return csrfRejectionResponse();
+
+
   const body = await safeJson(req);
   const orgName = typeof body?.orgName === 'string' ? body.orgName.trim() : '';
   const ein = typeof body?.ein === 'string' ? body.ein.trim() : '';
