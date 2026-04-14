@@ -2,7 +2,20 @@
   "permissions": {
     "allow": [
       "Bash(git rev-parse:*)",
-      "Bash(pnpm -r --if-present test)"
+      "Bash(pnpm -r --if-present test)",
+      "Bash(git fetch:*)",
+      "Bash(git push:*)",
+      "Bash(gh pr create:*)",
+      "Bash(cat:*)",
+      "Bash(pnpm test:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nwave1: CI-safe test infrastructure with proper integration test gating\n\n- Add proper source files for encryption unit tests \\(no DB required\\)\n- Integration tests automatically skip when DATABASE_URL unavailable\n- Fix agents env type to include per-agent kill switch properties\n- Fix claude-partner test mock to include _max aggregation field\n- Add tsconfig.test.json for separate test compilation\n- Document CI test requirements and environment variables\n\nAll unit tests now pass in CI without database credentials.\nIntegration tests are SKIPPED \\(not failed\\) when DB unavailable.\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(pnpm install)",
+      "Bash(pnpm build:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nwave2: Production observability module and runbook\n\n- Add @magnus/observability package with unified error reporting\n- Automatic redaction of sensitive fields \\(tokens, secrets, PII\\)\n- Structured JSON format compatible with Sentry/OTEL/log aggregators\n- Service initialization helpers for global error handlers\n- Comprehensive observability runbook with setup instructions\n\nAll priority services already have sentry_emulation pattern in place.\nThis module provides a reusable foundation for future enhancement.\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nwave3: Security evidence pack for external pentest readiness\n\n- Comprehensive security evidence documentation\n- Authentication architecture details with code evidence\n- Multi-tenant isolation verification\n- Input validation and injection prevention summary\n- Cryptographic controls documentation\n- Agent safety controls with kill switches\n- Feature flags and testing configuration\n- Known limitations and accepted risks\n- Test coverage evidence for security-focused tests\n\nReady for external penetration testing engagement.\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(pnpm install:*)",
+      "Bash(node --test:*)"
     ]
   }
 }

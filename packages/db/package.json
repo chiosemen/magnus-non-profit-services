@@ -5,6 +5,10 @@
   "main": "dist/client.js",
   "types": "dist/client.d.ts",
   "exports": {
+    ".": {
+      "types": "./dist/client.d.ts",
+      "default": "./dist/client.js"
+    },
     "./client": {
       "types": "./dist/client.d.ts",
       "default": "./dist/client.js"

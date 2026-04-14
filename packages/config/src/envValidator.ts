@@ -46,6 +46,12 @@ const grantGeneratorSchema = z.object({
   ANTHROPIC_MAX_TOKENS: numeric.optional(),
   MAX_RETRIES: numeric.optional(),
   RETRY_DELAY_MS: numeric.optional(),
+  // JWT credentials for MCP system token generation
+  JWT_SECRET: nonEmpty.min(32),
+  JWT_ISSUER: nonEmpty.optional(),
+  JWT_AUDIENCE: nonEmpty.optional(),
+  // MCP connector URL for funder research and financial data
+  MCP_CONNECTOR_URL: nonEmpty.optional(),
 });
 
 const mcpConnectorSchema = baseServiceSchema; // DATABASE_URL + JWT_SECRET ≥ 32

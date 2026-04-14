@@ -52,14 +52,15 @@ export class CandidMCPClient {
 
       if (!response.ok) return null;
 
-      const data = await response.json();
+      const data = await response.json() as Record<string, unknown>;
+      const grantmaking = data.grantmaking as Record<string, unknown> | undefined;
       return {
-        ein: data.funder_ein ?? ein,
-        name: data.funder_name ?? 'Unknown Funder',
-        focusAreas: data.focus_areas ?? [],
-        averageGrant: data.grantmaking?.average_grant_raw ?? 0,
-        totalGiving: data.grantmaking?.total_giving_raw ?? 0,
-        acceptsUnsolicited: data.accepts_unsolicited_proposals ?? false,
+        ein: (data.funder_ein as string) ?? ein,
+        name: (data.funder_name as string) ?? 'Unknown Funder',
+        focusAreas: (data.focus_areas as string[]) ?? [],
+        averageGrant: (grantmaking?.average_grant_raw as number) ?? 0,
+        totalGiving: (grantmaking?.total_giving_raw as number) ?? 0,
+        acceptsUnsolicited: (data.accepts_unsolicited_proposals as boolean) ?? false,
         deadline: undefined,
         loiRequired: false,
       };
@@ -68,7 +69,7 @@ export class CandidMCPClient {
     }
   }
 
-  async searchOpportunities(params: {
+  async searchOpportunities(_params: {
     nteeCode: string;
     state: string;
     budget: number;
@@ -90,6 +91,7 @@ export class CandidMCPClient {
 
   private getSystemToken(): string {
     const jwt = require('jsonwebtoken'); // Lazy require
+    const env = getEnv('grant-generator');
     return jwt.sign(
       {
         sub: 'system_grant_generator',
@@ -99,8 +101,8 @@ export class CandidMCPClient {
         permissions: ['*'],
         sessionId: 'sys-session',
       },
-      process.env['JWT_SECRET'] ?? 'a-very-long-test-secret-at-least-32-chars',
-      { issuer: 'magnus-mcp-connector', audience: 'magnus-nonprofit-os', expiresIn: '5m' }
+      env.JWT_SECRET,
+      { issuer: env.JWT_ISSUER || 'magnus-mcp-connector', audience: env.JWT_AUDIENCE || 'magnus-nonprofit-os', expiresIn: '5m' }
     );
   }
 }

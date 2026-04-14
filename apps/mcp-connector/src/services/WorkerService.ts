@@ -142,10 +142,10 @@ export class WorkerService {
     throw new PayrollDataUnavailableError();
   }
 
-  async registerOrg(userId: string, org: OrgProfile): Promise<void> {
-    // This previously populated the cache. 
+  async registerOrg(_userId: string, _org: OrgProfile): Promise<void> {
+    // This previously populated the cache.
     // In production, relationships are created via the dashboard explicitly.
-    // Given the MCP runs read-models locally, we shouldn't allow the MCP to arbitrarily 
+    // Given the MCP runs read-models locally, we shouldn't allow the MCP to arbitrarily
     // manufacture full org profile definitions.
     throw new Error('Org mapping via MCP execution is prohibited. Configure via UI.');
   }

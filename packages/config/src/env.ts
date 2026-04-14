@@ -215,6 +215,7 @@ const serviceSchemas: Record<EnvServiceName, z.ZodTypeAny> = {
     JWT_SECRET: true,
     JWT_ISSUER: true,
     JWT_AUDIENCE: true,
+    MCP_CONNECTOR_URL: true,
   }),
   'mcp-connector': allEnvSchema.pick({
     DATABASE_URL: true,
