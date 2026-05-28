@@ -3,6 +3,12 @@ export type AgentsEnv = {
   NODE_ENV: string;
   AGENTS_TIMEZONE?: string;
   AGENTS_ALERT_SINK: 'db' | 'console';
+  AGENT_ENABLE_COMPLIANCE_WATCHDOG?: string;
+  AGENT_ENABLE_GRANT_MANAGER?: string;
+  AGENT_ENABLE_FINANCIAL_SENTINEL?: string;
+  AGENT_ENABLE_BOARD_ORACLE?: string;
+  AGENT_ENABLE_GRANT_HERALD?: string;
+  AGENT_ENABLE_WORKER_INCOME_OPTIMIZER?: string;
 };
 
 function required(name: string): string {

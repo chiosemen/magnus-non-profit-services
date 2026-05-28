@@ -45,7 +45,7 @@ export class PlaidMCPClient {
 
       if (!response.ok) return null;
 
-      const data = await response.json();
+      const data = await response.json() as Record<string, any>;
       
       const startDate = new Date();
       startDate.setMonth(startDate.getMonth() - months);

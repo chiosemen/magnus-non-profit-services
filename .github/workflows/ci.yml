@@ -13,16 +13,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: "pnpm"
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: "10"
 
       - name: Install deps
         run: pnpm install --frozen-lockfile
@@ -37,6 +35,16 @@ jobs:
       - name: Run lint
         run: pnpm -r --if-present lint
 
+      - name: Prisma generate (for typecheck)
+        env:
+          DATABASE_URL: postgresql://user:pass@localhost:5432/magnus_ci_typegen?schema=public
+        run: pnpm prisma:generate
+
+      - name: Build shared packages (for type resolution)
+        env:
+          DATABASE_URL: postgresql://user:pass@localhost:5432/magnus_ci_typegen?schema=public
+        run: pnpm --filter "./packages/**" build
+
       - name: Run typecheck
         run: pnpm -r exec tsc --noEmit
 
@@ -50,4 +58,6 @@ jobs:
         run: node scripts/validate-migrations.js
 
       - name: Prisma generate (unified)
+        env:
+          DATABASE_URL: postgresql://user:pass@localhost:5432/magnus_ci_typegen?schema=public
         run: pnpm prisma:generate

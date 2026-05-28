@@ -209,6 +209,7 @@ const serviceSchemas: Record<EnvServiceName, z.ZodTypeAny> = {
     PLAID_CLIENT_ID: true,
     PLAID_SECRET: true,
     PLAID_MCP_URL: true,
+    MCP_CONNECTOR_URL: true,
     OUTPUT_DIR: true,
     MAX_RETRIES: true,
     RETRY_DELAY_MS: true,

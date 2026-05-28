@@ -1,4 +1,4 @@
-import { requireEnvForService, validateEnvForService } from '@magnus/config/envValidator';
+import { requireEnvForService, validateEnvForService } from '@magnus/config';
 
 export type WebEnv = {
   DATABASE_URL: string;

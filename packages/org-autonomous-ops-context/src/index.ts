@@ -184,3 +184,24 @@ export type {
   OperationsLogRow,
   OperationsLogRowType,
 } from './operationsLog';
+
+export {
+  listDonors,
+  createDonor,
+  updateDonor,
+  getDonorDetail,
+  createManualDonation,
+  listDonations,
+  issueReceipt,
+  getReceiptMetadata,
+  getReceiptByDonationId,
+  previewCsvImport,
+  commitCsvImport,
+} from './donorCrmService';
+export type {
+  DonorDto,
+  DonationDto,
+  ReceiptDto,
+  CsvPreviewRow,
+  CsvPreviewResult,
+} from './donorCrmService';

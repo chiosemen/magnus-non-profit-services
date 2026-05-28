@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 // Mocking required modules for Next.js unit tests in a Node environment
 process.env.SKIP_ENV_VALIDATION = 'true';
-process.env.NODE_ENV = 'production';
+Object.assign(process.env, { NODE_ENV: 'production' });
 process.env.NEXT_PUBLIC_APP_URL = 'https://app.magnus.com';
 
 // Mock next/server primitives for testing our middlewares

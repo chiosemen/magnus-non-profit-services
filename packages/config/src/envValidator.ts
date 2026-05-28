@@ -46,6 +46,7 @@ const grantGeneratorSchema = z.object({
   ANTHROPIC_MAX_TOKENS: numeric.optional(),
   MAX_RETRIES: numeric.optional(),
   RETRY_DELAY_MS: numeric.optional(),
+  MCP_CONNECTOR_URL: nonEmpty.optional(),
 });
 
 const mcpConnectorSchema = baseServiceSchema; // DATABASE_URL + JWT_SECRET ≥ 32
