@@ -1,0 +1,52 @@
+.title {
+  font-size: 34px;
+  margin-bottom: 10px;
+}
+
+.subtitle {
+  margin-bottom: 16px;
+}
+
+.errorBox {
+  margin-bottom: 14px;
+}
+
+.statusTitle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.badge {
+  color: #fff;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.badgeEnabled {
+  background: #16a34a;
+}
+
+.badgeRestricted {
+  background: #dc2626;
+}
+
+.badgeInProgress {
+  background: #ca8a04;
+}
+
+.badgeLinkCreated {
+  background: #2563eb;
+}
+
+.badgeNotConnected {
+  background: #6b7280;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}

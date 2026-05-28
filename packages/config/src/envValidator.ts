@@ -30,6 +30,12 @@ const billingSchema = baseServiceSchema.extend({
   STRIPE_SECRET_KEY: nonEmpty,
 });
 
+const orgDashboardApiSchema = baseServiceSchema.extend({
+  STRIPE_SECRET_KEY: nonEmpty,
+  STRIPE_CONNECT_RETURN_URL: z.string().trim().url(),
+  STRIPE_CONNECT_REFRESH_URL: z.string().trim().url(),
+});
+
 const claudePartnerSchema = baseServiceSchema.extend({
   ANTHROPIC_API_KEY: nonEmpty,
 });
@@ -57,7 +63,7 @@ type EnvByService = {
   'claude-partner': z.infer<typeof claudePartnerSchema>;
   'grant-generator': z.infer<typeof grantGeneratorSchema>;
   'mcp-connector': z.infer<typeof mcpConnectorSchema>;
-  'org-dashboard-api': z.infer<typeof baseServiceSchema>;
+  'org-dashboard-api': z.infer<typeof orgDashboardApiSchema>;
   'worker-financial-layer': z.infer<typeof baseServiceSchema>;
 };
 
@@ -68,7 +74,7 @@ export function getEnv<S extends EnvServiceName>(service: S): EnvByService[S] {
     'claude-partner': claudePartnerSchema,
     'grant-generator': grantGeneratorSchema,
     'mcp-connector': mcpConnectorSchema,
-    'org-dashboard-api': baseServiceSchema,
+    'org-dashboard-api': orgDashboardApiSchema,
     'worker-financial-layer': baseServiceSchema,
   };
 
@@ -93,7 +99,7 @@ export function validateEnv(service: EnvServiceName): void {
     'claude-partner': claudePartnerSchema,
     'grant-generator': grantGeneratorSchema,
     'mcp-connector': mcpConnectorSchema,
-    'org-dashboard-api': baseServiceSchema,
+    'org-dashboard-api': orgDashboardApiSchema,
     'worker-financial-layer': baseServiceSchema,
   };
 
