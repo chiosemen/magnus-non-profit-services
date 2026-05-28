@@ -9,6 +9,7 @@
     "test": "echo 'no tests yet'"
   },
   "dependencies": {
+    "@magnus/config": "workspace:*",
     "@magnus/db": "workspace:*",
     "@magnus/org-autonomous-ops-context": "workspace:*",
     "bcryptjs": "^2.4.3",

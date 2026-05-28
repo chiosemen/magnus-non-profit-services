@@ -166,6 +166,14 @@ model Organization {
   autonomousOpsSettings         OrgAutonomousOpsSettings?
   donorEvents                   DonorEvent[]
   volunteerEvents               VolunteerEvent[]
+
+  // S4NP Phase 1 donor CRM and receipts
+  donors                        Donor[]
+  donations                     Donation[]
+  donationReceipts              DonationReceipt[]
+  donationImportBatches         DonationImportBatch[]
+  donationImportRows            DonationImportRow[]
+  donorNotes                    DonorNote[]
 }
 
 /// Append-only donor gift ledger row (ingested from Stripe, CSV, manual API, etc.).
@@ -588,4 +596,135 @@ model ClaudeUsageLog {
 
   @@index([orgId, timestamp])
   @@index([orgId, promptType, timestamp])
+}
+
+// ─── S4NP Phase 1 Donor CRM + Receipts ──────────────────────────────────────
+
+enum DonorType {
+  INDIVIDUAL
+  ORGANIZATION
+}
+
+enum DonationSource {
+  MANUAL
+  CSV_IMPORT
+  OTHER
+}
+
+enum ReceiptStatus {
+  DRAFT
+  ISSUED
+  VOIDED
+}
+
+model Donor {
+  id          String    @id @default(uuid()) @db.Uuid
+  orgId       String    @db.Uuid
+  donorType   DonorType @default(INDIVIDUAL)
+  name        String    @db.VarChar(256)
+  email       String?   @db.VarChar(256)
+  phone       String?   @db.VarChar(64)
+  addressJson String?   @db.Text
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  organization Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  donations    Donation[]
+  donorNotes   DonorNote[]
+  importRows   DonationImportRow[]
+
+  @@unique([orgId, email])
+  @@index([orgId])
+}
+
+model DonorNote {
+  id        String   @id @default(uuid()) @db.Uuid
+  orgId     String   @db.Uuid
+  donorId   String   @db.Uuid
+  body      String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  donor        Donor        @relation(fields: [donorId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([donorId])
+}
+
+model Donation {
+  id              String         @id @default(uuid()) @db.Uuid
+  orgId           String         @db.Uuid
+  donorId         String         @db.Uuid
+  amount          Decimal        @db.Decimal(12, 2)
+  currency        String         @default("USD") @db.VarChar(8)
+  receivedAt      DateTime
+  paymentMethod   String         @db.VarChar(64)
+  referenceNumber String?        @db.VarChar(128)
+  notes           String?        @db.Text
+  source          DonationSource @default(MANUAL)
+  importRowId     String?        @db.Uuid
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  organization Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  donor        Donor              @relation(fields: [donorId], references: [id], onDelete: Cascade)
+  importRow    DonationImportRow? @relation(fields: [importRowId], references: [id], onDelete: SetNull)
+  receipt      DonationReceipt?
+
+  @@index([orgId, receivedAt])
+  @@index([donorId])
+}
+
+model DonationReceipt {
+  id            String        @id @default(uuid()) @db.Uuid
+  orgId         String        @db.Uuid
+  donationId    String        @unique @db.Uuid
+  receiptNumber String        @db.VarChar(64)
+  status        ReceiptStatus @default(DRAFT)
+  issuedAt      DateTime?
+  voidedAt      DateTime?
+  voidReason    String?       @db.Text
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  donation     Donation     @relation(fields: [donationId], references: [id], onDelete: Restrict)
+
+  @@unique([orgId, receiptNumber])
+  @@index([orgId])
+}
+
+model DonationImportBatch {
+  id        String   @id @default(uuid()) @db.Uuid
+  orgId     String   @db.Uuid
+  fileName  String   @db.VarChar(256)
+  rowCount  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  rows         DonationImportRow[]
+
+  @@index([orgId])
+}
+
+model DonationImportRow {
+  id            String   @id @default(uuid()) @db.Uuid
+  orgId         String   @db.Uuid
+  batchId       String   @db.Uuid
+  rawLineNumber Int
+  rawContent    String   @db.Text
+  donorId       String?  @db.Uuid
+  status        String   @db.VarChar(32)
+  errorMessage  String?  @db.Text
+  createdAt     DateTime @default(now())
+
+  organization Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  batch        DonationImportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  donor        Donor?              @relation(fields: [donorId], references: [id], onDelete: SetNull)
+  donations    Donation[]
+
+  @@index([orgId])
+  @@index([batchId])
 }
