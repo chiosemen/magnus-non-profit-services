@@ -58,4 +58,6 @@ jobs:
         run: node scripts/validate-migrations.js
 
       - name: Prisma generate (unified)
+        env:
+          DATABASE_URL: postgresql://user:pass@localhost:5432/magnus_ci_typegen?schema=public
         run: pnpm prisma:generate
