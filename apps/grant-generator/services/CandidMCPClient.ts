@@ -52,7 +52,7 @@ export class CandidMCPClient {
 
       if (!response.ok) return null;
 
-      const data = await response.json();
+      const data = await response.json() as Record<string, any>;
       return {
         ein: data.funder_ein ?? ein,
         name: data.funder_name ?? 'Unknown Funder',
@@ -68,7 +68,7 @@ export class CandidMCPClient {
     }
   }
 
-  async searchOpportunities(params: {
+  async searchOpportunities(_params: {
     nteeCode: string;
     state: string;
     budget: number;
