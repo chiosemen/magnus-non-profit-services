@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "echo 'no tests yet'"
+    "test": "node --test __tests__/*.test.js"
   },
   "dependencies": {
     "@magnus/config": "workspace:*",

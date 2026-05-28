@@ -19,6 +19,7 @@ import { registerOperationsLogRoutes } from './operationsLogRoutes';
 import { registerDonorCrmRoutes } from './donorCrmRoutes';
 import Stripe from 'stripe';
 import { createStripeConnectGateway, registerStripeConnectRoutes } from './stripeConnectRoutes';
+import { registerCampaignRoutes } from './campaignRoutes';
 import prisma from '@magnus/db/client';
 import type { PrismaClient } from '@magnus/db/types';
 import { assertDbShape, MAGNUS_ACCORD_AUTONOMOUS_OPS_SHAPE } from '@magnus/db/types';
@@ -56,6 +57,7 @@ registerVolunteerEventRoutes(app, jwtAuth);
 registerOperationsLogRoutes(app, jwtAuth);
 registerDonorCrmRoutes(app, jwtAuth);
 registerStripeConnectRoutes(app, jwtAuth, { gateway: stripeGateway });
+registerCampaignRoutes(app, jwtAuth);
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
