@@ -354,6 +354,9 @@ importers:
       helmet:
         specifier: ^7.1.0
         version: 7.2.0
+      stripe:
+        specifier: ^16.12.0
+        version: 16.12.0
     devDependencies:
       '@types/cors':
         specifier: ^2.8.17
@@ -2796,6 +2799,10 @@ packages:
 
   stripe@16.10.0:
     resolution: {integrity: sha512-H0qeSCkZVvk4fVchUbg0rNNviwOyw3Rsr9X6MKe84ajBeMz4ogEOZykaUcb/n0GSdvWlXAtbnB1gxl3xOlH+ZA==}
+    engines: {node: '>=12.*'}
+
+  stripe@16.12.0:
+    resolution: {integrity: sha512-H7eFVLDxeTNNSn4JTRfL2//LzCbDrMSZ+2q1c7CanVWgK2qIW5TwS+0V7N9KcKZZNpYh/uCqK0PyZh/2UsaAtQ==}
     engines: {node: '>=12.*'}
 
   styled-jsx@5.1.1:
@@ -5700,6 +5707,11 @@ snapshots:
   strip-json-comments@3.1.1: {}
 
   stripe@16.10.0:
+    dependencies:
+      '@types/node': 22.19.11
+      qs: 6.14.2
+
+  stripe@16.12.0:
     dependencies:
       '@types/node': 22.19.11
       qs: 6.14.2

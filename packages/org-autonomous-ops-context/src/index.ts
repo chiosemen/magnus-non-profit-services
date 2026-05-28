@@ -205,3 +205,16 @@ export type {
   CsvPreviewRow,
   CsvPreviewResult,
 } from './donorCrmService';
+
+export {
+  getStripeConnectStatus,
+  createStripeConnectOnboardingLink,
+  refreshStripeConnectOnboardingLink,
+} from './stripeConnectService';
+export type {
+  StripeConnectAccountSnapshot,
+  StripeConnectGateway,
+  StripeConnectOnboardingLink,
+  StripeConnectStatusDto,
+  StripeConnectLinkDto,
+} from './stripeConnectService';

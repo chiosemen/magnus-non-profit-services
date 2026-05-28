@@ -17,6 +17,8 @@ import { registerDonorEventRoutes } from './donorEventRoutes';
 import { registerVolunteerEventRoutes } from './volunteerEventRoutes';
 import { registerOperationsLogRoutes } from './operationsLogRoutes';
 import { registerDonorCrmRoutes } from './donorCrmRoutes';
+import Stripe from 'stripe';
+import { createStripeConnectGateway, registerStripeConnectRoutes } from './stripeConnectRoutes';
 import prisma from '@magnus/db/client';
 import type { PrismaClient } from '@magnus/db/types';
 import { assertDbShape, MAGNUS_ACCORD_AUTONOMOUS_OPS_SHAPE } from '@magnus/db/types';
@@ -36,6 +38,10 @@ app.use(cors({ origin: false })); // API-first; caller should proxy in productio
 app.use(express.json({ limit: '1mb' }));
 
 const jwtAuth = createJwtAuthMiddleware();
+const stripe = new Stripe(process.env['STRIPE_SECRET_KEY']!, {
+  apiVersion: '2024-06-20' as any,
+});
+const stripeGateway = createStripeConnectGateway(stripe);
 
 registerOrgIdentityFilesRoutes(app, jwtAuth);
 registerAgentHandoffRoutes(app, jwtAuth);
@@ -49,6 +55,7 @@ registerDonorEventRoutes(app, jwtAuth);
 registerVolunteerEventRoutes(app, jwtAuth);
 registerOperationsLogRoutes(app, jwtAuth);
 registerDonorCrmRoutes(app, jwtAuth);
+registerStripeConnectRoutes(app, jwtAuth, { gateway: stripeGateway });
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 

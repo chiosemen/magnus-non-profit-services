@@ -105,6 +105,14 @@ enum ClaudeStatus {
   SUSPENDED
 }
 
+enum StripeConnectOnboardingStatus {
+  NOT_STARTED
+  LINK_CREATED
+  IN_PROGRESS
+  ENABLED
+  RESTRICTED
+}
+
 /// Platform autonomy classification for AgentRun audit (org settings cannot exceed these bounds).
 enum AutonomyTier {
   TIER_A_AUTONOMOUS
@@ -174,6 +182,31 @@ model Organization {
   donationImportBatches         DonationImportBatch[]
   donationImportRows            DonationImportRow[]
   donorNotes                    DonorNote[]
+  stripeConnectAccount          StripeConnectAccount?
+}
+
+model StripeConnectAccount {
+  id                           String                        @id @default(uuid()) @db.Uuid
+  orgId                        String                        @unique @db.Uuid
+  stripeAccountId              String                        @unique
+  onboardingStatus             StripeConnectOnboardingStatus @default(NOT_STARTED)
+  detailsSubmitted             Boolean                       @default(false)
+  chargesEnabled               Boolean                       @default(false)
+  payoutsEnabled               Boolean                       @default(false)
+  requirementsCurrentlyDue     Json?
+  requirementsEventuallyDue    Json?
+  disabledReason               String?
+  country                      String?                       @db.VarChar(2)
+  defaultCurrency              String?                       @db.VarChar(8)
+  onboardingLinkLastCreatedAt  DateTime?
+  onboardingLinkExpiresAt      DateTime?
+  createdAt                    DateTime                      @default(now())
+  updatedAt                    DateTime                      @updatedAt
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([onboardingStatus])
 }
 
 /// Append-only donor gift ledger row (ingested from Stripe, CSV, manual API, etc.).
