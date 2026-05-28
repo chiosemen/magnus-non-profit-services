@@ -113,6 +113,12 @@ enum StripeConnectOnboardingStatus {
   RESTRICTED
 }
 
+enum CampaignStatus {
+  DRAFT
+  LIVE
+  ARCHIVED
+}
+
 /// Platform autonomy classification for AgentRun audit (org settings cannot exceed these bounds).
 enum AutonomyTier {
   TIER_A_AUTONOMOUS
@@ -183,6 +189,7 @@ model Organization {
   donationImportRows            DonationImportRow[]
   donorNotes                    DonorNote[]
   stripeConnectAccount          StripeConnectAccount?
+  campaigns                     Campaign[]
 }
 
 model StripeConnectAccount {
@@ -207,6 +214,29 @@ model StripeConnectAccount {
 
   @@index([orgId])
   @@index([onboardingStatus])
+}
+
+model Campaign {
+  id          String         @id @default(uuid()) @db.Uuid
+  orgId       String         @db.Uuid
+  title       String
+  slug        String
+  description String?
+  status      CampaignStatus @default(DRAFT)
+  goalAmount  Decimal?       @db.Decimal(14, 2)
+  currency    String         @default("USD") @db.VarChar(8)
+  startsAt    DateTime?
+  endsAt      DateTime?
+  publishedAt DateTime?
+  archivedAt  DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, slug])
+  @@index([orgId, status])
+  @@index([orgId, createdAt])
 }
 
 /// Append-only donor gift ledger row (ingested from Stripe, CSV, manual API, etc.).

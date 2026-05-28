@@ -218,3 +218,17 @@ export type {
   StripeConnectStatusDto,
   StripeConnectLinkDto,
 } from './stripeConnectService';
+
+export {
+  listCampaigns,
+  createCampaign,
+  getCampaignById,
+  updateCampaign,
+  publishCampaign,
+  archiveCampaign,
+} from './campaignService';
+export type {
+  CampaignDto,
+  CreateCampaignInput,
+  UpdateCampaignInput,
+} from './campaignService';
