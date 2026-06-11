@@ -69,3 +69,21 @@ test('validateEnv requires JWT_SECRET for mcp-connector', () => {
   );
 });
 
+test('validateEnv requires Stripe Connect vars for org-dashboard-api', () => {
+  withEnv(
+    {
+      DATABASE_URL: 'postgres://localhost/db',
+      JWT_SECRET: 'x'.repeat(32),
+      STRIPE_SECRET_KEY: undefined,
+      STRIPE_CONNECT_RETURN_URL: undefined,
+      STRIPE_CONNECT_REFRESH_URL: undefined,
+    },
+    () => {
+      assert.throws(
+        () => validateEnv('org-dashboard-api'),
+        /STRIPE_SECRET_KEY|STRIPE_CONNECT_RETURN_URL|STRIPE_CONNECT_REFRESH_URL/,
+      );
+    },
+  );
+});
+

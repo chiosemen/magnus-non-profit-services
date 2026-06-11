@@ -195,6 +195,7 @@ export {
   issueReceipt,
   getReceiptMetadata,
   voidReceipt,
+  getReceiptByDonationId,
   previewCsvImport,
   commitCsvImport,
 } from './donorCrmService';
@@ -207,11 +208,34 @@ export type {
 } from './donorCrmService';
 
 export {
+  getStripeConnectStatus,
+  createStripeConnectOnboardingLink,
+  refreshStripeConnectOnboardingLink,
+} from './stripeConnectService';
+export type {
+  StripeConnectAccountSnapshot,
+  StripeConnectGateway,
+  StripeConnectOnboardingLink,
+  StripeConnectStatusDto,
+  StripeConnectLinkDto,
+} from './stripeConnectService';
+
+export {
   listCampaigns,
-  getCampaignDetail,
   createCampaign,
+  getCampaignById,
   updateCampaign,
   publishCampaign,
+  archiveCampaign,
+} from './campaignService';
+export type {
+  CampaignDto,
+  CreateCampaignInput,
+  UpdateCampaignInput,
+} from './campaignService';
+
+export {
+  getCampaignDetail,
   unpublishCampaign,
   createStripeOnboardingLink,
   getStripeAccountStatus,

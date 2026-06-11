@@ -11,6 +11,7 @@ import {
   issueReceipt,
   getReceiptMetadata,
   voidReceipt,
+  getReceiptByDonationId,
   previewCsvImport,
   commitCsvImport,
 } from '@magnus/org-autonomous-ops-context';
@@ -186,6 +187,21 @@ export function registerDonorCrmRoutes(app: Express, jwtAuth: RequestHandler): v
     }
   });
 
+  app.get('/api/org/donations/:id/receipt', jwtAuth, async (req, res, next) => {
+    try {
+      const orgId = (req as any).auth.orgId as string;
+      const donationId = req.params.id;
+
+      const receipt = await getReceiptByDonationId(db, orgId, donationId);
+      return res.json({ receipt });
+    } catch (err: any) {
+      if (err.message === 'RECEIPT_NOT_FOUND') {
+        return res.status(404).json({ error: err.message });
+      }
+      return next(err);
+    }
+  });
+
   app.get('/api/org/receipts/:id', jwtAuth, async (req, res, next) => {
     try {
       const orgId = (req as any).auth.orgId as string;
@@ -228,19 +244,13 @@ export function registerDonorCrmRoutes(app: Express, jwtAuth: RequestHandler): v
       const orgId = (req as any).auth.orgId as string;
       const body = req.body || {};
 
-      if (!body.csvContent || !body.csvContent.trim()) {
+      if (!body.csvContent || typeof body.csvContent !== 'string') {
         return res.status(400).json({ error: 'CSV_CONTENT_REQUIRED' });
       }
 
-      const preview = previewCsvImport(orgId, body.csvContent);
-      return res.json({ preview });
-    } catch (err: any) {
-      if (
-        err.message === 'EMPTY_CSV' ||
-        err.message === 'CSV_MISSING_HEADER_NAME'
-      ) {
-        return res.status(400).json({ error: err.message });
-      }
+      const preview = await previewCsvImport(db, orgId, body.csvContent);
+      return res.json(preview);
+    } catch (err) {
       return next(err);
     }
   });
@@ -250,22 +260,16 @@ export function registerDonorCrmRoutes(app: Express, jwtAuth: RequestHandler): v
       const orgId = (req as any).auth.orgId as string;
       const body = req.body || {};
 
-      if (!body.csvContent || !body.csvContent.trim()) {
+      if (!body.csvContent || typeof body.csvContent !== 'string') {
         return res.status(400).json({ error: 'CSV_CONTENT_REQUIRED' });
       }
-
-      const fileName = body.fileName || 'import.csv';
-
-      const commitResult = await commitCsvImport(db, orgId, body.csvContent, fileName);
-      return res.status(201).json(commitResult);
-    } catch (err: any) {
-      if (
-        err.message === 'EMPTY_CSV' ||
-        err.message === 'CSV_MISSING_HEADER_NAME' ||
-        err.message === 'CSV_VALIDATION_FAILED'
-      ) {
-        return res.status(400).json({ error: err.message });
+      if (!body.fileName || typeof body.fileName !== 'string') {
+        return res.status(400).json({ error: 'FILE_NAME_REQUIRED' });
       }
+
+      const result = await commitCsvImport(db, orgId, body.csvContent, body.fileName);
+      return res.status(201).json(result);
+    } catch (err) {
       return next(err);
     }
   });

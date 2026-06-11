@@ -22,6 +22,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             <Link className="pill" href="/app/autonomous-ops/operations-log">Ops log</Link>
             <Link className="pill" href="/app/autonomous-ops/readiness">Readiness</Link>
             <Link className="pill" href="/app/autonomous-ops/concierge">Concierge</Link>
+            <Link className="pill" href="/app/donors/stripe-connect">Stripe Connect</Link>
             <Link className="pill" href="/">Marketing</Link>
             <Link className="pill" href="/tools">Tools</Link>
             <form action="/api/auth/logout" method="post">
@@ -36,4 +37,3 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     </>
   );
 }
-

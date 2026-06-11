@@ -136,7 +136,7 @@ export async function createDonationCheckoutSession(
       'payment_method_types[0]': 'card',
       'mode': 'payment',
       'line_items[0][price_data][currency]': campaign.currency.toLowerCase(),
-      'line_items[0][price_data][product_data][name]': `Donation to ${campaign.name}`,
+      'line_items[0][price_data][product_data][name]': `Donation to ${campaign.title}`,
       'line_items[0][price_data][unit_amount]': Math.round(grossAmount * 100).toString(),
       'line_items[0][quantity]': '1',
       'customer_email': data.donorEmail,

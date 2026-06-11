@@ -81,11 +81,11 @@ export async function getCampaignDetail(db: PrismaClient, orgId: string, campaig
 export async function createCampaign(
   db: PrismaClient,
   orgId: string,
-  data: { name: string; slug: string; description?: string; goalAmount?: number; currency?: string }
+  data: { title: string; slug: string; description?: string; goalAmount?: number; currency?: string }
 ): Promise<Campaign> {
   if (!orgId) throw new ValidationError('Organization ID is required.');
-  if (!data.name || !data.name.trim()) {
-    throw new ValidationError('Campaign name is required.');
+  if (!data.title || !data.title.trim()) {
+    throw new ValidationError('Campaign title is required.');
   }
   if (!data.slug) {
     throw new ValidationError('Campaign slug is required.');
@@ -105,7 +105,7 @@ export async function createCampaign(
     return await db.campaign.create({
       data: {
         orgId,
-        name: data.name.trim(),
+        title: data.title.trim(),
         slug: sanitizedSlug,
         description: data.description?.trim() || null,
         goalAmount: goal,
@@ -125,7 +125,7 @@ export async function updateCampaign(
   db: PrismaClient,
   orgId: string,
   campaignId: string,
-  data: { name?: string; slug?: string; description?: string; goalAmount?: number | null; currency?: string }
+  data: { title?: string; slug?: string; description?: string; goalAmount?: number | null; currency?: string }
 ): Promise<Campaign> {
   if (!orgId) throw new ValidationError('Organization ID is required.');
   if (!campaignId) throw new ValidationError('Campaign ID is required.');
@@ -133,9 +133,9 @@ export async function updateCampaign(
   const campaign = await getCampaignDetail(db, orgId, campaignId);
 
   const updateData: any = {};
-  if (data.name !== undefined) {
-    if (!data.name.trim()) throw new ValidationError('Campaign name cannot be empty.');
-    updateData.name = data.name.trim();
+  if (data.title !== undefined) {
+    if (!data.title.trim()) throw new ValidationError('Campaign title cannot be empty.');
+    updateData.title = data.title.trim();
   }
 
   if (data.slug !== undefined) {
