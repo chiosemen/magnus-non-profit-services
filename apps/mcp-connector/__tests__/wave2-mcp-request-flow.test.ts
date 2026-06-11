@@ -24,7 +24,14 @@ describe('Wave 2: Full Request-Path MCP Proof', () => {
   process.env.JWT_ISSUER = 'magnus-mcp-connector';
   process.env.JWT_AUDIENCE = 'magnus-nonprofit-os';
 
-  const validToken = jwt.sign({ sub: 'worker-1', orgId: 'org-1' }, secret, {
+  const validToken = jwt.sign({
+    sub: 'worker-1',
+    orgId: 'org-1',
+    email: 'worker@example.com',
+    roles: ['admin'],
+    permissions: ['*'],
+    sessionId: 'session-123'
+  }, secret, {
     issuer: 'magnus-mcp-connector',
     audience: 'magnus-nonprofit-os'
   });

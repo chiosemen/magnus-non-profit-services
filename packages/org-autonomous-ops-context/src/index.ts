@@ -184,3 +184,131 @@ export type {
   OperationsLogRow,
   OperationsLogRowType,
 } from './operationsLog';
+
+export {
+  listDonors,
+  createDonor,
+  updateDonor,
+  getDonorDetail,
+  createManualDonation,
+  listDonations,
+  issueReceipt,
+  getReceiptMetadata,
+  voidReceipt,
+  previewCsvImport,
+  commitCsvImport,
+} from './donorCrmService';
+export type {
+  DonorDto,
+  DonationDto,
+  ReceiptDto,
+  CsvPreviewRow,
+  CsvPreviewResult,
+} from './donorCrmService';
+
+export {
+  listCampaigns,
+  getCampaignDetail,
+  createCampaign,
+  updateCampaign,
+  publishCampaign,
+  unpublishCampaign,
+  createStripeOnboardingLink,
+  getStripeAccountStatus,
+  validateCampaignSlug,
+} from './stripeCampaignService';
+
+export {
+  calculateFeeCoverage,
+  getPublicCampaign,
+  createDonationCheckoutSession,
+  verifyStripeSignature,
+  processWebhookEvent,
+} from './stripePaymentService';
+
+export {
+  createFund,
+  listFunds,
+  updateFund,
+  createAccount,
+  listAccounts,
+  updateAccount,
+  allocateDonation,
+  postLedgerTransaction,
+  getFundBalanceReport,
+  getIncomeExpenseReport,
+  getBoardFinancialSummary,
+} from './fundAccountingService';
+export type {
+  FundDto,
+  AccountDto,
+  LedgerEntryInput,
+  LedgerTransactionInput,
+  FundBalanceReportRow,
+  IncomeExpenseReportRow,
+  BoardFinancialSummary,
+} from './fundAccountingService';
+
+export {
+  createProposal,
+  listProposals,
+  updateProposalStatus,
+  applyProposal,
+  ValidationError as ConciergeValidationError,
+  NotFoundError as ConciergeNotFoundError,
+  ForbiddenError as ConciergeForbiddenError,
+} from './conciergeProposalService';
+export type {
+  CreateProposalInput,
+} from './conciergeProposalService';
+
+export {
+  analyzeLegacyCsvMapping,
+  suggestDonorSegmentation,
+  generateCampaignDraft,
+  generateBoardBriefDraft,
+  suggestComplianceReminders,
+  sanitizeInput,
+  AiConfigError as ConciergeAiConfigError,
+  SecurityError as ConciergeSecurityError,
+} from './conciergeAiService';
+
+export {
+  createGrant,
+  listGrants,
+  getGrant,
+} from './grantService';
+export type { GrantDto } from './grantService';
+
+export {
+  createComplianceDeadline,
+  updateComplianceStatus,
+  listComplianceCalendar,
+} from './complianceService';
+export type { ComplianceDeadlineDto } from './complianceService';
+
+export {
+  buildExecutivePacket,
+} from './executivePacketService';
+export type { ExecutivePacketDto } from './executivePacketService';
+
+export {
+  createVolunteer,
+  listVolunteers,
+  logVolunteerHours,
+  createEvent,
+  listEvents,
+  registerAttendee,
+  createSponsorshipTier,
+} from './volunteerService';
+export type {
+  VolunteerDto,
+  EventDto,
+  EventRegistrationDto,
+  SponsorshipTierDto,
+} from './volunteerService';
+
+export {
+  buildBoardPacket,
+} from './boardPacketService';
+export type { BoardPacketDto } from './boardPacketService';

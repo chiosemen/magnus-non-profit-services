@@ -16,6 +16,10 @@ import { registerObligationRoutes } from './obligationRoutes';
 import { registerDonorEventRoutes } from './donorEventRoutes';
 import { registerVolunteerEventRoutes } from './volunteerEventRoutes';
 import { registerOperationsLogRoutes } from './operationsLogRoutes';
+import { registerDonorCrmRoutes } from './donorCrmRoutes';
+import { registerStripeCampaignRoutes } from './stripeCampaignRoutes';
+import { registerPublicDonationRoutes } from './publicDonationRoutes';
+import { registerFundAccountingRoutes } from './fundAccountingRoutes';
 import prisma from '@magnus/db/client';
 import type { PrismaClient } from '@magnus/db/types';
 import { assertDbShape, MAGNUS_ACCORD_AUTONOMOUS_OPS_SHAPE } from '@magnus/db/types';
@@ -32,7 +36,12 @@ const app = express();
 app.disable('x-powered-by');
 app.use(helmet());
 app.use(cors({ origin: false })); // API-first; caller should proxy in production.
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({
+  limit: '1mb',
+  verify: (req: any, _res: any, buf: Buffer) => {
+    req.rawBody = buf.toString();
+  }
+}));
 
 const jwtAuth = createJwtAuthMiddleware();
 
@@ -47,6 +56,12 @@ registerObligationRoutes(app, jwtAuth);
 registerDonorEventRoutes(app, jwtAuth);
 registerVolunteerEventRoutes(app, jwtAuth);
 registerOperationsLogRoutes(app, jwtAuth);
+registerDonorCrmRoutes(app, jwtAuth);
+registerStripeCampaignRoutes(app, jwtAuth);
+registerPublicDonationRoutes(app);
+registerFundAccountingRoutes(app, jwtAuth);
+import { registerConciergeRoutes } from './conciergeRoutes';
+registerConciergeRoutes(app, jwtAuth);
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
@@ -61,25 +76,18 @@ app.get('/api/org/overview', jwtAuth, async (req, res, next) => {
   }
 });
 
-app.get('/api/org/compliance', jwtAuth, async (req, res, next) => {
-  try {
-    const orgId = (req as any).auth.orgId as string;
-    const items = await getOrgComplianceCalendar(orgId);
-    return res.json({ orgId, complianceCalendar: items });
-  } catch (err) {
-    return next(err);
-  }
-});
+import { registerGrantRoutes } from './grantRoutes';
+import { registerComplianceRoutes } from './complianceRoutes';
+import { registerExecutivePacketRoutes } from './executivePacketRoutes';
+import { registerVolunteerRoutes } from './volunteerRoutes';
+import { registerBoardPacketRoutes } from './boardPacketRoutes';
 
-app.get('/api/org/grants', jwtAuth, async (req, res, next) => {
-  try {
-    const orgId = (req as any).auth.orgId as string;
-    const items = await getOrgGrants(orgId);
-    return res.json({ orgId, grants: items });
-  } catch (err) {
-    return next(err);
-  }
-});
+registerGrantRoutes(app, jwtAuth);
+registerComplianceRoutes(app, jwtAuth);
+registerExecutivePacketRoutes(app, jwtAuth);
+registerVolunteerRoutes(app, jwtAuth);
+registerBoardPacketRoutes(app, jwtAuth);
+
 
 // Generic error handler: keep output stable and avoid leaking internals.
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {

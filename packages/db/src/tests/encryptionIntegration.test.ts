@@ -118,6 +118,7 @@ async function canConnectToDb(): Promise<boolean> {
         name: 'Test Org Encryption',
         ein: testEIN,
         plaidAccessToken: testToken,
+        subscriptionTier: 'STARTER',
       },
     });
 

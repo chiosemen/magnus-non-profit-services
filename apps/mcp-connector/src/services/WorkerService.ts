@@ -164,13 +164,24 @@ export class WorkerService {
   // ─── Private ─────────────────────────────────────────────────────────────────
 
   private async getOrgsForUser(userId: string, filterEINs?: string[]): Promise<OrgProfile[]> {
-    // Queries Prisma securely and deterministically
-    const relationships = await prisma.workerOrgRelationship.findMany({
-       where: { workerId: userId },
-       include: {
-         organization: true
-       }
-    });
+    let relationships: any[] = [];
+    try {
+      // Queries Prisma securely and deterministically
+      relationships = await prisma.workerOrgRelationship.findMany({
+         where: { workerId: userId },
+         include: {
+           organization: true
+         }
+      });
+    } catch (error: any) {
+      // If PostgreSQL throws a UUID format error (Prisma P2023 or database error)
+      // we treat it as no organization relationships found.
+      if (error.code === 'P2023' || error.message?.includes('UUID')) {
+        relationships = [];
+      } else {
+        throw error;
+      }
+    }
 
     const mappedOrgs: OrgProfile[] = relationships.map(rel => {
       const dbOrg = rel.organization;

@@ -25,3 +25,5 @@ if (process.env['NODE_ENV'] !== 'production') {
 
 export default prisma;
 
+export { encryptValue, decryptValue, isEncrypted } from './encryptionExtension';
+

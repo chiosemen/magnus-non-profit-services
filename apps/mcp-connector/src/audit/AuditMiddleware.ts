@@ -30,20 +30,45 @@ export function auditMiddleware(req: Request, res: Response, next: NextFunction)
 
   // Intercept response to log result
   const originalJson = res.json.bind(res);
+  const originalSend = res.send.bind(res);
+  let logged = false;
+
   res.json = function (body: unknown) {
-    const duration = Date.now() - startTime;
-    logger.logToolResult({
-      toolName,
-      userId,
-      orgId,
-      success: res.statusCode < 400,
-      statusCode: res.statusCode,
-      durationMs: duration,
-      timestamp: new Date(),
-      requestId: req.headers['x-request-id'] as string ?? `req_${Date.now()}`,
-      resultSummary: res.statusCode < 400 ? 'Success' : String((body as Record<string, unknown>)?.error ?? 'Error'),
-    }).catch(console.error);
+    if (!logged) {
+      logged = true;
+      const duration = Date.now() - startTime;
+      logger.logToolResult({
+        toolName,
+        userId,
+        orgId,
+        success: res.statusCode < 400,
+        statusCode: res.statusCode,
+        durationMs: duration,
+        timestamp: new Date(),
+        requestId: req.headers['x-request-id'] as string ?? `req_${Date.now()}`,
+        resultSummary: res.statusCode < 400 ? 'Success' : String((body as Record<string, unknown>)?.error ?? 'Error'),
+      }).catch(console.error);
+    }
     return originalJson(body);
+  };
+
+  res.send = function (body: unknown) {
+    if (!logged) {
+      logged = true;
+      const duration = Date.now() - startTime;
+      logger.logToolResult({
+        toolName,
+        userId,
+        orgId,
+        success: res.statusCode < 400,
+        statusCode: res.statusCode,
+        durationMs: duration,
+        timestamp: new Date(),
+        requestId: req.headers['x-request-id'] as string ?? `req_${Date.now()}`,
+        resultSummary: res.statusCode < 400 ? 'Success' : 'Error',
+      }).catch(console.error);
+    }
+    return originalSend(body);
   };
 
   next();

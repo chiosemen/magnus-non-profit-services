@@ -30,6 +30,26 @@ const billingSchema = baseServiceSchema.extend({
   STRIPE_SECRET_KEY: nonEmpty,
 });
 
+const orgDashboardApiSchema = baseServiceSchema.extend({
+  STRIPE_SECRET_KEY: z.preprocess((val) => {
+    if (process.env.NODE_ENV === 'production') return val;
+    return val || 'dev_stripe_secret_key';
+  }, nonEmpty),
+  STRIPE_WEBHOOK_SECRET: z.preprocess((val) => {
+    if (process.env.NODE_ENV === 'production') return val;
+    return val || 'dev_stripe_webhook_secret';
+  }, nonEmpty),
+  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.preprocess((val) => {
+    if (process.env.NODE_ENV === 'production') return val;
+    return val || 'dev_stripe_publishable_key';
+  }, nonEmpty),
+  NEXT_PUBLIC_APP_URL: z.preprocess((val) => {
+    if (process.env.NODE_ENV === 'production') return val;
+    return val || 'http://localhost:3000';
+  }, nonEmpty),
+  STRIPE_CONNECT_CLIENT_ID: nonEmpty.optional(),
+});
+
 const claudePartnerSchema = baseServiceSchema.extend({
   ANTHROPIC_API_KEY: nonEmpty,
 });
@@ -62,7 +82,7 @@ type EnvByService = {
   'claude-partner': z.infer<typeof claudePartnerSchema>;
   'grant-generator': z.infer<typeof grantGeneratorSchema>;
   'mcp-connector': z.infer<typeof mcpConnectorSchema>;
-  'org-dashboard-api': z.infer<typeof baseServiceSchema>;
+  'org-dashboard-api': z.infer<typeof orgDashboardApiSchema>;
   'worker-financial-layer': z.infer<typeof baseServiceSchema>;
 };
 
@@ -73,7 +93,7 @@ export function getEnv<S extends EnvServiceName>(service: S): EnvByService[S] {
     'claude-partner': claudePartnerSchema,
     'grant-generator': grantGeneratorSchema,
     'mcp-connector': mcpConnectorSchema,
-    'org-dashboard-api': baseServiceSchema,
+    'org-dashboard-api': orgDashboardApiSchema,
     'worker-financial-layer': baseServiceSchema,
   };
 
@@ -98,7 +118,7 @@ export function validateEnv(service: EnvServiceName): void {
     'claude-partner': claudePartnerSchema,
     'grant-generator': grantGeneratorSchema,
     'mcp-connector': mcpConnectorSchema,
-    'org-dashboard-api': baseServiceSchema,
+    'org-dashboard-api': orgDashboardApiSchema,
     'worker-financial-layer': baseServiceSchema,
   };
 

@@ -93,6 +93,7 @@ export const serverEnvSchema = z.object({
 
   STRIPE_SECRET_KEY: nonEmpty.optional(),
   STRIPE_WEBHOOK_SECRET: nonEmpty.optional(),
+  STRIPE_CONNECT_CLIENT_ID: nonEmpty.optional(),
   STRIPE_PRICE_ID_STARTER: nonEmpty.optional(),
   STRIPE_PRICE_ID_GROWTH: nonEmpty.optional(),
   STRIPE_PRICE_ID_ENTERPRISE: nonEmpty.optional(),
@@ -159,6 +160,11 @@ const serviceSchemas: Record<EnvServiceName, z.ZodTypeAny> = {
     JWT_SECRET: true,
     NODE_ENV: true,
     PORT: true,
+    STRIPE_SECRET_KEY: true,
+    STRIPE_WEBHOOK_SECRET: true,
+    STRIPE_CONNECT_CLIENT_ID: true,
+    NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: true,
+    NEXT_PUBLIC_APP_URL: true,
   }),
   'worker-financial-layer': allEnvSchema.pick({
     DATABASE_URL: true,

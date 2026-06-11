@@ -166,6 +166,28 @@ model Organization {
   autonomousOpsSettings         OrgAutonomousOpsSettings?
   donorEvents                   DonorEvent[]
   volunteerEvents               VolunteerEvent[]
+
+  // S4NP Vertical Models
+  donors                        Donor[]
+  donations                     Donation[]
+  donationReceipts              DonationReceipt[]
+  donationImportBatches         DonationImportBatch[]
+  donationImportRows            DonationImportRow[]
+  donorNotes                    DonorNote[]
+  stripeConnectAccount          StripeConnectAccount?
+  campaigns                     Campaign[]
+
+  // S4NP Phase 3 Fund Accounting Vertical
+  funds                         Fund[]
+  accounts                      Account[]
+  ledgerTransactions            LedgerTransaction[]
+  ledgerEntries                 LedgerEntry[]
+  donationAllocations           DonationAllocation[]
+  conciergeProposals            ConciergeProposal[]
+  volunteers                    Volunteer[]
+  events                        Event[]
+  eventRegistrations            EventRegistration[]
+  sponsorshipTiers              SponsorshipTier[]
 }
 
 /// Append-only donor gift ledger row (ingested from Stripe, CSV, manual API, etc.).
@@ -198,8 +220,12 @@ model VolunteerEvent {
   sourceRef      String   @db.VarChar(512)
   raw            Json?
   createdAt      DateTime @default(now())
+  volunteerId    String?  @db.Uuid
+  eventId        String?  @db.Uuid
 
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  volunteer    Volunteer?   @relation(fields: [volunteerId], references: [id])
+  event        Event?       @relation(fields: [eventId], references: [id])
 
   @@unique([orgId, sourceSystem, sourceRef])
   @@index([orgId, occurredAt])
@@ -371,6 +397,7 @@ model AgentRun {
   handoffs                   AgentHandoff[]
   agentOperationalMemories   AgentOperationalMemoryEntry[]
   relatedAlerts              Alert[] @relation("AlertRelatedAgentRun")
+  conciergeProposals          ConciergeProposal[]
 
   @@index([agentName, scopeType, scopeId])
   @@index([windowEnd])
@@ -589,3 +616,441 @@ model ClaudeUsageLog {
   @@index([orgId, timestamp])
   @@index([orgId, promptType, timestamp])
 }
+
+// ─── S4NP Vertical Models ────────────────────────────────────────────────────
+
+enum DonorType {
+  INDIVIDUAL
+  ORGANIZATION
+}
+
+enum DonationSource {
+  MANUAL
+  CSV_IMPORT
+  FUTURE_STRIPE
+  STRIPE
+  OTHER
+}
+
+enum ReceiptStatus {
+  DRAFT
+  ISSUED
+  VOIDED
+}
+
+model Donor {
+  id           String       @id @default(uuid()) @db.Uuid
+  orgId        String       @db.Uuid
+  donorType    DonorType    @default(INDIVIDUAL)
+  name         String       @db.VarChar(256)
+  email        String?      @db.VarChar(256) // Optional but normalized if present
+  phone        String?      @db.VarChar(64)
+  addressJson  String?      @db.Text         // Encrypted address JSON
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  donations    Donation[]
+  donorNotes   DonorNote[]
+  importRows   DonationImportRow[]
+  volunteers   Volunteer[]
+
+  // Email is optional but must be unique per org if present.
+  @@unique([orgId, email])
+  @@index([orgId])
+}
+
+model DonorNote {
+  id           String       @id @default(uuid()) @db.Uuid
+  orgId        String       @db.Uuid
+  donorId      String       @db.Uuid
+  body         String       @db.Text
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  donor        Donor        @relation(fields: [donorId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([donorId])
+}
+
+model Donation {
+  id                      String             @id @default(uuid()) @db.Uuid
+  orgId                   String             @db.Uuid
+  donorId                 String             @db.Uuid
+  campaignId              String?            @db.Uuid
+  amount                  Decimal            @db.Decimal(12, 2)
+  feeCovered              Decimal            @default(0.00) @db.Decimal(12, 2)
+  currency                String             @default("USD") @db.VarChar(8)
+  receivedAt              DateTime
+  paymentMethod           String             @db.VarChar(64) // MANUAL, Stripe, wire, etc.
+  referenceNumber         String?            @db.VarChar(128)
+  notes                   String?            @db.Text
+  source                  DonationSource     @default(MANUAL)
+  importRowId             String?            @db.Uuid
+  stripePaymentIntentId   String?            @unique @db.VarChar(256)
+  stripeCheckoutSessionId String?            @unique @db.VarChar(256)
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
+
+  organization            Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  donor                   Donor              @relation(fields: [donorId], references: [id], onDelete: Cascade)
+  campaign                Campaign?          @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  importRow               DonationImportRow? @relation(fields: [importRowId], references: [id], onDelete: SetNull)
+  receipt                 DonationReceipt?
+  allocations             DonationAllocation[]
+
+  @@index([orgId, receivedAt])
+  @@index([donorId])
+  @@index([campaignId])
+}
+
+model DonationReceipt {
+  id             String        @id @default(uuid()) @db.Uuid
+  orgId          String        @db.Uuid
+  donationId     String        @unique @db.Uuid
+  receiptNumber  String        @db.VarChar(64)
+  status         ReceiptStatus @default(DRAFT)
+  issuedAt       DateTime?
+  voidedAt       DateTime?
+  voidReason     String?       @db.Text
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  organization   Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  donation       Donation      @relation(fields: [donationId], references: [id], onDelete: Restrict) // Donation cannot be physically deleted if receipt exists
+
+  @@unique([orgId, receiptNumber])
+  @@index([orgId])
+}
+
+model DonationImportBatch {
+  id             String              @id @default(uuid()) @db.Uuid
+  orgId          String              @db.Uuid
+  fileName       String              @db.VarChar(256)
+  rowCount       Int
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  organization   Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  rows           DonationImportRow[]
+
+  @@index([orgId])
+}
+
+model DonationImportRow {
+  id             String              @id @default(uuid()) @db.Uuid
+  orgId          String              @db.Uuid
+  batchId        String              @db.Uuid
+  rawLineNumber  Int
+  rawContent     String              @db.Text
+  donorId        String?             @db.Uuid // Set if matched/created donor
+  status         String              @db.VarChar(32) // PENDING, SUCCESS, ERROR
+  errorMessage   String?             @db.Text
+  createdAt      DateTime            @default(now())
+
+  organization   Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  batch          DonationImportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  donor          Donor?              @relation(fields: [donorId], references: [id], onDelete: SetNull)
+  donations      Donation[]
+
+  @@index([orgId])
+  @@index([batchId])
+}
+
+enum CampaignStatus {
+  DRAFT
+  LIVE
+  ARCHIVED
+}
+
+model StripeConnectAccount {
+  id              String       @id @default(uuid()) @db.Uuid
+  orgId           String       @unique @db.Uuid
+  stripeAccountId String       @unique @db.VarChar(255)
+  chargesEnabled  Boolean      @default(false)
+  payoutsEnabled  Boolean      @default(false)
+  detailsSubmitted Boolean     @default(false)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  organization    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+}
+
+model Campaign {
+  id           String         @id @default(uuid()) @db.Uuid
+  orgId        String         @db.Uuid
+  name         String         @db.VarChar(256)
+  slug         String         @unique @db.VarChar(256)
+  description  String?        @db.Text
+  goalAmount   Decimal?       @db.Decimal(12, 2)
+  currency     String         @default("USD") @db.VarChar(8)
+  status       CampaignStatus @default(DRAFT)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  organization Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  donations    Donation[]
+  intents      CampaignDonationIntent[]
+  events       Event[]
+  sponsorshipTiers SponsorshipTier[]
+
+  @@index([orgId])
+  @@index([slug])
+}
+
+model CampaignDonationIntent {
+  id                      String   @id @default(uuid()) @db.Uuid
+  orgId                   String   @db.Uuid
+  campaignId              String   @db.Uuid
+  stripeCheckoutSessionId String   @unique @db.VarChar(256)
+  amount                  Decimal  @db.Decimal(12, 2)
+  feeCovered              Decimal  @default(0.00) @db.Decimal(12, 2)
+  currency                String   @default("USD") @db.VarChar(8)
+  donorEmail              String   @db.VarChar(256)
+  donorName               String   @db.VarChar(256)
+  status                  String   @db.VarChar(32) // PENDING, COMPLETED, FAILED
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  campaign                Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([campaignId])
+}
+
+model StripeWebhookEvent {
+  id         String   @id @default(uuid()) @db.Uuid
+  eventId    String   @unique @db.VarChar(256)
+  processed  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+}
+
+enum FundType {
+  RESTRICTED
+  UNRESTRICTED
+}
+
+enum AccountType {
+  ASSET
+  LIABILITY
+  FUND_BALANCE
+  REVENUE
+  EXPENSE
+}
+
+model Fund {
+  id          String       @id @default(uuid()) @db.Uuid
+  orgId       String       @db.Uuid
+  name        String       @db.VarChar(256)
+  code        String       @db.VarChar(64)
+  type        FundType     @default(UNRESTRICTED)
+  description String?      @db.Text
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  ledgerLines  LedgerEntry[]
+  allocations  DonationAllocation[]
+
+  @@unique([orgId, code])
+  @@index([orgId])
+}
+
+model Account {
+  id          String       @id @default(uuid()) @db.Uuid
+  orgId       String       @db.Uuid
+  name        String       @db.VarChar(256)
+  code        String       @db.VarChar(64)
+  type        AccountType
+  parentId    String?      @db.Uuid
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  parent      Account?     @relation("AccountHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children    Account[]    @relation("AccountHierarchy")
+  ledgerLines LedgerEntry[]
+
+  @@unique([orgId, code])
+  @@index([orgId])
+}
+
+model LedgerTransaction {
+  id          String        @id @default(uuid()) @db.Uuid
+  orgId       String        @db.Uuid
+  date        DateTime
+  description String        @db.Text
+  postedBy    String        @db.VarChar(128)
+  approvedBy  String?       @db.VarChar(128)
+  reversalOfId String?      @unique @db.Uuid
+  createdAt   DateTime      @default(now())
+
+  organization Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  reversalOf   LedgerTransaction? @relation("TransactionReversals", fields: [reversalOfId], references: [id], onDelete: SetNull)
+  reversedBy   LedgerTransaction? @relation("TransactionReversals")
+  lines        LedgerEntry[]
+
+  @@index([orgId])
+  @@index([date])
+}
+
+model LedgerEntry {
+  id            String            @id @default(uuid()) @db.Uuid
+  orgId         String            @db.Uuid
+  transactionId String            @db.Uuid
+  accountId     String            @db.Uuid
+  fundId        String            @db.Uuid
+  debit         Decimal           @default(0.00) @db.Decimal(12, 2)
+  credit        Decimal           @default(0.00) @db.Decimal(12, 2)
+  createdAt     DateTime          @default(now())
+
+  organization  Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  transaction   LedgerTransaction @relation(fields: [transactionId], references: [id], onDelete: Restrict)
+  account       Account           @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  fund          Fund              @relation(fields: [fundId], references: [id], onDelete: Restrict)
+
+  @@index([orgId])
+  @@index([transactionId])
+  @@index([accountId])
+  @@index([fundId])
+}
+
+model DonationAllocation {
+  id         String   @id @default(uuid()) @db.Uuid
+  orgId      String   @db.Uuid
+  donationId String   @db.Uuid
+  fundId     String   @db.Uuid
+  amount     Decimal  @db.Decimal(12, 2)
+  createdAt  DateTime @default(now())
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  donation   Donation   @relation(fields: [donationId], references: [id], onDelete: Restrict)
+  fund       Fund       @relation(fields: [fundId], references: [id], onDelete: Restrict)
+
+  @@index([orgId])
+  @@index([donationId])
+  @@index([fundId])
+}
+
+enum ConciergeProposalStatus {
+  DRAFT
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+  APPLIED
+}
+
+enum ConciergeProposalType {
+  LEGACY_IMPORT_MAP
+  DONOR_SEGMENT
+  CAMPAIGN_DRAFT
+  BOARD_BRIEF
+  COMPLIANCE_REMINDER
+  ACCOUNT_MAPPING
+}
+
+model ConciergeProposal {
+  id                String                  @id @default(uuid()) @db.Uuid
+  orgId             String                  @db.Uuid
+  type              ConciergeProposalType
+  status            ConciergeProposalStatus @default(PENDING_REVIEW)
+  confidence        Float
+  payload           Json
+  sourceRef         String?                 @db.VarChar(512)
+  createdByAgent    String?                 @db.VarChar(128)
+  reviewedByUser    String?                 @db.VarChar(128)
+  reviewedAt        DateTime?
+  relatedAgentRunId String?                 @db.Uuid
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  appliedAt         DateTime?
+  appliedBy         String?                 @db.VarChar(128)
+
+  organization    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  relatedAgentRun AgentRun?    @relation(fields: [relatedAgentRunId], references: [id], onDelete: SetNull)
+
+  @@index([orgId])
+  @@index([status])
+  @@index([type])
+}
+
+enum EventRegistrationStatus {
+  REGISTERED
+  ATTENDED
+  CANCELLED
+}
+
+model Volunteer {
+  id          String   @id @default(uuid()) @db.Uuid
+  orgId       String   @db.Uuid
+  name        String   @db.VarChar(256)
+  email       String?  @db.VarChar(256)
+  phone       String?  @db.VarChar(64)
+  donorId     String?  @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  organization       Organization         @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  donor              Donor?               @relation(fields: [donorId], references: [id], onDelete: SetNull)
+  volunteerEvents    VolunteerEvent[]
+  eventRegistrations EventRegistration[]
+
+  @@unique([orgId, email])
+  @@index([orgId])
+}
+
+model Event {
+  id          String   @id @default(uuid()) @db.Uuid
+  orgId       String   @db.Uuid
+  name        String   @db.VarChar(256)
+  description String?  @db.Text
+  startDate   DateTime
+  endDate     DateTime
+  campaignId  String?  @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  organization       Organization         @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  campaign           Campaign?            @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  volunteerEvents    VolunteerEvent[]
+  eventRegistrations EventRegistration[]
+
+  @@index([orgId])
+}
+
+model EventRegistration {
+  id          String                  @id @default(uuid()) @db.Uuid
+  orgId       String                  @db.Uuid
+  eventId     String                  @db.Uuid
+  volunteerId String                  @db.Uuid
+  status      EventRegistrationStatus @default(REGISTERED)
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  event        Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  volunteer    Volunteer    @relation(fields: [volunteerId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, eventId, volunteerId])
+  @@index([orgId])
+}
+
+model SponsorshipTier {
+  id          String   @id @default(uuid()) @db.Uuid
+  orgId       String   @db.Uuid
+  campaignId  String   @db.Uuid
+  name        String   @db.VarChar(256)
+  amount      Decimal  @db.Decimal(12, 2)
+  description String?  @db.Text
+  createdAt   DateTime @default(now())
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  campaign     Campaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+}
+

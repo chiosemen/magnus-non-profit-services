@@ -1,0 +1,109 @@
+{
+  "boardPacket": {
+    "orgId": "11111111-2222-3333-4444-555555555555",
+    "asOfIso": "2026-05-28T12:00:00.000Z",
+    "executiveSummary": {
+      "title": "Board Packet — Green Peace Foundation",
+      "generatedAt": "5/28/2026, 12:00:00 PM",
+      "description": "Deterministic rollup briefing of all operations and financials for the board of Directors."
+    },
+    "financialSummary": {
+      "activeSentinelAlertsCount": 0,
+      "financialReportStatus": "STABLE",
+      "netChange": 2500.00
+    },
+    "fundBalanceSummary": [
+      {
+        "fundName": "General Fund",
+        "restrictedStatus": "UNRESTRICTED",
+        "openingBalance": 10000.00,
+        "revenue": 2500.00,
+        "expenses": 0.00,
+        "netChange": 2500.00,
+        "currentBalance": 12500.00
+      }
+    ],
+    "campaignPerformance": [
+      {
+        "id": "aaaa-bbbb-cccc",
+        "name": "Summer Gala 2026",
+        "slug": "gala-2026",
+        "status": "LIVE",
+        "goalAmount": 50000,
+        "totalRaised": 2500,
+        "donationsCount": 1
+      }
+    ],
+    "donorActivity": {
+      "totalDonorsCount": 1,
+      "totalDonationsCount": 1,
+      "totalDonationsAmount": 2500,
+      "averageDonationAmount": 2500
+    },
+    "grantMilestones": [
+      {
+        "id": "xxxx-yyyy-zzzz",
+        "funderName": "Bill Gates Foundation",
+        "totalAmount": 100000,
+        "spentToDate": 25000,
+        "startDate": "2026-01-01T00:00:00.000Z",
+        "endDate": "2026-12-31T00:00:00.000Z",
+        "percentSpent": 25
+      }
+    ],
+    "complianceObligations": {
+      "totalDeadlinesCount": 3,
+      "pendingCount": 1,
+      "inProgressCount": 1,
+      "filedCount": 1,
+      "deadlines": [
+        {
+          "id": "d1-uuid",
+          "deadlineType": "FORM_990",
+          "dueDateIso": "2026-05-15T00:00:00.000Z",
+          "status": "FILED"
+        },
+        {
+          "id": "d2-uuid",
+          "deadlineType": "STATE_REGISTRATION",
+          "dueDateIso": "2026-07-31T00:00:00.000Z",
+          "status": "IN_PROGRESS"
+        },
+        {
+          "id": "d3-uuid",
+          "deadlineType": "GRANT_REPORT",
+          "dueDateIso": "2026-12-31T00:00:00.000Z",
+          "status": "PENDING"
+        }
+      ]
+    },
+    "volunteerEventImpact": {
+      "totalVolunteersCount": 5,
+      "totalHoursLogged": 32.5,
+      "totalEventsCount": 3,
+      "totalRegistrationsCount": 8
+    },
+    "openRisksAndAlerts": [],
+    "recommendedBoardActions": [
+      {
+        "id": "h1-uuid",
+        "fromAgentName": "FinancialSentinel",
+        "title": "Approve Q1 Financial Handoff",
+        "body": "Financial logs compiled and ready for treasurer sign-off.",
+        "requiresHumanReview": true
+      }
+    ],
+    "appendixAuditReferences": {
+      "details": "Audit logs, ledger transaction identifiers, and evidence reference indexing.",
+      "sourceReferences": [
+        "campaign:aaaa-bbbb-cccc",
+        "grant:xxxx-yyyy-zzzz",
+        "handoff:h1-uuid"
+      ]
+    },
+    "aiNarrative": {
+      "content": "[AI GENERATED BRIEFING DRAFT - FOR HUMAN REVIEW ONLY]\nConfidence: 94%\n\nWe are growing steadily. Gala campaign raised 5% of its goal in the first week.",
+      "status": "ENABLED_DRAFT"
+    }
+  }
+}
