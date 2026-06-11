@@ -27,6 +27,18 @@ export function encryptValue(text: string): string {
   return `${iv.toString('hex')}:${authTag}:${encrypted}`;
 }
 
+// Detects if a string matches the iv:authTag:cipher format
+export function isEncrypted(value: string | null | undefined): boolean {
+  if (!value) return false;
+  const parts = value.split(':');
+  if (parts.length !== 3) return false;
+  const [iv, authTag, cipher] = parts;
+  if (!iv || !authTag || !cipher) return false;
+  // Basic hex validation
+  const hexHex = /^[0-9a-f]+$/i;
+  return hexHex.test(iv) && hexHex.test(authTag) && hexHex.test(cipher);
+}
+
 export function decryptValue(encryptedValue: string): string {
   if (!encryptedValue.includes(':')) {
     // Return raw if it doesn't match our format (e.g., legacy plaintext)

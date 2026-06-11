@@ -61,3 +61,14 @@ jobs:
         env:
           DATABASE_URL: postgresql://user:pass@localhost:5432/magnus_ci_typegen?schema=public
         run: pnpm prisma:generate
+
+  docker-check:
+    name: Docker Build Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build MCP Connector Image
+        run: |
+          docker build -t mcp-connector:test -f apps/mcp-connector/Dockerfile .

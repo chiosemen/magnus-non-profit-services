@@ -1,7 +1,6 @@
 import { PrismaClient, DonorType, DonationSource, ReceiptStatus } from '@magnus/db/types';
 import { Prisma as PrismaRuntime } from '@magnus/db/types';
-import { encryptValue, decryptValue } from '@magnus/db/client';
-import crypto from 'crypto';
+import { encryptValue, decryptValue } from '@magnus/db';
 
 export type DonorDto = {
   id: string;
@@ -476,13 +475,23 @@ export async function getReceiptMetadata(db: PrismaClient, orgId: string, receip
   };
 }
 
-export async function getReceiptByDonationId(db: PrismaClient, orgId: string, donationId: string): Promise<ReceiptDto> {
+export async function voidReceipt(db: PrismaClient, orgId: string, receiptId: string, reason: string): Promise<ReceiptDto> {
   if (!orgId) throw new Error('ORG_CONTEXT_REQUIRED');
-  if (!donationId) throw new Error('DONATION_ID_REQUIRED');
-  const row = await db.donationReceipt.findFirst({
-    where: { donationId, orgId },
+  if (!reason || !reason.trim()) throw new Error('VOID_REASON_REQUIRED');
+
+  const existing = await db.donationReceipt.findFirst({
+    where: { id: receiptId, orgId },
   });
-  if (!row) throw new Error('RECEIPT_NOT_FOUND');
+  if (!existing) throw new Error('RECEIPT_NOT_FOUND');
+
+  const row = await db.donationReceipt.update({
+    where: { id: receiptId },
+    data: {
+      status: ReceiptStatus.VOIDED,
+      voidedAt: new Date(),
+      voidReason: sanitizeFormula(reason),
+    },
+  });
 
   return {
     id: row.id,
@@ -499,6 +508,8 @@ export async function getReceiptByDonationId(db: PrismaClient, orgId: string, do
 }
 
 // ─── CSV Import Implementation ───────────────────────────────────────────────
+
+import crypto from 'crypto';
 
 function parseCsv(content: string): string[][] {
   const lines: string[][] = [];

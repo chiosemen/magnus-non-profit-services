@@ -18,6 +18,17 @@ import getStateRegistrations from './tools/compliance/get-state-registrations';
 import getIncomeSummary from './tools/workers/get-income-summary';
 import getTaxEstimates from './tools/workers/get-tax-estimates';
 
+// Import nonprofit tools
+import getDonorSummary from './tools/nonprofit/get-donor-summary';
+import listDonations from './tools/nonprofit/list-donations';
+import getReceiptStatus from './tools/nonprofit/get-receipt-status';
+import getCampaignPerformance from './tools/nonprofit/get-campaign-performance';
+import getFundBalances from './tools/nonprofit/get-fund-balances';
+import getIncomeExpenseSummary from './tools/nonprofit/get-income-expense-summary';
+import draftBoardPacket from './tools/nonprofit/draft-board-packet';
+import listVolunteerHours from './tools/nonprofit/list-volunteer-hours';
+import listConciergeProposals from './tools/nonprofit/list-concierge-proposals';
+
 const tools = [
   getMultiOrgProfile,
   getRevenueBreakdown,
@@ -28,6 +39,17 @@ const tools = [
   getStateRegistrations,
   getIncomeSummary,
   getTaxEstimates,
+
+  // Nonprofit tools
+  getDonorSummary,
+  listDonations,
+  getReceiptStatus,
+  getCampaignPerformance,
+  getFundBalances,
+  getIncomeExpenseSummary,
+  draftBoardPacket,
+  listVolunteerHours,
+  listConciergeProposals,
 ];
 
 const toolMap = new Map(tools.map(t => [t.name, t]));
@@ -143,6 +165,13 @@ app.post('/tools/execute', async (req: Request, res: Response) => {
     // Tools return stringified json.
     res.type('json').send(result);
   } catch (err: any) {
+    if (process.env.SENTRY_DSN) {
+      console.error(JSON.stringify({
+        level: 'error', type: 'sentry_emulation_event_mcp',
+        message: err.message, stack: err.stack,
+        context: { toolName, userId }
+      }));
+    }
     console.error(`[Tool Execution] Error executing tool ${toolName}:`, err);
     res.status(500).json({ error: err.message || 'Internal Tool Error' });
   }

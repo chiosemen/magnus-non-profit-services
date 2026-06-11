@@ -31,7 +31,23 @@ const billingSchema = baseServiceSchema.extend({
 });
 
 const orgDashboardApiSchema = baseServiceSchema.extend({
-  STRIPE_SECRET_KEY: nonEmpty,
+  STRIPE_SECRET_KEY: z.preprocess((val) => {
+    if (process.env.NODE_ENV === 'production') return val;
+    return val || 'dev_stripe_secret_key';
+  }, nonEmpty),
+  STRIPE_WEBHOOK_SECRET: z.preprocess((val) => {
+    if (process.env.NODE_ENV === 'production') return val;
+    return val || 'dev_stripe_webhook_secret';
+  }, nonEmpty),
+  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.preprocess((val) => {
+    if (process.env.NODE_ENV === 'production') return val;
+    return val || 'dev_stripe_publishable_key';
+  }, nonEmpty),
+  NEXT_PUBLIC_APP_URL: z.preprocess((val) => {
+    if (process.env.NODE_ENV === 'production') return val;
+    return val || 'http://localhost:3000';
+  }, nonEmpty),
+  STRIPE_CONNECT_CLIENT_ID: nonEmpty.optional(),
   STRIPE_CONNECT_RETURN_URL: z.string().trim().url(),
   STRIPE_CONNECT_REFRESH_URL: z.string().trim().url(),
 });
@@ -52,6 +68,9 @@ const grantGeneratorSchema = z.object({
   ANTHROPIC_MAX_TOKENS: numeric.optional(),
   MAX_RETRIES: numeric.optional(),
   RETRY_DELAY_MS: numeric.optional(),
+  JWT_SECRET: nonEmpty.min(32),
+  JWT_ISSUER: nonEmpty.optional(),
+  JWT_AUDIENCE: nonEmpty.optional(),
   MCP_CONNECTOR_URL: nonEmpty.optional(),
 });
 

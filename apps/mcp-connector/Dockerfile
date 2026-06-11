@@ -1,26 +1,34 @@
 # Magnus MCP Connector — Production Dockerfile
-# Multi-stage build: build → production
+# Optimized for pnpm monorepo structure
 
-# ─── Stage 1: Build ───────────────────────────────────────────────────────────
-FROM node:20-alpine AS builder
+# ─── Stage 1: Base ───────────────────────────────────────────────────────────
+FROM node:20.12.2-alpine3.18 AS base
+
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
-COPY tsconfig.json ./
+# ─── Stage 2: Builder ─────────────────────────────────────────────────────────
+FROM base AS builder
 
-# Install ALL dependencies (including dev for build)
-RUN npm ci
+# Copy workspace configuration and lockfile
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 
-# Copy source
-COPY src/ ./src/
+# Copy the specific app and its workspace dependencies
+COPY apps/mcp-connector ./apps/mcp-connector
+COPY packages/config ./packages/config
+COPY packages/db ./packages/db
 
-# Build TypeScript
-RUN npm run build
+# Install dependencies (including workspace dependencies)
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 
-# ─── Stage 2: Production ──────────────────────────────────────────────────────
-FROM node:20-alpine AS production
+# Build the app (and its workspace dependencies if needed)
+RUN pnpm --filter @magnus/mcp-connector build
+
+# ─── Stage 3: Production ──────────────────────────────────────────────────────
+FROM base AS production
 
 # Security: run as non-root
 RUN addgroup -g 1001 -S magnus && \
@@ -28,33 +36,34 @@ RUN addgroup -g 1001 -S magnus && \
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Copy production artifacts from builder
+COPY --from=builder /app/apps/mcp-connector/package.json ./apps/mcp-connector/
+COPY --from=builder /app/apps/mcp-connector/dist ./apps/mcp-connector/dist
+COPY --from=builder /app/package.json ./pnpm-lock.yaml ./pnpm-workspace.yaml ./
+COPY --from=builder /app/packages/config ./packages/config
+COPY --from=builder /app/packages/db ./packages/db
 
 # Install ONLY production dependencies
-RUN npm ci --only=production && \
-    npm cache clean --force
-
-# Copy compiled output from builder
-COPY --from=builder /app/dist ./dist
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --prod --frozen-lockfile
 
 # Create logs directory
-RUN mkdir -p ./logs && chown magnus:magnus ./logs
+RUN mkdir -p /app/apps/mcp-connector/logs && chown -R magnus:magnus /app
 
 # Switch to non-root user
 USER magnus
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:${PORT:-3001}/health || exit 1
-
-# Default port
-EXPOSE 3001
 
 # Environment
 ENV NODE_ENV=production \
     PORT=3001 \
     MCP_TRANSPORT=sse
 
-# Start server
+# Health check (targets the app port)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:${PORT}/health || exit 1
+
+# Default port
+EXPOSE 3001
+
+# Start server from the app directory
+WORKDIR /app/apps/mcp-connector
 CMD ["node", "dist/server.js"]

@@ -21,7 +21,7 @@ type Donation = {
   paymentMethod: string;
   referenceNumber: string | null;
   notes: string | null;
-  source: 'MANUAL' | 'CSV_IMPORT' | 'OTHER';
+  source: 'MANUAL' | 'CSV_IMPORT' | 'FUTURE_STRIPE' | 'OTHER';
 };
 
 type Receipt = {
@@ -86,6 +86,8 @@ export default function DonorsPage() {
   const [donationDate, setDonationDate] = useState(new Date().toISOString().slice(0, 10));
 
   const [showReceiptConfirm, setShowReceiptConfirm] = useState<Donation | null>(null);
+  const [showVoidConfirm, setShowVoidConfirm] = useState<Receipt | null>(null);
+  const [voidReason, setVoidReason] = useState('');
 
   // CSV Import state
   const [showCsvImport, setShowCsvImport] = useState(false);
@@ -116,7 +118,7 @@ export default function DonorsPage() {
       // 3. Fetch receipts for each donation
       const tempReceipts: Record<string, Receipt> = {};
       for (const don of fetchedDonations) {
-        const receiptRes = await fetch(`/api/org/donations/${don.id}/receipt`).catch(() => null);
+        const receiptRes = await fetch(`/api/org/receipts/${don.id}`).catch(() => null);
         if (receiptRes && receiptRes.ok) {
           const rJson = await receiptRes.json();
           if (rJson.receipt) {
@@ -254,6 +256,28 @@ export default function DonorsPage() {
         throw new Error(errJson.error || 'Failed to issue receipt');
       }
       setShowReceiptConfirm(null);
+      fetchData();
+      if (selectedDonor) handleSelectDonor(selectedDonor);
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  // Void receipt
+  const handleVoidReceipt = async () => {
+    if (!showVoidConfirm || !voidReason.trim()) return;
+    try {
+      const res = await fetch(`/api/org/receipts/${showVoidConfirm.id}/void`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ reason: voidReason }),
+      });
+      if (!res.ok) {
+        const errJson = await res.json();
+        throw new Error(errJson.error || 'Failed to void receipt');
+      }
+      setShowVoidConfirm(null);
+      setVoidReason('');
       fetchData();
       if (selectedDonor) handleSelectDonor(selectedDonor);
     } catch (err: any) {
@@ -444,6 +468,11 @@ export default function DonorsPage() {
                                   {receipt.status}
                                 </div>
                               </div>
+                              {receipt.status !== 'VOIDED' && (
+                                <button className="pill" style={{ padding: '4px 8px', fontSize: 11 }} onClick={() => setShowVoidConfirm(receipt)}>
+                                  Void
+                                </button>
+                              )}
                             </div>
                           ) : (
                             <button className="pill pillPrimary" style={{ padding: '6px 12px', fontSize: 12 }} onClick={() => setShowReceiptConfirm(don)}>
@@ -553,6 +582,28 @@ export default function DonorsPage() {
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
               <button className="pill" onClick={() => setShowReceiptConfirm(null)}>Cancel</button>
               <button className="pill pillPrimary" onClick={handleIssueReceipt}>Confirm & Issue</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Void Receipt Confirmation Modal */}
+      {showVoidConfirm && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
+          <div className="panel panelPad" style={{ width: '400px', background: '#0b0f17' }}>
+            <h3 style={{ margin: 0, marginBottom: 12 }}>Void Receipt {showVoidConfirm.receiptNumber}?</h3>
+            <p className="cardBody" style={{ marginBottom: 16 }}>
+              Voiding a receipt is permanent. Provide a reason for the audit log.
+            </p>
+            <div className="field" style={{ marginBottom: 16 }}>
+              <label className="label">Void Reason</label>
+              <input type="text" className="input" value={voidReason} onChange={e => setVoidReason(e.target.value)} required placeholder="e.g. check bounced" />
+            </div>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button className="pill" onClick={() => { setShowVoidConfirm(null); setVoidReason(''); }}>Cancel</button>
+              <button className="pill pillPrimary" style={{ background: 'var(--danger)', borderColor: 'var(--danger)' }} onClick={handleVoidReceipt}>
+                Confirm Void
+              </button>
             </div>
           </div>
         </div>

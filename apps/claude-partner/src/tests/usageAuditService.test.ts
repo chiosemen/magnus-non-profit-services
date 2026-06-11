@@ -16,7 +16,7 @@ test('enforceUsageCap suspends org and throws when cap exceeded', async () => {
       findUnique: async () => ({ enabled: true, monthlyTokenCap: 200000 }),
     },
     claudeUsageLog: {
-      aggregate: async () => ({ _sum: { tokenCount: 200001, cost: '0' }, _max: { tokenCount: 50000 } }),
+      aggregate: async () => ({ _sum: { tokenCount: 200001, cost: '0' }, _max: { tokenCount: 5000 } }),
     },
   };
   const svc = new UsageAuditService(db);

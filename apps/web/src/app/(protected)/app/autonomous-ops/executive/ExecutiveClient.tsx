@@ -58,6 +58,7 @@ function Pill({ label, border, bg }: { label: string; border: string; bg: string
 
 export default function ExecutiveClient() {
   const [data, setData] = useState<ExecutiveBoard | null>(null);
+  const [packet, setPacket] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -68,6 +69,12 @@ export default function ExecutiveClient() {
         if (!res.ok) throw new Error('EXECUTIVE_BOARD_FETCH_FAILED');
         const json = (await res.json()) as ExecutiveBoard;
         if (!cancelled) setData(json);
+
+        const packetRes = await fetch('/api/org/executive/packet', { cache: 'no-store' });
+        if (packetRes.ok) {
+          const packetJson = await packetRes.json();
+          if (!cancelled) setPacket(packetJson.packet);
+        }
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'EXECUTIVE_BOARD_FETCH_FAILED');
       }
@@ -100,6 +107,29 @@ export default function ExecutiveClient() {
           Control tower · portfolio accountability
         </a>
       </p>
+
+      {packet && (
+        <div className="card" style={{ marginBottom: 14, background: 'rgba(138, 43, 226, 0.05)', border: '1px solid rgba(138, 43, 226, 0.2)' }}>
+          <div className="cardTitle" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+            <span>Executive Packet Narrative</span>
+            <span style={{ color: 'var(--muted)', fontSize: 12, fontWeight: 400 }}>deterministic rollup</span>
+          </div>
+          <div className="cardBody" style={{ whiteSpace: 'pre-line', lineHeight: 1.6, fontSize: 14 }}>
+            {packet.narrativeSummary}
+          </div>
+          <div style={{ marginTop: 14, display: 'flex', gap: 10, flexWrap: 'wrap', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 12 }}>
+            <a className="pill" href="/app/grants">
+              Manage Grants ({packet.grantsSummary.totalGrantsCount})
+            </a>
+            <a className="pill" href="/app/compliance">
+              Manage Compliance ({packet.complianceSummary.totalDeadlinesCount})
+            </a>
+            <span style={{ fontSize: 12, color: 'var(--muted)', alignSelf: 'center', marginLeft: 'auto' }}>
+              Volunteer Hours: <b>{packet.volunteerSummary.totalHoursLogged}h</b> ({packet.volunteerSummary.totalEventsCount} events)
+            </span>
+          </div>
+        </div>
+      )}
 
       <div className="card" style={{ marginBottom: 14 }}>
         <div className="cardTitle" style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>

@@ -5,6 +5,10 @@
   "main": "dist/client.js",
   "types": "dist/client.d.ts",
   "exports": {
+    ".": {
+      "types": "./dist/client.d.ts",
+      "default": "./dist/client.js"
+    },
     "./client": {
       "types": "./dist/client.d.ts",
       "default": "./dist/client.js"
@@ -19,14 +23,14 @@
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.build.json",
     "prisma": "node scripts/prisma.cjs",
     "prisma:generate": "pnpm prisma generate",
     "prisma:migrate": "pnpm prisma migrate dev",
     "prisma:deploy": "pnpm prisma migrate deploy",
     "prisma:studio": "pnpm prisma studio",
     "verify:schema": "pnpm build && node dist/verifyDbShape.js --profile=autonomous_ops",
-    "test": "pnpm build && node --test dist/tests"
+    "test": "pnpm build && tsc -p tsconfig.test.json && node --test dist/tests"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0"

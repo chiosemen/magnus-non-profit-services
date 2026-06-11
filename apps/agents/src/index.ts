@@ -117,8 +117,24 @@ function weeklyWindowTuesdayAt(hour: number, minute: number): { start: Date; end
 }
 
 main().catch(err => {
+  if (process.env.SENTRY_DSN) {
+    console.error(JSON.stringify({
+      level: 'fatal', type: 'sentry_emulation_event_agent',
+      message: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined,
+    }));
+  }
   // Fail closed with a clear error; do not print secrets.
   // eslint-disable-next-line no-console
   console.error(redactErrorMessage(err));
   process.exit(1);
+});
+
+process.on('unhandledRejection', (reason) => {
+  if (process.env.SENTRY_DSN) {
+    console.error(JSON.stringify({
+      level: 'fatal', type: 'sentry_emulation_event_agent_unhandled',
+      message: reason instanceof Error ? reason.message : String(reason),
+    }));
+  }
 });

@@ -45,26 +45,33 @@ export class PlaidMCPClient {
 
       if (!response.ok) return null;
 
-      const data = await response.json() as Record<string, any>;
-      
+      const data = await response.json() as Record<string, unknown>;
+
       const startDate = new Date();
       startDate.setMonth(startDate.getMonth() - months);
 
+      // Extract numeric values with safe defaults
+      const totalRevenue = (typeof data.total_revenue_raw === 'number' ? data.total_revenue_raw : 0);
+      const totalExpenses = (typeof data.total_expenses_raw === 'number' ? data.total_expenses_raw : 0);
+      const netAssets = (typeof data.net_assets_raw === 'number' ? data.net_assets_raw : 0);
+      const cashBalance = (typeof data.cash_balance_raw === 'number' ? data.cash_balance_raw : 0);
+      const revenueStreams = Array.isArray(data.revenue_streams) ? data.revenue_streams : [];
+
       // Map get-revenue-breakdown output back to PlaidFinancialSummary
       return {
-        totalRevenue: data.total_revenue_raw ?? 0,
-        totalExpenses: data.total_expenses_raw ?? 0,
-        netAssets: data.net_assets_raw ?? 0,
-        cashBalance: data.cash_balance_raw ?? 0,
-        monthsOfReserves: (data.net_assets_raw ?? 0) && (data.total_expenses_raw ?? 0)
-          ? ((data.net_assets_raw ?? 0) / ((data.total_expenses_raw ?? 1) / 12))
+        totalRevenue,
+        totalExpenses,
+        netAssets,
+        cashBalance,
+        monthsOfReserves: netAssets && totalExpenses
+          ? (netAssets / (totalExpenses / 12))
           : 0,
-        revenueStreams: (data.revenue_streams ?? []).map((s: any) => ({
-          name: s.category,
-          amount: s.amount_raw ?? 0,
-          isRecurring: s.is_recurring ?? false,
+        revenueStreams: revenueStreams.map((s: Record<string, unknown>) => ({
+          name: String(s.category ?? ''),
+          amount: typeof s.amount_raw === 'number' ? s.amount_raw : 0,
+          isRecurring: Boolean(s.is_recurring),
         })),
-        expenseCategories: [], 
+        expenseCategories: [],
         period: {
           start: startDate.toISOString().split('T')[0]!,
           end: new Date().toISOString().split('T')[0]!,
@@ -97,6 +104,7 @@ export class PlaidMCPClient {
   // (In full implementation, this uses a machine-to-machine JWT from auth server)
   private getSystemToken(): string {
     const jwt = require('jsonwebtoken'); // Lazy require
+    const env = getEnv('grant-generator');
     return jwt.sign(
       {
         sub: 'system_grant_generator',
@@ -106,8 +114,8 @@ export class PlaidMCPClient {
         permissions: ['*'],
         sessionId: 'sys-session',
       },
-      process.env['JWT_SECRET'] ?? 'a-very-long-test-secret-at-least-32-chars',
-      { issuer: 'magnus-mcp-connector', audience: 'magnus-nonprofit-os', expiresIn: '5m' }
+      env.JWT_SECRET,
+      { issuer: env.JWT_ISSUER || 'magnus-mcp-connector', audience: env.JWT_AUDIENCE || 'magnus-nonprofit-os', expiresIn: '5m' }
     );
   }
 }

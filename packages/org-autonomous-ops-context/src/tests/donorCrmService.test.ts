@@ -12,7 +12,7 @@ import {
   listDonations,
   issueReceipt,
   getReceiptMetadata,
-  getReceiptByDonationId,
+  voidReceipt,
   previewCsvImport,
   commitCsvImport,
 } from '../donorCrmService';
@@ -150,7 +150,7 @@ async function canConnectToDb(): Promise<boolean> {
     }
   });
 
-  test('Service: receipt issuing and lookup lifecycle', async () => {
+  test('Service: receipt lifecycle & voiding', async () => {
     const org = await setupTestOrg('00-7654321', 'Service Org D');
     const donor = await createDonor(prisma, org.id, { name: 'Diana' });
     const donation = await createManualDonation(prisma, org.id, {
@@ -170,13 +170,18 @@ async function canConnectToDb(): Promise<boolean> {
     assert.equal(receipt2.id, receipt1.id);
     assert.equal(receipt2.receiptNumber, receipt1.receiptNumber);
 
-    try {
-      // 3. Receipt lookup works by receipt id and donation id.
-      const byReceiptId = await getReceiptMetadata(prisma, org.id, receipt1.id);
-      assert.equal(byReceiptId.id, receipt1.id);
+    // 3. Void receipt
+    const voided = await voidReceipt(prisma, org.id, receipt1.id, 'Written off');
+    assert.equal(voided.status, 'VOIDED');
+    assert.equal(voided.voidReason, 'Written off');
+    assert.ok(voided.voidedAt);
 
-      const byDonationId = await getReceiptByDonationId(prisma, org.id, donation.id);
-      assert.equal(byDonationId.id, receipt1.id);
+    try {
+      // 4. Reject void without reason
+      await assert.rejects(
+        voidReceipt(prisma, org.id, receipt1.id, '  '),
+        /VOID_REASON_REQUIRED/
+      );
     } finally {
       await prisma.donationReceipt.deleteMany({ where: { orgId: org.id } });
       await prisma.donation.deleteMany({ where: { orgId: org.id } });

@@ -93,6 +93,7 @@ export const serverEnvSchema = z.object({
 
   STRIPE_SECRET_KEY: nonEmpty.optional(),
   STRIPE_WEBHOOK_SECRET: nonEmpty.optional(),
+  STRIPE_CONNECT_CLIENT_ID: nonEmpty.optional(),
   STRIPE_CONNECT_RETURN_URL: urlString.optional(),
   STRIPE_CONNECT_REFRESH_URL: urlString.optional(),
   STRIPE_PRICE_ID_STARTER: nonEmpty.optional(),
@@ -161,12 +162,13 @@ const serviceSchemas: Record<EnvServiceName, z.ZodTypeAny> = {
     JWT_SECRET: true,
     NODE_ENV: true,
     PORT: true,
-  }).extend({
-    DATABASE_URL: nonEmpty,
-    JWT_SECRET: nonEmpty.min(32),
-    STRIPE_SECRET_KEY: nonEmpty,
-    STRIPE_CONNECT_RETURN_URL: urlString,
-    STRIPE_CONNECT_REFRESH_URL: urlString,
+    STRIPE_SECRET_KEY: true,
+    STRIPE_WEBHOOK_SECRET: true,
+    STRIPE_CONNECT_CLIENT_ID: true,
+    STRIPE_CONNECT_RETURN_URL: true,
+    STRIPE_CONNECT_REFRESH_URL: true,
+    NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: true,
+    NEXT_PUBLIC_APP_URL: true,
   }),
   'worker-financial-layer': allEnvSchema.pick({
     DATABASE_URL: true,
@@ -221,6 +223,10 @@ const serviceSchemas: Record<EnvServiceName, z.ZodTypeAny> = {
     OUTPUT_DIR: true,
     MAX_RETRIES: true,
     RETRY_DELAY_MS: true,
+    JWT_SECRET: true,
+    JWT_ISSUER: true,
+    JWT_AUDIENCE: true,
+    MCP_CONNECTOR_URL: true,
   }),
   'mcp-connector': allEnvSchema.pick({
     DATABASE_URL: true,

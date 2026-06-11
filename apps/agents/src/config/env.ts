@@ -3,12 +3,13 @@ export type AgentsEnv = {
   NODE_ENV: string;
   AGENTS_TIMEZONE?: string;
   AGENTS_ALERT_SINK: 'db' | 'console';
-  AGENT_ENABLE_COMPLIANCE_WATCHDOG?: string;
-  AGENT_ENABLE_GRANT_MANAGER?: string;
-  AGENT_ENABLE_FINANCIAL_SENTINEL?: string;
-  AGENT_ENABLE_BOARD_ORACLE?: string;
-  AGENT_ENABLE_GRANT_HERALD?: string;
-  AGENT_ENABLE_WORKER_INCOME_OPTIMIZER?: string;
+  // Per-agent kill switches
+  AGENT_ENABLE_COMPLIANCE_WATCHDOG?: boolean;
+  AGENT_ENABLE_GRANT_MANAGER?: boolean;
+  AGENT_ENABLE_FINANCIAL_SENTINEL?: boolean;
+  AGENT_ENABLE_BOARD_ORACLE?: boolean;
+  AGENT_ENABLE_GRANT_HERALD?: boolean;
+  AGENT_ENABLE_WORKER_INCOME_OPTIMIZER?: boolean;
 };
 
 function required(name: string): string {
@@ -29,11 +30,22 @@ export function loadEnv(): AgentsEnv {
     throw new Error('ConsoleAlertSink is not allowed in production. Set AGENTS_ALERT_SINK=db.');
   }
 
+  const toBool = (v: string | undefined): boolean | undefined => {
+    if (v === undefined) return undefined;
+    return v.toLowerCase() === 'true';
+  };
+
   return {
     DATABASE_URL: required('DATABASE_URL'),
     NODE_ENV: nodeEnv,
     AGENTS_TIMEZONE: process.env['AGENTS_TIMEZONE'],
     AGENTS_ALERT_SINK: sink,
+    AGENT_ENABLE_COMPLIANCE_WATCHDOG: toBool(process.env['AGENT_ENABLE_COMPLIANCE_WATCHDOG']),
+    AGENT_ENABLE_GRANT_MANAGER: toBool(process.env['AGENT_ENABLE_GRANT_MANAGER']),
+    AGENT_ENABLE_FINANCIAL_SENTINEL: toBool(process.env['AGENT_ENABLE_FINANCIAL_SENTINEL']),
+    AGENT_ENABLE_BOARD_ORACLE: toBool(process.env['AGENT_ENABLE_BOARD_ORACLE']),
+    AGENT_ENABLE_GRANT_HERALD: toBool(process.env['AGENT_ENABLE_GRANT_HERALD']),
+    AGENT_ENABLE_WORKER_INCOME_OPTIMIZER: toBool(process.env['AGENT_ENABLE_WORKER_INCOME_OPTIMIZER']),
   };
 }
 
