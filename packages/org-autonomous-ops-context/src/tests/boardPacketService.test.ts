@@ -74,7 +74,7 @@ async function canConnectToDb(): Promise<boolean> {
     const campaign = await prisma.campaign.create({
       data: {
         orgId: org.id,
-        name: 'Gala 2026',
+        title: 'Gala 2026',
         slug: `gala-packet-${Date.now()}`,
       },
     });
@@ -133,7 +133,7 @@ async function canConnectToDb(): Promise<boolean> {
     await prisma.campaign.create({
       data: {
         orgId: orgA.id,
-        name: 'Campaign A',
+        title: 'Campaign A',
         slug: `c-a-${Date.now()}`,
       },
     });

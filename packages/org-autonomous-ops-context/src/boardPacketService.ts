@@ -132,7 +132,7 @@ export async function buildBoardPacket(
     const totalRaised = c.donations.reduce((sum, d) => sum + Number(d.amount), 0);
     return {
       id: c.id,
-      name: c.name,
+      name: c.title,
       slug: c.slug,
       status: c.status,
       goalAmount: c.goalAmount ? Number(c.goalAmount) : null,

@@ -44,7 +44,7 @@ export async function getPublicCampaign(
 ): Promise<{ campaign: Campaign; organizationName: string }> {
   if (!slug) throw new ValidationError('Slug is required.');
 
-  const campaign = await db.campaign.findUnique({
+  const campaign = await db.campaign.findFirst({
     where: { slug },
     include: {
       organization: true,
@@ -85,7 +85,7 @@ export async function createDonationCheckoutSession(
   if (!data.donorName || !data.donorName.trim()) throw new ValidationError('Donor name is required.');
   if (!data.successUrl || !data.cancelUrl) throw new ValidationError('Redirect URLs are required.');
 
-  const campaign = await db.campaign.findUnique({
+  const campaign = await db.campaign.findFirst({
     where: { slug },
     include: {
       organization: {
@@ -105,7 +105,7 @@ export async function createDonationCheckoutSession(
   }
 
   const stripeAccount = campaign.organization.stripeConnectAccount;
-  if (!stripeAccount || !stripeAccount.chargesEnabled) {
+  if (!stripeAccount || stripeAccount.onboardingStatus !== 'ENABLED' || !stripeAccount.chargesEnabled) {
     throw new ValidationError('Organization payments onboarding is incomplete.');
   }
 

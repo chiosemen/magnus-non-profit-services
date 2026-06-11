@@ -75,7 +75,7 @@ async function canConnectToDb(): Promise<boolean> {
     await prisma.campaign.create({
       data: {
         orgId: org.id,
-        name: 'Live campaign',
+        title: 'Live campaign',
         slug: slugLive,
         status: CampaignStatus.LIVE,
       },
@@ -84,7 +84,7 @@ async function canConnectToDb(): Promise<boolean> {
     await prisma.campaign.create({
       data: {
         orgId: org.id,
-        name: 'Draft campaign',
+        title: 'Draft campaign',
         slug: slugDraft,
         status: CampaignStatus.DRAFT,
       },
@@ -110,7 +110,7 @@ async function canConnectToDb(): Promise<boolean> {
     await prisma.campaign.create({
       data: {
         orgId: org.id,
-        name: 'Checkout campaign',
+        title: 'Checkout campaign',
         slug,
         status: CampaignStatus.LIVE,
       },
@@ -160,7 +160,7 @@ async function canConnectToDb(): Promise<boolean> {
 
     await prisma.stripeConnectAccount.update({
       where: { orgId: org.id },
-      data: { chargesEnabled: true },
+      data: { onboardingStatus: 'ENABLED', chargesEnabled: true },
     });
 
     const prevFetch = globalThis.fetch;
@@ -225,7 +225,7 @@ async function canConnectToDb(): Promise<boolean> {
     const campaign = await prisma.campaign.create({
       data: {
         orgId: org.id,
-        name: 'Webhook Campaign',
+        title: 'Webhook Campaign',
         slug: `webhook-c-${Date.now()}`,
         status: CampaignStatus.LIVE,
       },

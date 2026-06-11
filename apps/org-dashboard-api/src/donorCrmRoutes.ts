@@ -248,7 +248,7 @@ export function registerDonorCrmRoutes(app: Express, jwtAuth: RequestHandler): v
         return res.status(400).json({ error: 'CSV_CONTENT_REQUIRED' });
       }
 
-      const preview = await previewCsvImport(db, orgId, body.csvContent);
+      const preview = previewCsvImport(orgId, body.csvContent);
       return res.json(preview);
     } catch (err) {
       return next(err);

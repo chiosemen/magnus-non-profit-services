@@ -3,6 +3,21 @@ import assert from 'node:assert/strict';
 import { POST } from '../app/api/auth/login/route';
 import { _resetLimiterForTest } from '../lib/rate-limit';
 
+declare namespace jest {
+  type Mock = {
+    (...args: unknown[]): unknown;
+    mockClear(): void;
+    mockResolvedValue(value: unknown): Mock;
+    mockResolvedValueOnce(value: unknown): Mock;
+    mockReturnValue(value: unknown): Mock;
+  };
+}
+
+declare const jest: {
+  mock(moduleName: string, factory: () => unknown): void;
+  fn(): jest.Mock;
+};
+
 // Thin harness to mock next/headers for node context testing of the NextJS App Router endpoint
 let mockHeaders = new Map<string, string>();
 let mockCookies = new Map<string, string>();

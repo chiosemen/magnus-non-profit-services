@@ -6,7 +6,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "pnpm build && node --test dist/tests",
+    "test": "pnpm build && node --test dist/tests/*.test.js",
     "launch-readiness": "pnpm build && node dist/launchReadinessCli.js"
   },
   "dependencies": {

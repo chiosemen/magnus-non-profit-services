@@ -2,6 +2,14 @@
 
 AI Infrastructure Platform for Mission-Driven Organizations
 
+## Current Release Truth
+
+As of 2026-06-11, Magnus Accord is in **Pilot/Staging Verification: In Progress**.
+
+**Production Certification: Not Yet Approved.** Known P0 blockers remain before GA or broad production use. Private pilot use must be gated by the current hardening checklist in [BLOCKERS_TO_PRODUCTION.md](BLOCKERS_TO_PRODUCTION.md) and [docs/operations/P0_PRODUCTION_HARDENING_BASELINE.md](docs/operations/P0_PRODUCTION_HARDENING_BASELINE.md).
+
+Feature status is tracked as **Live / Pilot / Gated / Scaffolded / Deferred** in [docs/product/MAGNUS_ACCORD_FEATURE_DIRECTORY.md](docs/product/MAGNUS_ACCORD_FEATURE_DIRECTORY.md). Mobile is not shipped. Worker-financial capabilities are gated/scaffolded. Grant-generation surfaces are scaffolded/internal unless a specific deployment has verified org-scoped API and test coverage.
+
 Engines:
 
 - MCP Connector

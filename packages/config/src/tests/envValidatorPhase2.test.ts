@@ -31,6 +31,8 @@ test('validateEnv: allows missing Stripe keys in development for org-dashboard-a
       STRIPE_WEBHOOK_SECRET: undefined,
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: undefined,
       NEXT_PUBLIC_APP_URL: undefined,
+      STRIPE_CONNECT_RETURN_URL: 'https://example.com/stripe/return',
+      STRIPE_CONNECT_REFRESH_URL: 'https://example.com/stripe/refresh',
     },
     () => {
       assert.doesNotThrow(() => validateEnv('org-dashboard-api'));
@@ -48,6 +50,8 @@ test('validateEnv: fails closed in production for org-dashboard-api if Stripe ke
       STRIPE_WEBHOOK_SECRET: 'whsec_test',
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: 'pk_test',
       NEXT_PUBLIC_APP_URL: 'https://example.com',
+      STRIPE_CONNECT_RETURN_URL: 'https://example.com/stripe/return',
+      STRIPE_CONNECT_REFRESH_URL: 'https://example.com/stripe/refresh',
     },
     () => {
       assert.throws(() => validateEnv('org-dashboard-api'), /STRIPE_SECRET_KEY/);
@@ -110,6 +114,8 @@ test('validateEnv: passes in production for org-dashboard-api if all Stripe keys
       STRIPE_WEBHOOK_SECRET: 'whsec_test',
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: 'pk_test',
       NEXT_PUBLIC_APP_URL: 'https://example.com',
+      STRIPE_CONNECT_RETURN_URL: 'https://example.com/stripe/return',
+      STRIPE_CONNECT_REFRESH_URL: 'https://example.com/stripe/refresh',
     },
     () => {
       assert.doesNotThrow(() => validateEnv('org-dashboard-api'));

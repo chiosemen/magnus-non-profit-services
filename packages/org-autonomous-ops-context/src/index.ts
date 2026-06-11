@@ -235,14 +235,6 @@ export type {
 } from './campaignService';
 
 export {
-  getCampaignDetail,
-  unpublishCampaign,
-  createStripeOnboardingLink,
-  getStripeAccountStatus,
-  validateCampaignSlug,
-} from './stripeCampaignService';
-
-export {
   calculateFeeCoverage,
   getPublicCampaign,
   createDonationCheckoutSession,

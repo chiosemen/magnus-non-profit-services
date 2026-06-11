@@ -63,7 +63,7 @@ async function canConnectToDb(): Promise<boolean> {
     await prisma.campaign.create({
       data: {
         orgId: org1.id,
-        name: 'Summer drive 1',
+        title: 'Summer drive 1',
         slug,
         status: CampaignStatus.LIVE,
       },
@@ -75,7 +75,7 @@ async function canConnectToDb(): Promise<boolean> {
         await prisma.campaign.create({
           data: {
             orgId: org2.id,
-            name: 'Summer drive 2',
+            title: 'Summer drive 2',
             slug,
             status: CampaignStatus.DRAFT,
           },

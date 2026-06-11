@@ -2,11 +2,11 @@
 
 **Version:** 1.0
 **Date:** 2026-04-13
-**Classification:** LIMITED_PRODUCTION_READY (9.2/10)
+**Classification:** Pilot/Staging Verification Evidence
 
 ## Executive Summary
 
-This document provides comprehensive security evidence for external penetration testing and security audit of the Magnus Accord platform. All claims are backed by verifiable code evidence.
+This document provides security evidence for staged review. It is not a production approval; current release claims must defer to the P0 hardening baseline.
 
 ---
 
@@ -19,7 +19,7 @@ This document provides comprehensive security evidence for external penetration 
 | Session Management | JWT in HttpOnly cookie | `apps/web/src/app/api/auth/login/route.ts` |
 | Session Binding | CAS (Compare-and-Swap) rotation | Prevents session fixation |
 | CSRF Protection | Custom header + Origin validation | `apps/web/src/lib/csrf.ts` |
-| Rate Limiting | Redis-backed (falls back with warning) | `apps/web/src/lib/rate-limit.ts` |
+| Rate Limiting | Redis-capable (falls back with warning) | `apps/web/src/lib/rate-limit.ts` |
 
 **CSRF Enforcement:**
 ```typescript

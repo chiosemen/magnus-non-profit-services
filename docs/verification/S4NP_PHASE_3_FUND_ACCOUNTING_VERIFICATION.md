@@ -7,7 +7,7 @@ This verification report confirms production readiness, accounting compliance, d
 ### 1. Zero Fake Financial Totals
 *   **Doctrine**: Do not fake financial totals.
 *   **Implementation**: Reports are dynamically generated using deterministic SQL queries and ledger balances aggregated directly from the `LedgerEntry` and `DonationAllocation` models. No hardcoded mock values are injected in calculations.
-*   **Status**: **PASS (GREEN)**
+*   **Status**: **Historical PASS**
 
 ### 2. Honest Error Handling
 *   **Doctrine**: Do not hide API failures.
@@ -15,31 +15,31 @@ This verification report confirms production readiness, accounting compliance, d
     ```tsx
     {error && <div className="error" style={{ marginBottom: 16 }}>{error}</div>}
     ```
-*   **Status**: **PASS (GREEN)**
+*   **Status**: **Historical PASS**
 
 ### 3. Strict Tenant Separation
 *   **Doctrine**: Do not allow cross-org choices or data leaks.
 *   **Implementation**: All queries and mutations in `fundAccountingService.ts` enforce the tenant boundary using `where: { orgId }`. The backend routes fetch `orgId` from the verified JWT context, preventing orgs from viewing or mutating cross-org data.
-*   **Status**: **PASS (GREEN)**
+*   **Status**: **Historical PASS**
 
 ### 4. Immutable Ledger Design (Audit-Safe)
 *   **Doctrine**: Do not make destructive ledger edits. Posted entries should be append-only and visibly audit-safe.
 *   **Implementation**: 
     *   There is no delete route for posted ledger entries.
     *   Prisma schema uses `onDelete: Restrict` rules to prevent deletion of `Account` or `Fund` records if referenced by any posted ledger transactions or allocations.
-*   **Status**: **PASS (GREEN)**
+*   **Status**: **Historical PASS**
 
 ### 5. Double-Entry Parity Validation
 *   **Doctrine**: Debits and credits must balance exactly for every manual ledger transaction.
 *   **Implementation**:
     *   `postLedgerTransaction` service checks: `sum(debit) == sum(credit)`. If they do not match, the transaction is rejected.
-*   **Status**: **PASS (GREEN)**
+*   **Status**: **Historical PASS**
 
 ### 6. Distinct Restricted vs Unrestricted Funds
 *   **Doctrine**: Visual distinction between restricted and unrestricted funds must be clear.
 *   **Implementation**:
     *   Funds buckets display clear badges (`RESTRICTED` in danger-red background/text, `UNRESTRICTED` in accent-blue background/text).
-*   **Status**: **PASS (GREEN)**
+*   **Status**: **Historical PASS**
 
 ---
 
@@ -62,5 +62,5 @@ DATABASE_URL="postgresql://postgres@localhost/magnus" pnpm --filter @magnus/org-
 ---
 
 ## Final Verdict
-**VERDICT**: **GREEN**
+**VERDICT**: **PASS**
 Fund Accounting Lite is fully implemented, thoroughly tested, structurally isolated, and ready for production use.

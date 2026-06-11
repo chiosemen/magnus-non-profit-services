@@ -2,7 +2,7 @@ import request from 'supertest';
 import app from '../src/server';
 import jwt from 'jsonwebtoken';
 import { prisma } from '@magnus/db/client';
-import { ConciergeProposalStatus } from '@prisma/client';
+import { ConciergeProposalStatus } from '@magnus/db/types';
 
 jest.mock('@magnus/db/client', () => ({
   prisma: {

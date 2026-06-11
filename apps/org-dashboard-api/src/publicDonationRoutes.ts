@@ -20,7 +20,7 @@ export function registerPublicDonationRoutes(app: Express): void {
       return res.json({
         campaign: {
           id: campaign.id,
-          name: campaign.name,
+          name: campaign.title,
           slug: campaign.slug,
           description: campaign.description,
           goalAmount: campaign.goalAmount,

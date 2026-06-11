@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 
 type Campaign = {
   id: string;
-  name: string;
+  title: string;
   slug: string;
   description: string | null;
   goalAmount: string | null;
@@ -14,7 +14,8 @@ type Campaign = {
 };
 
 type StripeConnectAccount = {
-  stripeAccountId: string;
+  stripeAccountId: string | null;
+  onboardingStatus: 'NOT_STARTED' | 'LINK_CREATED' | 'IN_PROGRESS' | 'ENABLED' | 'RESTRICTED' | null;
   chargesEnabled: boolean;
   payoutsEnabled: boolean;
   detailsSubmitted: boolean;
@@ -37,6 +38,7 @@ export default function AdminCampaignsPage() {
 
   // Stripe onboarding loading state
   const [onboardingLoading, setOnboardingLoading] = useState(false);
+  const stripeReady = stripeAccount?.onboardingStatus === 'ENABLED' && !!stripeAccount?.chargesEnabled;
 
   const fetchData = async () => {
     setLoading(true);
@@ -52,7 +54,7 @@ export default function AdminCampaignsPage() {
       const stripeRes = await fetch('/api/org/stripe-connect/status');
       if (stripeRes.ok) {
         const stripeData = await stripeRes.json();
-        setStripeAccount(stripeData.stripeConnectAccount || null);
+        setStripeAccount(stripeData.status || null);
       }
     } catch (err: any) {
       setError(err.message || 'An error occurred loading dashboard information.');
@@ -68,21 +70,15 @@ export default function AdminCampaignsPage() {
   const handleConnectStripe = async () => {
     setOnboardingLoading(true);
     try {
-      const publicUrl = window.location.origin;
-      const res = await fetch('/api/org/stripe-connect/onboard', {
+      const res = await fetch('/api/org/stripe-connect/onboarding-link', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          returnUrl: `${publicUrl}/app/campaigns`,
-          refreshUrl: `${publicUrl}/app/campaigns`,
-        }),
       });
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.error || 'Failed to initiate Stripe onboarding.');
       }
-      if (data.url) {
-        window.location.href = data.url;
+      if (data.onboarding?.onboardingUrl) {
+        window.location.href = data.onboarding.onboardingUrl;
       }
     } catch (err: any) {
       alert(err.message);
@@ -106,7 +102,7 @@ export default function AdminCampaignsPage() {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: name.trim(),
+          title: name.trim(),
           slug: slug.trim(),
           description: description.trim() || null,
           goalAmount: goalAmount ? parseFloat(goalAmount) : null,
@@ -147,14 +143,14 @@ export default function AdminCampaignsPage() {
     }
   };
 
-  const handleUnpublish = async (campaign: Campaign) => {
+  const handleArchive = async (campaign: Campaign) => {
     try {
-      const res = await fetch(`/api/org/campaigns/${campaign.id}/unpublish`, {
+      const res = await fetch(`/api/org/campaigns/${campaign.id}/archive`, {
         method: 'POST',
       });
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to unpublish campaign.');
+        throw new Error(data.error || 'Failed to archive campaign.');
       }
       fetchData();
     } catch (err: any) {
@@ -174,7 +170,7 @@ export default function AdminCampaignsPage() {
 
   const openEditModal = (campaign: Campaign) => {
     setEditingCampaign(campaign);
-    setName(campaign.name);
+    setName(campaign.title);
     setSlug(campaign.slug);
     setDescription(campaign.description || '');
     setGoalAmount(campaign.goalAmount ? parseFloat(campaign.goalAmount).toString() : '');
@@ -214,16 +210,16 @@ export default function AdminCampaignsPage() {
               fontSize: 11,
               padding: '2px 8px',
               borderRadius: 10,
-              background: stripeAccount?.chargesEnabled ? 'rgba(92,255,160,0.1)' : 'rgba(255,92,92,0.1)',
-              color: stripeAccount?.chargesEnabled ? 'var(--accent)' : 'var(--danger)',
+              background: stripeReady ? 'rgba(92,255,160,0.1)' : 'rgba(255,92,92,0.1)',
+              color: stripeReady ? 'var(--accent)' : 'var(--danger)',
               fontWeight: 600,
             }}>
-              {stripeAccount?.chargesEnabled ? 'CONNECTED' : 'DISCONNECTED'}
+              {stripeReady ? 'CONNECTED' : 'DISCONNECTED'}
             </span>
           </h3>
           <p style={{ color: 'var(--muted)', fontSize: 13, margin: '8px 0 0 0', lineHeight: 1.5 }}>
-            {stripeAccount?.chargesEnabled
-              ? `Connected Account ID: ${stripeAccount.stripeAccountId}. Direct-to-merchant donation flow is enabled.`
+            {stripeReady
+              ? `Connected Account ID: ${stripeAccount?.stripeAccountId}. Direct-to-merchant donation flow is enabled.`
               : 'Stripe merchant onboarding is incomplete. You must link your Stripe account before campaign pages can be published LIVE.'}
           </p>
         </div>
@@ -233,7 +229,7 @@ export default function AdminCampaignsPage() {
             onClick={handleConnectStripe}
             disabled={onboardingLoading}
           >
-            {onboardingLoading ? 'Loading Onboarding…' : stripeAccount?.chargesEnabled ? 'Reconfigure Stripe' : 'Connect Stripe Account'}
+            {onboardingLoading ? 'Loading Onboarding…' : stripeReady ? 'Reconfigure Stripe' : 'Connect Stripe Account'}
           </button>
         </div>
       </div>
@@ -255,7 +251,6 @@ export default function AdminCampaignsPage() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {campaigns.map((c) => {
-              const stripeConnected = !!stripeAccount?.chargesEnabled;
               const pathUrl = `/campaigns/${c.slug}`;
               return (
                 <div
@@ -273,7 +268,7 @@ export default function AdminCampaignsPage() {
                 >
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <h4 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>{c.name}</h4>
+                      <h4 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>{c.title}</h4>
                       <span style={{
                         fontSize: 10,
                         padding: '2px 6px',
@@ -303,20 +298,20 @@ export default function AdminCampaignsPage() {
                       Edit Details
                     </button>
                     {c.status === 'LIVE' ? (
-                      <button className="pill" onClick={() => handleUnpublish(c)}>
-                        Unpublish
+                      <button className="pill" onClick={() => handleArchive(c)}>
+                        Archive
                       </button>
                     ) : (
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
                         <button
                           className="pill pillPrimary"
                           onClick={() => handlePublish(c)}
-                          disabled={!stripeConnected}
-                          style={{ opacity: stripeConnected ? 1 : 0.5 }}
+                          disabled={!stripeReady}
+                          style={{ opacity: stripeReady ? 1 : 0.5 }}
                         >
                           Publish Live
                         </button>
-                        {!stripeConnected && (
+                        {!stripeReady && (
                           <span style={{ fontSize: 10, color: 'var(--danger)', marginTop: 4 }}>
                             Requires Stripe Connect
                           </span>

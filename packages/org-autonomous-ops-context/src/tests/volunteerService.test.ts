@@ -23,7 +23,7 @@ import {
 } from '../volunteerService';
 import { buildExecutivePacket } from '../executivePacketService';
 import { createDonor } from '../donorCrmService';
-import { createCampaign } from '../stripeCampaignService';
+import { createCampaign } from '../campaignService';
 
 const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://postgres@localhost/magnus';
 
@@ -118,7 +118,7 @@ async function canConnectToDb(): Promise<boolean> {
 
     // Create Campaign
     const campaign = await createCampaign(prisma, org.id, {
-      name: 'Summer Gala 2026',
+      title: 'Summer Gala 2026',
       slug: `gala-${Date.now()}`,
     });
 
@@ -164,7 +164,7 @@ async function canConnectToDb(): Promise<boolean> {
     const org = await setupTestOrg('00-2733333', 'Sponsorship and Hours Org');
 
     const campaign = await createCampaign(prisma, org.id, {
-      name: 'Green Earth Drive',
+      title: 'Green Earth Drive',
       slug: `green-earth-${Date.now()}`,
     });
 

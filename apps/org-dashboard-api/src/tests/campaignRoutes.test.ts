@@ -2,7 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { registerCampaignRoutes } from '../campaignRoutes';
 
-type Handler = (req: any, res: any, next: (err?: unknown) => void) => Promise<any>;
+process.env.JWT_SECRET = 'org-dashboard-subscription-gate-test-secret-32';
+
+type Handler = (req: any, res: any, next: (err?: unknown) => void) => any;
 
 type CampaignRow = {
   id: string;
@@ -28,9 +30,9 @@ function decimal(value: string): { toString(): string } {
 function createHarness() {
   const handlers = new Map<string, Handler>();
   const app: any = {
-    get: (path: string, _auth: any, handler: Handler) => handlers.set(`GET ${path}`, handler),
-    post: (path: string, _auth: any, handler: Handler) => handlers.set(`POST ${path}`, handler),
-    patch: (path: string, _auth: any, handler: Handler) => handlers.set(`PATCH ${path}`, handler),
+    get: (path: string, ...chain: Handler[]) => handlers.set(`GET ${path}`, compose(chain)),
+    post: (path: string, ...chain: Handler[]) => handlers.set(`POST ${path}`, compose(chain)),
+    patch: (path: string, ...chain: Handler[]) => handlers.set(`PATCH ${path}`, compose(chain)),
   };
 
   function response() {
@@ -50,6 +52,28 @@ function createHarness() {
   }
 
   return { app, handlers, response };
+}
+
+function compose(chain: Handler[]): Handler {
+  return async (req, res, next) => {
+    let index = -1;
+    const run = async (i: number, err?: unknown): Promise<void> => {
+      if (err) {
+        next(err);
+        return;
+      }
+      if (i <= index) throw new Error('next_called_multiple_times');
+      index = i;
+      const fn = chain[i];
+      if (!fn) return;
+      let nextPromise: Promise<void> | null = null;
+      await fn(req, res, (nextErr?: unknown) => {
+        nextPromise = run(i + 1, nextErr);
+      });
+      if (nextPromise) await nextPromise;
+    };
+    await run(0);
+  };
 }
 
 function createDb(seed?: { campaigns?: CampaignRow[]; stripeStatus?: Record<string, string> }) {
@@ -117,8 +141,17 @@ function createDb(seed?: { campaigns?: CampaignRow[]; stripeStatus?: Record<stri
         return { onboardingStatus };
       },
     },
+    organization: {
+      findUnique: async ({ where }: any) => {
+        if (where.id === 'org_inactive') return { subscriptionTier: 'ENTERPRISE', subscriptionStatus: 'PAST_DUE' };
+        if (where.id === 'org_starter') return { subscriptionTier: 'STARTER', subscriptionStatus: 'ACTIVE' };
+        return { subscriptionTier: 'ENTERPRISE', subscriptionStatus: 'ACTIVE' };
+      },
+    },
   };
 }
+
+const passAuth: Handler = (_req, _res, next) => next();
 
 function makeSeedCampaign(orgId = 'org_1'): CampaignRow {
   return {
@@ -141,7 +174,7 @@ function makeSeedCampaign(orgId = 'org_1'): CampaignRow {
 
 test('auth failures return 401 for campaign routes', async () => {
   const h = createHarness();
-  registerCampaignRoutes(h.app, (() => undefined) as any, { db: createDb() as any });
+  registerCampaignRoutes(h.app, passAuth as any, { db: createDb() as any });
 
   const routes = [
     ['GET /api/org/campaigns', {}],
@@ -158,13 +191,37 @@ test('auth failures return 401 for campaign routes', async () => {
     const res = h.response();
     await handler!(req, res, () => undefined);
     assert.equal(res.statusCode, 401);
-    assert.deepEqual(res.body, { error: 'AUTH_INVALID' });
+    assert.deepEqual(res.body, { error: 'AUTH_REQUIRED' });
   }
+});
+
+test('starter org is denied campaign admin before handler executes', async () => {
+  const h = createHarness();
+  registerCampaignRoutes(h.app, passAuth as any, { db: createDb() as any });
+  const handler = h.handlers.get('POST /api/org/campaigns');
+  assert.ok(handler);
+
+  const res = h.response();
+  await handler!({ auth: { orgId: 'org_starter', sub: 'user_1' }, body: { title: 'Blocked' } }, res, () => undefined);
+  assert.equal(res.statusCode, 403);
+  assert.deepEqual(res.body, { error: 'FEATURE_NOT_ENABLED' });
+});
+
+test('inactive subscription is denied consistently before campaign handler executes', async () => {
+  const h = createHarness();
+  registerCampaignRoutes(h.app, passAuth as any, { db: createDb() as any });
+  const handler = h.handlers.get('POST /api/org/campaigns');
+  assert.ok(handler);
+
+  const res = h.response();
+  await handler!({ auth: { orgId: 'org_inactive', sub: 'user_1' }, body: { title: 'Blocked' } }, res, () => undefined);
+  assert.equal(res.statusCode, 403);
+  assert.deepEqual(res.body, { error: 'SUBSCRIPTION_NOT_ACTIVE' });
 });
 
 test('create/list/get/update campaign are org-scoped', async () => {
   const h = createHarness();
-  registerCampaignRoutes(h.app, (() => undefined) as any, { db: createDb() as any });
+  registerCampaignRoutes(h.app, passAuth as any, { db: createDb() as any });
 
   const createHandler = h.handlers.get('POST /api/org/campaigns');
   const listHandler = h.handlers.get('GET /api/org/campaigns');
@@ -199,7 +256,7 @@ test('create/list/get/update campaign are org-scoped', async () => {
 
 test('publish blocked without Stripe Connect ENABLED and succeeds with ENABLED', async () => {
   const hBlocked = createHarness();
-  registerCampaignRoutes(hBlocked.app, (() => undefined) as any, {
+  registerCampaignRoutes(hBlocked.app, passAuth as any, {
     db: createDb({ campaigns: [makeSeedCampaign('org_1')], stripeStatus: { org_1: 'IN_PROGRESS' } }) as any,
   });
 
@@ -211,7 +268,7 @@ test('publish blocked without Stripe Connect ENABLED and succeeds with ENABLED',
   assert.deepEqual(blockedRes.body, { error: 'STRIPE_CONNECT_NOT_ENABLED' });
 
   const hEnabled = createHarness();
-  registerCampaignRoutes(hEnabled.app, (() => undefined) as any, {
+  registerCampaignRoutes(hEnabled.app, passAuth as any, {
     db: createDb({ campaigns: [makeSeedCampaign('org_1')], stripeStatus: { org_1: 'ENABLED' } }) as any,
   });
 
@@ -225,7 +282,7 @@ test('publish blocked without Stripe Connect ENABLED and succeeds with ENABLED',
 
 test('archive endpoint transitions campaign to ARCHIVED', async () => {
   const h = createHarness();
-  registerCampaignRoutes(h.app, (() => undefined) as any, {
+  registerCampaignRoutes(h.app, passAuth as any, {
     db: createDb({ campaigns: [makeSeedCampaign('org_1')] }) as any,
   });
 

@@ -519,7 +519,7 @@ export async function getBoardFinancialSummary(
   });
   const topCampaigns = campaigns
     .map((c) => ({
-      name: c.name,
+      name: c.title,
       amount: c.donations.reduce((sum, d) => sum + Number(d.amount), 0),
     }))
     .sort((a, b) => b.amount - a.amount)

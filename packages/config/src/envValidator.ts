@@ -74,7 +74,9 @@ const grantGeneratorSchema = z.object({
   MCP_CONNECTOR_URL: nonEmpty.optional(),
 });
 
-const mcpConnectorSchema = baseServiceSchema; // DATABASE_URL + JWT_SECRET ≥ 32
+const mcpConnectorSchema = baseServiceSchema.extend({
+  REDIS_URL: nonEmpty.optional(),
+}); // REDIS_URL is production-required below.
 
 type EnvByService = {
   'agents': z.infer<typeof agentsSchema>;
@@ -85,6 +87,12 @@ type EnvByService = {
   'org-dashboard-api': z.infer<typeof orgDashboardApiSchema>;
   'worker-financial-layer': z.infer<typeof baseServiceSchema>;
 };
+
+function assertProductionRedisConfigured(service: EnvServiceName): void {
+  if (service === 'mcp-connector' && process.env.NODE_ENV === 'production' && !process.env.REDIS_URL?.trim()) {
+    throw new Error(`Invalid environment configuration for ${service}: REDIS_URL`);
+  }
+}
 
 export function getEnv<S extends EnvServiceName>(service: S): EnvByService[S] {
   const schemas: Record<EnvServiceName, z.ZodTypeAny> = {
@@ -99,7 +107,10 @@ export function getEnv<S extends EnvServiceName>(service: S): EnvByService[S] {
 
   const schema = schemas[service];
   const parsed = schema.safeParse(process.env);
-  if (parsed.success) return parsed.data as EnvByService[S];
+  if (parsed.success) {
+    assertProductionRedisConfigured(service);
+    return parsed.data as EnvByService[S];
+  }
 
   const keys = new Set<string>();
   for (const issue of parsed.error.issues) {
@@ -124,7 +135,10 @@ export function validateEnv(service: EnvServiceName): void {
 
   const schema = schemas[service];
   const parsed = schema.safeParse(process.env);
-  if (parsed.success) return;
+  if (parsed.success) {
+    assertProductionRedisConfigured(service);
+    return;
+  }
 
   const keys = new Set<string>();
   for (const issue of parsed.error.issues) {
@@ -135,4 +149,3 @@ export function validateEnv(service: EnvServiceName): void {
   const suffix = missingOrInvalid.length > 0 ? `: ${missingOrInvalid.join(', ')}` : '';
   throw new Error(`Invalid environment configuration for ${service}${suffix}`);
 }
-

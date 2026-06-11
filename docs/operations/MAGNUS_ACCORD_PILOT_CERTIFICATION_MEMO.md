@@ -16,7 +16,7 @@
 
 ---
 
-## 1) Launch scope certified
+## 1) Launch scope validated
 
 ### Certified: INTERNAL demo (staff, scripted)
 
@@ -43,7 +43,7 @@
 
 ### Excluded: LIMITED early access (broader, self-serve expectations)
 
-**Not certified** for broader early access because the repo truth has several gaps that are acceptable in a controlled pilot (with a runbook) but unsafe for broad EA expectations:
+**Not validated** for broader early access because the repo truth has several gaps that are acceptable in a controlled pilot (with a runbook) but unsafe for broad EA expectations:
 
 - **Dead-end in-app destinations for obligations**: executive obligations point to `/app/autonomous-ops/alerts/:id`, `/app/autonomous-ops/handoffs/:id`, `/app/compliance/:id` which are explicitly `UNIMPLEMENTED_IN_REPO` and have no `page.tsx` implementations in `apps/web` (captured in `docs/product/MAGNUS_ACCORD_PILOT_PRODUCTION_READINESS_AUDIT.md` matrix).
 - **Evidence links need BFF config or API tooling**: executive evidence URLs use `/api/org/...` endpoints implemented on `apps/org-dashboard-api`. The web app can proxy them same-origin only when `ORG_DASHBOARD_API_BASE_URL` is configured; otherwise the route fails closed and operators must use the dashboard API directly (`docs/product/MAGNUS_ACCORD_PILOT_PRODUCTION_READINESS_AUDIT.md`).
@@ -82,7 +82,7 @@ These are **non-negotiables** for controlled pilot certification.
 
 ## 4) Required human-in-the-loop boundaries
 
-These are the **certified** autonomy boundaries; violating them makes the pilot **not honest**.
+These are the **validated** autonomy boundaries; violating them makes the pilot **not honest**.
 
 - **Human authority over external actions**
   - No autonomous external send/submit; no money movement. Evidence: pilot launch package §4.
@@ -132,7 +132,7 @@ Mandatory caveats in any controlled pilot statement of work or launch brief.
 
 **Not recommended:**
 
-- **LIMITED_EARLY_ACCESS_READY** is **not certified** due to unimplemented obligation destinations and the need for proxy/API tooling for evidence drilldowns, plus pilot-only connectors and reflection gates.
+- **LIMITED_EARLY_ACCESS_READY** is **not validated** due to unimplemented obligation destinations and the need for proxy/API tooling for evidence drilldowns, plus pilot-only connectors and reflection gates.
 
 ---
 

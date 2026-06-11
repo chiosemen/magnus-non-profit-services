@@ -1,6 +1,8 @@
 import type { Express, RequestHandler } from 'express';
 import prisma from '@magnus/db/client';
 import type { PrismaClient } from '@magnus/db/types';
+import { ORG_DASHBOARD_ROUTE_FEATURES } from '@magnus/subscription';
+import { createSubscriptionGate } from './subscriptionGate';
 import {
   archiveCampaign,
   createCampaign,
@@ -28,8 +30,12 @@ export function registerCampaignRoutes(
   options?: { db?: PrismaClient },
 ): void {
   const db = options?.db ?? (prisma as unknown as PrismaClient);
+  const featureGate = createSubscriptionGate(ORG_DASHBOARD_ROUTE_FEATURES.campaignAdmin, {
+    db,
+    routeName: 'campaign-admin',
+  });
 
-  app.get('/api/org/campaigns', jwtAuth, async (req, res, next) => {
+  app.get('/api/org/campaigns', jwtAuth, featureGate, async (req, res, next) => {
     try {
       const orgId = getOrgId(req);
       if (!orgId) return res.status(401).json({ error: 'AUTH_INVALID' });
@@ -41,7 +47,7 @@ export function registerCampaignRoutes(
     }
   });
 
-  app.post('/api/org/campaigns', jwtAuth, async (req, res, next) => {
+  app.post('/api/org/campaigns', jwtAuth, featureGate, async (req, res, next) => {
     try {
       const orgId = getOrgId(req);
       if (!orgId) return res.status(401).json({ error: 'AUTH_INVALID' });
@@ -73,7 +79,7 @@ export function registerCampaignRoutes(
     }
   });
 
-  app.get('/api/org/campaigns/:id', jwtAuth, async (req, res, next) => {
+  app.get('/api/org/campaigns/:id', jwtAuth, featureGate, async (req, res, next) => {
     try {
       const orgId = getOrgId(req);
       if (!orgId) return res.status(401).json({ error: 'AUTH_INVALID' });
@@ -88,7 +94,7 @@ export function registerCampaignRoutes(
     }
   });
 
-  app.patch('/api/org/campaigns/:id', jwtAuth, async (req, res, next) => {
+  app.patch('/api/org/campaigns/:id', jwtAuth, featureGate, async (req, res, next) => {
     try {
       const orgId = getOrgId(req);
       if (!orgId) return res.status(401).json({ error: 'AUTH_INVALID' });
@@ -122,7 +128,7 @@ export function registerCampaignRoutes(
     }
   });
 
-  app.post('/api/org/campaigns/:id/publish', jwtAuth, async (req, res, next) => {
+  app.post('/api/org/campaigns/:id/publish', jwtAuth, featureGate, async (req, res, next) => {
     try {
       const orgId = getOrgId(req);
       if (!orgId) return res.status(401).json({ error: 'AUTH_INVALID' });
@@ -138,7 +144,7 @@ export function registerCampaignRoutes(
     }
   });
 
-  app.post('/api/org/campaigns/:id/archive', jwtAuth, async (req, res, next) => {
+  app.post('/api/org/campaigns/:id/archive', jwtAuth, featureGate, async (req, res, next) => {
     try {
       const orgId = getOrgId(req);
       if (!orgId) return res.status(401).json({ error: 'AUTH_INVALID' });

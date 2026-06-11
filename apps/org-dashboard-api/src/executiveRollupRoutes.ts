@@ -1,9 +1,16 @@
 import type { Express, RequestHandler } from 'express';
 import prisma from '@magnus/db/client';
 import { buildExecutiveBoard } from '@magnus/org-autonomous-ops-context';
+import { ORG_DASHBOARD_ROUTE_FEATURES } from '@magnus/subscription';
+import { createSubscriptionGate } from './subscriptionGate';
 
 export function registerExecutiveRollupRoutes(app: Express, jwtAuth: RequestHandler): void {
-  app.get('/api/org/autonomous-ops/executive/board', jwtAuth, async (req, res, next) => {
+  const featureGate = createSubscriptionGate(ORG_DASHBOARD_ROUTE_FEATURES.boardAndExecutivePackets, {
+    db: prisma as any,
+    routeName: 'executive-board',
+  });
+
+  app.get('/api/org/autonomous-ops/executive/board', jwtAuth, featureGate, async (req, res, next) => {
     try {
       const orgId = (req as { auth?: { orgId: string } }).auth?.orgId as string;
       const take = req.query.take ? Math.min(200, Math.max(1, parseInt(String(req.query.take), 10))) : 50;
@@ -17,4 +24,3 @@ export function registerExecutiveRollupRoutes(app: Express, jwtAuth: RequestHand
     }
   });
 }
-

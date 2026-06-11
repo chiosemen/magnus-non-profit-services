@@ -6,6 +6,8 @@ import helmet from 'helmet';
 import cors from 'cors';
 import { getTokenValidator } from './auth/TokenValidator';
 import auditMiddleware from './audit/AuditMiddleware';
+import { mcpToolSubscriptionGate } from './subscriptionGate';
+import { getMcpRateLimiter, initializeMcpRateLimiter, isRateLimitExceeded } from './rateLimit';
 
 // Import tools
 import getMultiOrgProfile from './tools/workers/get-multi-org-profile';
@@ -66,57 +68,46 @@ app.get('/health', (_req, res) => res.json({ ok: true }));
 function authMiddleware(req: Request, res: Response, next: express.NextFunction) {
   const authHeader = req.headers.authorization;
   if (!authHeader) {
-    res.status(401).json({ error: 'UNAUTHORIZED' });
+    res.status(401).json({ error: 'AUTH_REQUIRED' });
     return;
   }
   try {
     const payload = getTokenValidator().validate(authHeader);
     (req as any).userId = payload.sub;
     (req as any).orgId = payload.orgId;
+    (req as any).auth = {
+      orgId: payload.orgId,
+      workerId: payload.sub,
+      sub: payload.sub,
+      role: 'worker',
+    };
     next();
   } catch (err) {
-    res.status(401).json({ error: err instanceof Error ? err.message : 'UNAUTHORIZED' });
+    res.status(401).json({ error: 'AUTH_INVALID' });
   }
 }
 
 // Global Audit Middleware
 app.use('/tools', authMiddleware, auditMiddleware);
 
-// Rate Limiting
-import { RateLimiterMemory, RateLimiterRedis } from 'rate-limiter-flexible';
-import Redis from 'ioredis';
-
-let rateLimiter: RateLimiterMemory | RateLimiterRedis;
-if (process.env.REDIS_URL) {
-  const redisClient = new Redis(process.env.REDIS_URL, { enableOfflineQueue: false });
-  rateLimiter = new RateLimiterRedis({
-    storeClient: redisClient,
-    keyPrefix: 'mcp_rl',
-    points: 100, // 100 requests
-    duration: 60, // per 1 minute
-  });
-} else {
-  // eslint-disable-next-line no-console
-  console.warn('⚠️ WARNING: REDIS_URL not set. MCP Rate limiting will be memory-only (not safe for multi-instance).');
-  rateLimiter = new RateLimiterMemory({
-    keyPrefix: 'mcp_rl',
-    points: 100,
-    duration: 60,
-  });
-}
-
 function rateLimitMiddleware(req: Request, res: Response, next: express.NextFunction) {
   const identifier = (req as any).userId ?? req.ip ?? 'anonymous';
-  rateLimiter.consume(identifier)
+  getMcpRateLimiter()
+    .then(rateLimiter => rateLimiter.consume(identifier))
     .then(() => {
       next();
     })
-    .catch(() => {
-      res.status(429).json({ error: 'TOO_MANY_REQUESTS' });
+    .catch((err: unknown) => {
+      if (isRateLimitExceeded(err)) {
+        res.status(429).json({ error: 'TOO_MANY_REQUESTS' });
+        return;
+      }
+      res.status(503).json({ error: 'RATE_LIMIT_BACKEND_UNAVAILABLE' });
     });
 }
 
 app.use('/tools', rateLimitMiddleware);
+app.use('/tools/execute', mcpToolSubscriptionGate());
 
 import WorkerService from './services/WorkerService';
 const workerService = new WorkerService();
@@ -140,7 +131,7 @@ app.post('/tools/execute', async (req: Request, res: Response) => {
 
   const tool = toolMap.get(toolName);
   if (!tool) {
-    res.status(404).json({ error: `Tool ${toolName} not found` });
+    res.status(403).json({ error: 'FEATURE_NOT_ENABLED' });
     return;
   }
 
@@ -183,11 +174,20 @@ app.use((_req, res) => {
 
 const port = parseInt(process.env['PORT'] ?? '3001', 10);
 
-// Only listen if not running in a test suite, to avoid open handles
-if (require.main === module) {
+async function boot(): Promise<void> {
+  await initializeMcpRateLimiter();
   app.listen(port, () => {
     // eslint-disable-next-line no-console
     console.log(`mcp-connector listening on ${port}`);
+  });
+}
+
+// Only listen if not running in a test suite, to avoid open handles
+if (require.main === module) {
+  boot().catch(err => {
+    // eslint-disable-next-line no-console
+    console.error(err instanceof Error ? err.message : String(err));
+    process.exit(1);
   });
 }
 

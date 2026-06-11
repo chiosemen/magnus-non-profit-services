@@ -196,7 +196,7 @@ async function canConnectToDb(): Promise<boolean> {
     });
 
     const campaign = await prisma.campaign.create({
-      data: { orgId: org.id, name: 'Winter Aid', slug: `winter-aid-${Date.now()}` },
+      data: { orgId: org.id, title: 'Winter Aid', slug: `winter-aid-${Date.now()}` },
     });
 
     const donation = await prisma.donation.create({

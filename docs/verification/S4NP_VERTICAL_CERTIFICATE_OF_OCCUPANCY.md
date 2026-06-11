@@ -1,10 +1,11 @@
-# Magnus Accord S4NP Vertical Certificate of Occupancy
+# Magnus Accord S4NP Vertical Verification Record
 
-This document certifies that the Magnus Accord nonprofit operating vertical (S4NP) has been audited, E2E integration-tested, and verified to be safe, secure, and structurally compliant across all five development phases.
+This document is retained as historical phase-verification evidence. It is not a current production approval. As of 2026-06-11, Magnus Accord remains under P0 hardening and private pilot/staging verification.
 
 ## 1. Executive Verdict
-- **Status**: **GREEN** (Production-Ready)
-- **Summary**: All 20 audit verification checks are fully satisfied. Payment idempotency, ledger balance invariants, tenant isolation, and AI safety boundaries are fully enforced and verified by tests.
+- **Current Status**: **Pilot/Staging Verification: In Progress**
+- **Production Certification**: **Not Yet Approved**
+- **Summary**: Earlier phase checks are useful evidence, but current private pilot eligibility still depends on the P0 gates in `BLOCKERS_TO_PRODUCTION.md` and `docs/operations/P0_PRODUCTION_HARDENING_BASELINE.md`.
 
 ---
 
@@ -17,11 +18,11 @@ This document certifies that the Magnus Accord nonprofit operating vertical (S4N
 
 ---
 
-## 3. Commands Run
-- **Monorepo Tests**: `pnpm test` (successfully ran and passed all 53 test suites).
-- **TypeScript Typecheck**: `pnpm run typecheck` and `npx tsc --noEmit` on web app components (0 compilation/typecheck errors).
-- **Production Build**: `pnpm run build` inside `apps/web` (Next.js production build succeeded completely).
-- **E2E Tool Integrations**: `npx jest --preset ts-jest --testMatch="**/*.test.ts"` inside `apps/mcp-connector` (all 12 TS E2E and tool integration tests passed successfully).
+## 3. Historical Commands Recorded
+- **Monorepo Tests**: `pnpm test` was recorded as passing at the time of this phase record.
+- **TypeScript Typecheck**: `pnpm run typecheck` and `npx tsc --noEmit` were recorded as passing for the then-current scope.
+- **Web Build**: `pnpm run build` inside `apps/web` was recorded as passing for the then-current scope.
+- **E2E Tool Integrations**: `npx jest --preset ts-jest --testMatch="**/*.test.ts"` inside `apps/mcp-connector` was recorded as passing for the then-current scope.
 
 ---
 
@@ -72,9 +73,9 @@ This document certifies that the Magnus Accord nonprofit operating vertical (S4N
 ---
 
 ## 11. Production Blockers
-- **None**. All core safety, payment, accounting, and tenant isolation tests are fully passing.
+- **Known P0 blockers remain**. Current production approval requires passing build/typecheck, route-level subscription gating, Redis fail-closed behavior, campaign/Stripe consolidation, staging smoke evidence, and observability integration.
 
 ---
 
 ## 12. Final Verdict
-- **GREEN**: Production-ready.
+- **Production Certification: Not Yet Approved**. Treat this document as archived evidence, not a launch authorization.

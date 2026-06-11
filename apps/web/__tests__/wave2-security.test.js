@@ -8,6 +8,8 @@
 
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('fs');
+const path = require('path');
 
 // ─── 1. CSRF Module Tests ─────────────────────────────────────────────────────
 
@@ -125,12 +127,12 @@ test('CSRF: NEXT_PUBLIC_APP_URL not set in production → fail closed', () => {
 // ─── 2. next.config.js Security Header Tests ──────────────────────────────────
 
 test('next.config.js exports a headers() function', () => {
-  const config = require('../next.config.js');
+  const config = loadNextConfigForTest();
   assert.equal(typeof config.headers, 'function', 'next.config.js must export headers()');
 });
 
 test('headers: Content-Security-Policy is present with no unsafe-eval and frame-ancestors none', async () => {
-  const config = require('../next.config.js');
+  const config = loadNextConfigForTest();
   const headersList = await config.headers();
   const allHeaders = headersList.flatMap(h => h.headers);
   const csp = allHeaders.find(h => h.key === 'Content-Security-Policy');
@@ -141,7 +143,7 @@ test('headers: Content-Security-Policy is present with no unsafe-eval and frame-
 });
 
 test('headers: Strict-Transport-Security with includeSubDomains', async () => {
-  const config = require('../next.config.js');
+  const config = loadNextConfigForTest();
   const headersList = await config.headers();
   const allHeaders = headersList.flatMap(h => h.headers);
   const hsts = allHeaders.find(h => h.key === 'Strict-Transport-Security');
@@ -151,7 +153,7 @@ test('headers: Strict-Transport-Security with includeSubDomains', async () => {
 });
 
 test('headers: X-Frame-Options is DENY', async () => {
-  const config = require('../next.config.js');
+  const config = loadNextConfigForTest();
   const headersList = await config.headers();
   const allHeaders = headersList.flatMap(h => h.headers);
   const xfo = allHeaders.find(h => h.key === 'X-Frame-Options');
@@ -160,7 +162,7 @@ test('headers: X-Frame-Options is DENY', async () => {
 });
 
 test('headers: X-Content-Type-Options is nosniff', async () => {
-  const config = require('../next.config.js');
+  const config = loadNextConfigForTest();
   const headersList = await config.headers();
   const allHeaders = headersList.flatMap(h => h.headers);
   const xcto = allHeaders.find(h => h.key === 'X-Content-Type-Options');
@@ -169,7 +171,7 @@ test('headers: X-Content-Type-Options is nosniff', async () => {
 });
 
 test('headers: Referrer-Policy is strict-origin-when-cross-origin', async () => {
-  const config = require('../next.config.js');
+  const config = loadNextConfigForTest();
   const headersList = await config.headers();
   const allHeaders = headersList.flatMap(h => h.headers);
   const rp = allHeaders.find(h => h.key === 'Referrer-Policy');
@@ -178,7 +180,7 @@ test('headers: Referrer-Policy is strict-origin-when-cross-origin', async () => 
 });
 
 test('headers: Permissions-Policy disables camera, geolocation, and payment', async () => {
-  const config = require('../next.config.js');
+  const config = loadNextConfigForTest();
   const headersList = await config.headers();
   const allHeaders = headersList.flatMap(h => h.headers);
   const pp = allHeaders.find(h => h.key === 'Permissions-Policy');
@@ -223,7 +225,7 @@ test('rate-limit: module uses RateLimiterRedis when REDIS_URL is available', () 
   assert.match(src, /REDIS_URL/, 'Must check REDIS_URL env var');
 });
 
-test('rate-limit: module uses RateLimiterMemory as fallback when no REDIS_URL', () => {
+test('rate-limit: module uses RateLimiterMemory only as non-production fallback', () => {
   const fs = require('fs');
   const path = require('path');
   const src = fs.readFileSync(
@@ -231,18 +233,19 @@ test('rate-limit: module uses RateLimiterMemory as fallback when no REDIS_URL', 
     'utf8'
   );
   assert.match(src, /RateLimiterMemory/, 'Must use RateLimiterMemory as in-memory fallback');
+  assert.match(src, /NODE_ENV.*production|isProduction/, 'Must branch on production mode');
 });
 
-test('rate-limit: production warning emitted when REDIS_URL absent', () => {
+test('rate-limit: production without REDIS_URL throws instead of warning fallback', () => {
   const fs = require('fs');
   const path = require('path');
   const src = fs.readFileSync(
     path.join(__dirname, '../src/lib/rate-limit.ts'),
     'utf8'
   );
-  assert.match(src, /REDIS_URL is not set/, 'Must warn in production when Redis is unconfigured');
-  assert.match(src, /NOT multi-instance safe|not be multi-instance safe/i,
-    'Warning must explicitly state not multi-instance safe');
+  assert.match(src, /REDIS_URL is required for production rate limiting/, 'Must fail closed when Redis is missing in production');
+  assert.doesNotMatch(src, /Using in-memory rate limiter\.[\s\S]+production deployments/i,
+    'Production must not silently use in-memory rate limiting');
 });
 
 test('rate-limit: exports test injection helpers for isolation', () => {
@@ -254,6 +257,77 @@ test('rate-limit: exports test injection helpers for isolation', () => {
   );
   assert.match(src, /_resetLimiterForTest/, 'Must export _resetLimiterForTest');
   assert.match(src, /_injectLimiterForTest/, 'Must export _injectLimiterForTest');
+});
+
+test('rate-limit: production missing REDIS_URL fails closed at limiter initialization', async () => {
+  await withEnv({ NODE_ENV: 'production', REDIS_URL: '' }, async () => {
+    const mod = loadRateLimitModule();
+    mod._resetLimiterForTest();
+    await assert.rejects(() => mod.checkRateLimit('prod-missing-redis'), /REDIS_URL is required/);
+  });
+});
+
+test('rate-limit: production Redis connection failure fails closed', async () => {
+  await withEnv({ NODE_ENV: 'production', REDIS_URL: 'redis://127.0.0.1:1' }, async () => {
+    const mod = loadRateLimitModule({
+      requireOverride(id) {
+        if (id === 'ioredis') {
+          return class FailingRedis {
+            async connect() {
+              throw new Error('connect failed');
+            }
+          };
+        }
+        if (id === 'rate-limiter-flexible') {
+          return {
+            RateLimiterRedis: class FakeRedisLimiter {},
+            RateLimiterMemory: class FakeMemoryLimiter {},
+          };
+        }
+        return require(id);
+      },
+    });
+    mod._resetLimiterForTest();
+    await assert.rejects(() => mod.checkRateLimit('prod-failing-redis'), /Redis rate limit backend failed to connect/);
+  });
+});
+
+test('rate-limit: development missing REDIS_URL keeps local memory fallback with warning', async () => {
+  await withEnv({ NODE_ENV: 'development', REDIS_URL: undefined }, async () => {
+    const warnings = [];
+    const mod = loadRateLimitModule({
+      consoleOverride: {
+        ...console,
+        warn(message) { warnings.push(String(message)); },
+      },
+    });
+    mod._resetLimiterForTest();
+    const result = await mod.checkRateLimit('dev-memory-fallback');
+    assert.deepEqual(result, { limited: false });
+    assert.match(warnings.join('\n'), /local dev\/test only/);
+  });
+});
+
+test('rate-limit: test injection helper remains available outside production', async () => {
+  await withEnv({ NODE_ENV: 'test', REDIS_URL: undefined }, async () => {
+    const mod = loadRateLimitModule();
+    mod._resetLimiterForTest();
+    mod._injectLimiterForTest({
+      get: async () => null,
+      consume: async () => ({ remainingPoints: 4 }),
+      delete: async () => true,
+    });
+    assert.deepEqual(await mod.checkRateLimit('test-injected'), { limited: false });
+  });
+});
+
+test('login route maps rate-limit backend failure to 503', () => {
+  const src = fs.readFileSync(
+    path.join(__dirname, '../src/app/api/auth/login/route.ts'),
+    'utf8'
+  );
+  assert.match(src, /RATE_LIMIT_BACKEND_UNAVAILABLE/);
+  assert.match(src, /status:\s*503/);
 });
 
 test('rate-limit: in-memory fallback functional (RateLimiterMemory integration)', async () => {
@@ -304,3 +378,54 @@ test('rate-limit: in-memory fallback functional (RateLimiterMemory integration)'
   const afterClear = await limiter.get(testIp);
   assert.equal(afterClear, null, 'IP record should be cleared after delete');
 });
+
+async function withEnv(overrides, fn) {
+  const previous = {};
+  for (const key of Object.keys(overrides)) {
+    previous[key] = process.env[key];
+    const next = overrides[key];
+    if (next === undefined) delete process.env[key];
+    else process.env[key] = next;
+  }
+  try {
+    return await fn();
+  } finally {
+    for (const key of Object.keys(overrides)) {
+      if (previous[key] === undefined) delete process.env[key];
+      else process.env[key] = previous[key];
+    }
+  }
+}
+
+function loadRateLimitModule(options = {}) {
+  const ts = require('typescript');
+  const source = fs.readFileSync(path.join(__dirname, '../src/lib/rate-limit.ts'), 'utf8');
+  const compiled = ts.transpileModule(source, {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022,
+      esModuleInterop: true,
+    },
+  }).outputText;
+  const module = { exports: {} };
+  const req = options.requireOverride ?? require;
+  const consoleOverride = options.consoleOverride ?? console;
+  const factory = new Function('require', 'module', 'exports', 'process', 'console', compiled);
+  factory(req, module, module.exports, process, consoleOverride);
+  return module.exports;
+}
+
+function loadNextConfigForTest() {
+  const configPath = path.join(__dirname, '../next.config.js');
+  const previousRedisUrl = process.env.REDIS_URL;
+  if (process.env.NODE_ENV === 'production' && !process.env.REDIS_URL?.trim()) {
+    process.env.REDIS_URL = 'redis://test.redis.local:6379';
+  }
+  delete require.cache[require.resolve(configPath)];
+  try {
+    return require(configPath);
+  } finally {
+    if (previousRedisUrl === undefined) delete process.env.REDIS_URL;
+    else process.env.REDIS_URL = previousRedisUrl;
+  }
+}

@@ -2,9 +2,15 @@ import type { Express, RequestHandler } from 'express';
 import prisma from '@magnus/db/client';
 import type { PrismaClient } from '@magnus/db/types';
 import { createGrant, listGrants, getGrant } from '@magnus/org-autonomous-ops-context';
+import { ORG_DASHBOARD_ROUTE_FEATURES } from '@magnus/subscription';
+import { createSubscriptionGate } from './subscriptionGate';
 
 export function registerGrantRoutes(app: Express, jwtAuth: RequestHandler): void {
   const db = prisma as unknown as PrismaClient;
+  const featureGate = createSubscriptionGate(ORG_DASHBOARD_ROUTE_FEATURES.grants, {
+    db,
+    routeName: 'grants',
+  });
 
   const handleError = (err: any, res: any, next: any) => {
     if (err.name === 'ValidationError') {
@@ -16,7 +22,7 @@ export function registerGrantRoutes(app: Express, jwtAuth: RequestHandler): void
     return next(err);
   };
 
-  app.post('/api/org/grants', jwtAuth, async (req, res, next) => {
+  app.post('/api/org/grants', jwtAuth, featureGate, async (req, res, next) => {
     try {
       const orgId = (req as any).auth.orgId as string;
       const { funderName, totalAmount, startDate, endDate, spentToDate, reportingSchedule } = req.body || {};
@@ -34,7 +40,7 @@ export function registerGrantRoutes(app: Express, jwtAuth: RequestHandler): void
     }
   });
 
-  app.get('/api/org/grants', jwtAuth, async (req, res, next) => {
+  app.get('/api/org/grants', jwtAuth, featureGate, async (req, res, next) => {
     try {
       const orgId = (req as any).auth.orgId as string;
       const result = await listGrants(db, orgId);
@@ -44,7 +50,7 @@ export function registerGrantRoutes(app: Express, jwtAuth: RequestHandler): void
     }
   });
 
-  app.get('/api/org/grants/:id', jwtAuth, async (req, res, next) => {
+  app.get('/api/org/grants/:id', jwtAuth, featureGate, async (req, res, next) => {
     try {
       const orgId = (req as any).auth.orgId as string;
       const grantId = req.params.id;

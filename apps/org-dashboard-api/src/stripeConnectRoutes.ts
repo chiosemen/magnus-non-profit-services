@@ -2,12 +2,14 @@ import type { Express, RequestHandler } from 'express';
 import Stripe from 'stripe';
 import prisma from '@magnus/db/client';
 import type { PrismaClient } from '@magnus/db/types';
+import { ORG_DASHBOARD_ROUTE_FEATURES } from '@magnus/subscription';
 import {
   createStripeConnectOnboardingLink,
   getStripeConnectStatus,
   refreshStripeConnectOnboardingLink,
   type StripeConnectGateway,
 } from '@magnus/org-autonomous-ops-context';
+import { createSubscriptionGate } from './subscriptionGate';
 
 function webUrl(value: string | undefined, key: string): string {
   const raw = (value ?? '').trim();
@@ -91,8 +93,12 @@ export function registerStripeConnectRoutes(
   const gateway = options?.gateway;
   const returnUrl = options?.returnUrl ?? webUrl(process.env['STRIPE_CONNECT_RETURN_URL'], 'STRIPE_CONNECT_RETURN_URL');
   const refreshUrl = options?.refreshUrl ?? webUrl(process.env['STRIPE_CONNECT_REFRESH_URL'], 'STRIPE_CONNECT_REFRESH_URL');
+  const featureGate = createSubscriptionGate(ORG_DASHBOARD_ROUTE_FEATURES.stripeConnectAdmin, {
+    db,
+    routeName: 'stripe-connect-admin',
+  });
 
-  app.get('/api/org/stripe-connect/status', jwtAuth, async (req, res, next) => {
+  app.get('/api/org/stripe-connect/status', jwtAuth, featureGate, async (req, res, next) => {
     try {
       const orgId = (req as any)?.auth?.orgId as string | undefined;
       if (!orgId) return res.status(401).json({ error: 'AUTH_INVALID' });
@@ -104,7 +110,7 @@ export function registerStripeConnectRoutes(
     }
   });
 
-  app.post('/api/org/stripe-connect/onboarding-link', jwtAuth, async (req, res, next) => {
+  app.post('/api/org/stripe-connect/onboarding-link', jwtAuth, featureGate, async (req, res, next) => {
     try {
       const orgId = (req as any)?.auth?.orgId as string | undefined;
       if (!orgId) return res.status(401).json({ error: 'AUTH_INVALID' });
@@ -124,7 +130,7 @@ export function registerStripeConnectRoutes(
     }
   });
 
-  app.post('/api/org/stripe-connect/onboarding-link/refresh', jwtAuth, async (req, res, next) => {
+  app.post('/api/org/stripe-connect/onboarding-link/refresh', jwtAuth, featureGate, async (req, res, next) => {
     try {
       const orgId = (req as any)?.auth?.orgId as string | undefined;
       if (!orgId) return res.status(401).json({ error: 'AUTH_INVALID' });
