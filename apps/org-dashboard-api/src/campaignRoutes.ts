@@ -34,6 +34,10 @@ export function registerCampaignRoutes(
     db,
     routeName: 'campaign-admin',
   });
+  const stripeConnectGate = createSubscriptionGate(ORG_DASHBOARD_ROUTE_FEATURES.stripeConnectAdmin, {
+    db,
+    routeName: 'campaign-publish',
+  });
 
   app.get('/api/org/campaigns', jwtAuth, featureGate, async (req, res, next) => {
     try {
@@ -128,7 +132,7 @@ export function registerCampaignRoutes(
     }
   });
 
-  app.post('/api/org/campaigns/:id/publish', jwtAuth, featureGate, async (req, res, next) => {
+  app.post('/api/org/campaigns/:id/publish', jwtAuth, stripeConnectGate, async (req, res, next) => {
     try {
       const orgId = getOrgId(req);
       if (!orgId) return res.status(401).json({ error: 'AUTH_INVALID' });

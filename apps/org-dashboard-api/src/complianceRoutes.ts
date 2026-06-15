@@ -6,9 +6,15 @@ import {
   updateComplianceStatus,
   listComplianceCalendar,
 } from '@magnus/org-autonomous-ops-context';
+import { ORG_DASHBOARD_ROUTE_FEATURES } from '@magnus/subscription';
+import { createSubscriptionGate } from './subscriptionGate';
 
 export function registerComplianceRoutes(app: Express, jwtAuth: RequestHandler): void {
   const db = prisma as unknown as PrismaClient;
+  const featureGate = createSubscriptionGate(ORG_DASHBOARD_ROUTE_FEATURES.complianceReminders, {
+    db,
+    routeName: 'compliance-reminders',
+  });
 
   const handleError = (err: any, res: any, next: any) => {
     if (err.name === 'ValidationError') {
@@ -20,7 +26,7 @@ export function registerComplianceRoutes(app: Express, jwtAuth: RequestHandler):
     return next(err);
   };
 
-  app.post('/api/org/compliance', jwtAuth, async (req, res, next) => {
+  app.post('/api/org/compliance', jwtAuth, featureGate, async (req, res, next) => {
     try {
       const orgId = (req as any).auth.orgId as string;
       const { deadlineType, dueDate, status, asanaTaskId } = req.body || {};
@@ -36,7 +42,7 @@ export function registerComplianceRoutes(app: Express, jwtAuth: RequestHandler):
     }
   });
 
-  app.put('/api/org/compliance/:id/status', jwtAuth, async (req, res, next) => {
+  app.put('/api/org/compliance/:id/status', jwtAuth, featureGate, async (req, res, next) => {
     try {
       const orgId = (req as any).auth.orgId as string;
       const complianceId = req.params.id;
@@ -48,7 +54,7 @@ export function registerComplianceRoutes(app: Express, jwtAuth: RequestHandler):
     }
   });
 
-  app.get('/api/org/compliance', jwtAuth, async (req, res, next) => {
+  app.get('/api/org/compliance', jwtAuth, featureGate, async (req, res, next) => {
     try {
       const orgId = (req as any).auth.orgId as string;
       const result = await listComplianceCalendar(db, orgId);

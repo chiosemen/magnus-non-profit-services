@@ -120,9 +120,9 @@ const ROWS: LaunchAgentPolicyRow[] = [
     pilotPositioning: 'internal_worker_scoped',
     subscriptionEligibilitySummary: eligibilitySummary('WorkerIncomeOptimizer'),
     whatItDoes:
-      'Worker-scoped scheduled agent; not part of the nonprofit “headquarters” pilot persona set in v1 positioning. Internal alerts for eligible worker scopes.',
+      'Worker-scoped scaffold; not part of the nonprofit “headquarters” pilot persona set in v1 positioning. No public scheduled runs by nonprofit subscription tier.',
     humanReviewSemantics: 'Same autonomy tier machinery when internal side effects apply.',
-    currentlyEnforcedInCode: ['ENTERPRISE + ACTIVE; worker scope only in scheduler.'],
+    currentlyEnforcedInCode: ['No scheduled runs by nonprofit subscription tier; worker scope remains internal/deferred.'],
     blockedAutonomousExternal: ['No autonomous payroll or tax filing actions.'],
   },
 ];
@@ -155,7 +155,7 @@ export function buildAutonomyPolicySurface(): AutonomyPolicySurface {
       '`external_send`, `external_submit`, and `irreversible_action` are NEVER autonomous per the action matrix.',
     ],
     pilotOnlyProductSurfaces: [
-      'Connectors page: MCP Connector, Grant Generator, Worker Financial Layer are PILOT_ONLY until DB-backed product state exists.',
+      'Connectors page: MCP Connector, Grant Generator, and Worker Financial Layer are not client-visible panels; MCP is internal/operator-only, Grant Generator is an internal AI Concierge capability, and Worker Financial Layer is deferred/scaffolded.',
       'Several Executive “next step” links may be placeholders (`UNIMPLEMENTED_IN_REPO` in payloads).',
     ],
   };

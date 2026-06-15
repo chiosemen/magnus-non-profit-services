@@ -27,11 +27,12 @@ export function subscriptionAllowsScheduledAgent(params: {
   if (name === 'ComplianceWatchdog' || name === 'BoardIntelligenceOracle') {
     return tier === 'GROWTH' || tier === 'ENTERPRISE';
   }
-  if (name === 'GrantLifecycleManager' || name === 'FinancialSentinel' || name === 'WorkerIncomeOptimizer') {
+  if (name === 'GrantLifecycleManager' || name === 'FinancialSentinel') {
     return tier === 'ENTERPRISE';
   }
   if (name === 'GrantIntelligenceHerald') {
     return tier === 'ENTERPRISE';
   }
+  if (name === 'WorkerIncomeOptimizer') return false;
   return false;
 }

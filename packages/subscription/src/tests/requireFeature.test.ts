@@ -88,14 +88,17 @@ test('requireFeature does not hit subscription store when auth is missing', asyn
 });
 
 test('route and MCP feature maps use current subscription policy keys', () => {
-  assert.equal(ORG_DASHBOARD_ROUTE_FEATURES.campaignAdmin, 'autonomous_ops_standard');
-  assert.equal(ORG_DASHBOARD_ROUTE_FEATURES.fundAccounting, 'autonomous_ops_standard');
-  assert.equal(ORG_DASHBOARD_ROUTE_FEATURES.conciergeAi, 'autonomous_ops_standard');
+  assert.equal(ORG_DASHBOARD_ROUTE_FEATURES.donorCrm, 'donor_crm');
+  assert.equal(ORG_DASHBOARD_ROUTE_FEATURES.campaignAdmin, 'campaigns');
+  assert.equal(ORG_DASHBOARD_ROUTE_FEATURES.fundAccounting, 'fund_accounting_lite');
+  assert.equal(ORG_DASHBOARD_ROUTE_FEATURES.complianceReminders, 'compliance_reminders');
+  assert.equal(ORG_DASHBOARD_ROUTE_FEATURES.conciergeAi, 'ai_concierge');
   assert.equal(ORG_DASHBOARD_ROUTE_FEATURES.grants, 'grant_generator');
-  assert.equal(ORG_DASHBOARD_ROUTE_FEATURES.boardAndExecutivePackets, 'autonomous_ops_assisted');
-  assert.equal(featureForMcpTool('get-funder-research'), 'grant_generator');
-  assert.equal(featureForMcpTool('get-tax-estimates'), 'worker_financial_layer');
-  assert.equal(featureForMcpTool('draft-board-packet'), 'autonomous_ops_assisted');
+  assert.equal(ORG_DASHBOARD_ROUTE_FEATURES.boardAndExecutivePackets, 'board_packets');
+  assert.equal(ORG_DASHBOARD_ROUTE_FEATURES.stripeConnectAdmin, 'stripe_connect_campaigns');
+  assert.equal(featureForMcpTool('get-funder-research'), 'mcp_tools');
+  assert.equal(featureForMcpTool('get-tax-estimates'), 'mcp_tools');
+  assert.equal(featureForMcpTool('draft-board-packet'), 'mcp_tools');
   assert.equal(featureForMcpTool('unknown-premium-tool'), null);
 });
 

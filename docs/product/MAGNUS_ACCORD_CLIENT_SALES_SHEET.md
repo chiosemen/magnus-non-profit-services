@@ -55,7 +55,7 @@ Adds to Assisted Ops:
 
 ### Not part of the nonprofit HQ pilot promise
 
-- `WorkerIncomeOptimizer` exists as a **worker-scoped** scheduled agent; treat as **adjacent / internal**, not a headquarters pilot commitment unless you explicitly expand scope and caveats ([maturity map](./MAGNUS_ACCORD_MATURITY_MAP.md)).
+- `WorkerIncomeOptimizer` exists as a **worker-scoped** internal scaffold; it is not scheduled by nonprofit subscription tier and is not a headquarters pilot commitment ([maturity map](./MAGNUS_ACCORD_MATURITY_MAP.md)).
 
 ### Not implemented
 
@@ -96,11 +96,8 @@ The Connectors page shows **honest status** from the in-repo registry plus runti
 **Client-visible panels (web):**
 
 - **Claude Partner** — status reflects `Organization.claudeStatus` (e.g., NOT_ENABLED / CONFIGURING / ACTIVE / SUSPENDED). **Enabling** the integration depends on deployment and configuration work outside a pure self-serve claim.
-- **MCP Connector** — **pilot-only** product row; known paths include **demo/stub** behavior and **must not** be sold as production financial or compliance truth ([production checklist §4](../PRODUCTION_TRUTH_CHECKLIST.md)).
-- **Grant Generator** — **pilot-only** product row until org-scoped product state matches dashboard truth.
-- **Worker Financial Layer** — **pilot-only** product row; worker-scoped sensitivity.
 
-**Important:** “Pilot-only” means **visibility and bounded experimentation**, not guaranteed self-serve onboarding for every adjacent system.
+**Internal / not public panels:** MCP is operator-only; grant drafting is an AI Concierge capability first; worker financial is deferred/scaffolded. Do not market them as self-serve connectors.
 
 ---
 
@@ -122,10 +119,10 @@ The Connectors page shows **honest status** from the in-repo registry plus runti
 
 ## Pilot-only caveat section (paste near footer)
 
-1. **Pilot labeling** refers to program and surface maturity; it does not replace deploy validation ([production checklist](../PRODUCTION_TRUTH_CHECKLIST.md)).  
-2. **MCP / pilot connector rows** are not authoritative financial or compliance records.  
-3. **Executive “next steps”** may include placeholder destinations; value is **visibility**, not a finished task system for every link.  
-4. **HQ Expansion** outcomes depend on configuration and data; expect honest **not configured / insufficient data** states until prerequisites exist.  
+1. **Pilot labeling** refers to program and surface maturity; it does not replace deploy validation ([production checklist](../PRODUCTION_TRUTH_CHECKLIST.md)).
+2. **MCP / worker financial** are not public beta features or authoritative financial/compliance records.
+3. **Executive “next steps”** may include placeholder destinations; value is **visibility**, not a finished task system for every link.
+4. **HQ Expansion** outcomes depend on configuration and data; expect honest **not configured / insufficient data** states until prerequisites exist.
 5. **No autonomous outbound communications, filings, submissions, or money movement.**
 
 ---
@@ -140,15 +137,15 @@ The Connectors page shows **honest status** from the in-repo registry plus runti
 
 ## Optional: minimal landing page section order
 
-1. Headline + subhead (internal-only autonomy; no external send)  
-2. Who it’s for (nonprofit ops + leadership visibility)  
-3. Two-package diagram (Assisted Ops vs HQ Expansion)  
-4. Agents (tables above)  
-5. Screens narrative: Directory → Readiness → Connectors → Executive → Control tower  
-6. Approvals & guardrails (Tier A; no approval product)  
-7. Connectors (Claude real status; pilot-only rows labeled)  
-8. Caveats block  
-9. Pilot CTA  
+1. Headline + subhead (internal-only autonomy; no external send)
+2. Who it’s for (nonprofit ops + leadership visibility)
+3. Two-package diagram (Assisted Ops vs HQ Expansion)
+4. Agents (tables above)
+5. Screens narrative: Directory → Readiness → Connectors → Executive → Control tower
+6. Approvals & guardrails (Tier A; no approval product)
+7. Connectors (Claude real status; internal-only boundaries stated)
+8. Caveats block
+9. Pilot CTA
 
 ---
 

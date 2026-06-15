@@ -375,6 +375,12 @@ importers:
       helmet:
         specifier: ^7.1.0
         version: 7.2.0
+      ioredis:
+        specifier: ^5.4.1
+        version: 5.9.3
+      rate-limiter-flexible:
+        specifier: ^5.0.3
+        version: 5.0.5
       stripe:
         specifier: ^16.12.0
         version: 16.12.0

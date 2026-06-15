@@ -263,7 +263,11 @@ function formatEnvError(service: EnvServiceName, error: z.ZodError): string {
 }
 
 function assertProductionRedisConfigured(service: EnvServiceName, env: { NODE_ENV?: string; REDIS_URL?: string }): void {
-  if ((service === 'web' || service === 'mcp-connector') && env.NODE_ENV === 'production' && !env.REDIS_URL?.trim()) {
+  if (
+    (service === 'web' || service === 'org-dashboard-api' || service === 'mcp-connector') &&
+    env.NODE_ENV === 'production' &&
+    !env.REDIS_URL?.trim()
+  ) {
     throw new Error(`Invalid environment configuration for ${service}: REDIS_URL`);
   }
 }

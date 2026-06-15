@@ -195,14 +195,28 @@ test('auth failures return 401 for campaign routes', async () => {
   }
 });
 
-test('starter org is denied campaign admin before handler executes', async () => {
+test('starter org can create basic draft campaigns', async () => {
   const h = createHarness();
   registerCampaignRoutes(h.app, passAuth as any, { db: createDb() as any });
   const handler = h.handlers.get('POST /api/org/campaigns');
   assert.ok(handler);
 
   const res = h.response();
-  await handler!({ auth: { orgId: 'org_starter', sub: 'user_1' }, body: { title: 'Blocked' } }, res, () => undefined);
+  await handler!({ auth: { orgId: 'org_starter', sub: 'user_1' }, body: { title: 'Starter Campaign' } }, res, () => undefined);
+  assert.equal(res.statusCode, 201);
+  assert.equal(res.body.campaign.title, 'Starter Campaign');
+});
+
+test('starter org is denied campaign publishing before handler executes', async () => {
+  const h = createHarness();
+  registerCampaignRoutes(h.app, passAuth as any, {
+    db: createDb({ campaigns: [makeSeedCampaign('org_starter')], stripeStatus: { org_starter: 'ENABLED' } }) as any,
+  });
+  const handler = h.handlers.get('POST /api/org/campaigns/:id/publish');
+  assert.ok(handler);
+
+  const res = h.response();
+  await handler!({ auth: { orgId: 'org_starter', sub: 'user_1' }, params: { id: 'campaign_1' } }, res, () => undefined);
   assert.equal(res.statusCode, 403);
   assert.deepEqual(res.body, { error: 'FEATURE_NOT_ENABLED' });
 });

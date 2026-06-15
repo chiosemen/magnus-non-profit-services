@@ -106,7 +106,7 @@ Mandatory caveats in any controlled pilot statement of work or launch brief.
   - `Organization.claudeStatus` is the truth; `NOT_ENABLED` or `CONFIGURING` must be represented as not fully ready. Evidence: connector registry + `buildPilotReadiness` dimension `claude_connector`.
 
 - **MCP Connector / Grant Generator / Worker Financial Layer**
-  - These are pilot-labeled rows; MCP includes demo/stub/random/in-memory paths and is **explicitly non-truth** for compliance/finance. Evidence: `docs/PRODUCTION_TRUTH_CHECKLIST.md` §4; connector registry.
+  - These are internal/operator-only or deferred capabilities, not client-visible pilot rows. MCP output must not be used as compliance/finance truth, grant drafting sits under AI Concierge first, and worker financial remains scaffolded/deferred. Evidence: `docs/PRODUCTION_TRUTH_CHECKLIST.md` §4; connector registry.
 
 - **Plaid / Candid**
   - Marked `INTERNAL_ONLY`; require human-operated setup and data. Enterprise agent outcomes may be `NOT_CONFIGURED`/`INSUFFICIENT_DATA` until prerequisites exist. Evidence: connector registry + production audit.

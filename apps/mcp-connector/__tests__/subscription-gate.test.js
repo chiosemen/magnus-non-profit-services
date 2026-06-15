@@ -23,9 +23,9 @@ function response(resolve) {
 }
 
 test('MCP tool feature map assigns premium nonprofit tools and denies unknown mappings', () => {
-  assert.equal(featureForMcpTool('get-funder-research'), 'grant_generator');
-  assert.equal(featureForMcpTool('get-tax-estimates'), 'worker_financial_layer');
-  assert.equal(featureForMcpTool('draft-board-packet'), 'autonomous_ops_assisted');
+  assert.equal(featureForMcpTool('get-funder-research'), 'mcp_tools');
+  assert.equal(featureForMcpTool('get-tax-estimates'), 'mcp_tools');
+  assert.equal(featureForMcpTool('draft-board-packet'), 'mcp_tools');
   assert.equal(featureForMcpTool('fabricate-tax-return'), null);
 });
 

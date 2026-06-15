@@ -58,13 +58,13 @@ Nonprofits that want **internal watch + board-prep** and **operator visibility**
 Client-visible connector panels on the Connectors page:
 
 - `claudePartner` (LIMITED) — status derived from `Organization.claudeStatus`.
-- `mcpConnector` (PILOT_ONLY) — pilot-labeled; stub/non-truth caveats apply.
-- `grantGenerator` (PILOT_ONLY) — pilot-labeled adjacent app row.
-- `workerFinancialLayer` (PILOT_ONLY) — pilot-labeled adjacent app row.
 
 Internal-only connectors that may be used by agents (not self-serve connector cards in the web app):
 
 - `magnusHq` (LIVE) — the authoritative tenant data plane.
+- `mcpConnector` — operator-only until permissions, audit redaction, rate limiting, and staging smoke are proven.
+- `grantGenerator` — internal AI Concierge / grant drafting capability first.
+- `workerFinancialLayer` — internal scaffold/deferred; not a public claim.
 - Others as listed in the connector registry (e.g. Plaid/Candid are INTERNAL_ONLY; Slack outbound is NOT_IMPLEMENTED).
 
 ### Approval model (what you can promise)
@@ -85,12 +85,12 @@ Internal-only connectors that may be used by agents (not self-serve connector ca
 - Autonomous outbound communications or submissions.
 - A dedicated handoff inbox / triage UI in the web app.
 - Donor/volunteer ledger staff UIs in `apps/web` (APIs may exist separately).
-- “Production connector ecosystem” (MCP/grant-gen/worker-financial are pilot-labeled; many connectors are internal-only).
+- “Production connector ecosystem” (MCP/grant-generator/worker-financial are internal-only or deferred; many connectors are internal-only).
 
 ### Required caveats (must be in the offer)
 
 - “Internal outputs only; humans retain authority over anything external or irreversible.”
-- “Pilot-labeled connector rows are not production truth (especially MCP).”
+- “MCP, grant-generator, and worker-financial are not self-serve public connector products.”
 - “Some deep links are placeholders; value is visibility, not a complete workflow UI for every action.”
 
 ---
@@ -126,7 +126,7 @@ Adds to Assisted Ops Pilot:
 - “Reflection” / SOLARIS synthesis.
 - Autonomous submission, filings, or external send on behalf of the org.
 - Money movement or authoritative write-back to external ledgers.
-- MCP-driven compliance/finance truth when MCP stub/demo paths are in play.
+- MCP-driven compliance/finance truth or public MCP beta exposure.
 - Volunteer roster/in-kind valuation/scheduling as a product truth claim.
 - Web audit workstation and audit export packs.
 
@@ -136,4 +136,3 @@ Adds to Assisted Ops Pilot:
 
 - **Magnus Accord — Assisted Ops Pilot** (default commercial offer)
 - **Magnus Accord — HQ Expansion (Enterprise)** (add-on)
-

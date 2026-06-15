@@ -31,6 +31,7 @@ const billingSchema = baseServiceSchema.extend({
 });
 
 const orgDashboardApiSchema = baseServiceSchema.extend({
+  REDIS_URL: nonEmpty.optional(),
   STRIPE_SECRET_KEY: z.preprocess((val) => {
     if (process.env.NODE_ENV === 'production') return val;
     return val || 'dev_stripe_secret_key';
@@ -89,7 +90,11 @@ type EnvByService = {
 };
 
 function assertProductionRedisConfigured(service: EnvServiceName): void {
-  if (service === 'mcp-connector' && process.env.NODE_ENV === 'production' && !process.env.REDIS_URL?.trim()) {
+  if (
+    (service === 'org-dashboard-api' || service === 'mcp-connector') &&
+    process.env.NODE_ENV === 'production' &&
+    !process.env.REDIS_URL?.trim()
+  ) {
     throw new Error(`Invalid environment configuration for ${service}: REDIS_URL`);
   }
 }

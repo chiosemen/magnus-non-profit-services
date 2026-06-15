@@ -1,35 +1,37 @@
 import type { FeatureKey } from './features';
 
 export const ORG_DASHBOARD_ROUTE_FEATURES = {
-  campaignAdmin: 'autonomous_ops_standard',
-  fundAccounting: 'autonomous_ops_standard',
-  conciergeAi: 'autonomous_ops_standard',
+  donorCrm: 'donor_crm',
+  campaignAdmin: 'campaigns',
+  fundAccounting: 'fund_accounting_lite',
+  complianceReminders: 'compliance_reminders',
+  conciergeAi: 'ai_concierge',
   grants: 'grant_generator',
-  boardAndExecutivePackets: 'autonomous_ops_assisted',
-  stripeConnectAdmin: 'autonomous_ops_standard',
+  boardAndExecutivePackets: 'board_packets',
+  stripeConnectAdmin: 'stripe_connect_campaigns',
 } as const satisfies Record<string, FeatureKey>;
 
 export const CLAUDE_PARTNER_ROUTE_FEATURE = 'claude_partner' as const satisfies FeatureKey;
 
 export const MCP_TOOL_FEATURES = {
-  'get-multi-org-profile': 'compliance_calendar',
-  'get-filing-history': 'compliance_calendar',
-  'get-state-registrations': 'compliance_calendar',
-  'get-grant-history': 'grant_generator',
-  'get-funder-research': 'grant_generator',
-  'get-revenue-breakdown': 'worker_financial_layer',
-  'get-expense-allocation': 'worker_financial_layer',
-  'get-income-summary': 'worker_financial_layer',
-  'get-tax-estimates': 'worker_financial_layer',
-  'get-donor-summary': 'autonomous_ops_standard',
-  'list-donations': 'autonomous_ops_standard',
-  'get-receipt-status': 'autonomous_ops_standard',
-  'get-campaign-performance': 'autonomous_ops_standard',
-  'get-fund-balances': 'autonomous_ops_standard',
-  'get-income-expense-summary': 'autonomous_ops_standard',
-  'draft-board-packet': 'autonomous_ops_assisted',
-  'list-volunteer-hours': 'autonomous_ops_standard',
-  'list-concierge-proposals': 'autonomous_ops_standard',
+  'get-multi-org-profile': 'mcp_tools',
+  'get-filing-history': 'mcp_tools',
+  'get-state-registrations': 'mcp_tools',
+  'get-grant-history': 'mcp_tools',
+  'get-funder-research': 'mcp_tools',
+  'get-revenue-breakdown': 'mcp_tools',
+  'get-expense-allocation': 'mcp_tools',
+  'get-income-summary': 'mcp_tools',
+  'get-tax-estimates': 'mcp_tools',
+  'get-donor-summary': 'mcp_tools',
+  'list-donations': 'mcp_tools',
+  'get-receipt-status': 'mcp_tools',
+  'get-campaign-performance': 'mcp_tools',
+  'get-fund-balances': 'mcp_tools',
+  'get-income-expense-summary': 'mcp_tools',
+  'draft-board-packet': 'mcp_tools',
+  'list-volunteer-hours': 'mcp_tools',
+  'list-concierge-proposals': 'mcp_tools',
 } as const satisfies Record<string, FeatureKey>;
 
 export function featureForMcpTool(toolName: string): FeatureKey | null {

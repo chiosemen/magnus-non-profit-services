@@ -4,6 +4,7 @@
 
 import { PrismaClient, CampaignStatus, Campaign, DonationSource, ReceiptStatus } from '@magnus/db/types';
 import { Prisma as PrismaRuntime } from '@magnus/db/types';
+import { isFeatureEnabled } from '@magnus/subscription';
 import crypto from 'crypto';
 
 // Custom error classes for clean error handling
@@ -102,6 +103,14 @@ export async function createDonationCheckoutSession(
 
   if (campaign.status !== CampaignStatus.LIVE) {
     throw new ValidationError('Campaign is not live.');
+  }
+
+  if (!isFeatureEnabled({
+    tier: campaign.organization.subscriptionTier,
+    status: campaign.organization.subscriptionStatus,
+    featureKey: 'stripe_connect_campaigns',
+  })) {
+    throw new ValidationError('Stripe Connect campaign payments are not enabled for this organization.');
   }
 
   const stripeAccount = campaign.organization.stripeConnectAccount;

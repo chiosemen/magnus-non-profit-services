@@ -37,7 +37,7 @@ Current status as of 2026-06-11: **Production Certification: Not Yet Approved**.
 | Feature | Status | Client-facing pilot | Notes |
 |---------|--------|---------------------|--------|
 | Autonomous Ops — Directory and memory | Pilot | Yes | Raw markdown / `NOT_CONFIGURED` chips |
-| Autonomous Ops — Connectors | Pilot | Yes | Registry-driven panels; Claude from DB + **PILOT_ONLY** rows |
+| Autonomous Ops — Connectors | Pilot | Yes | Registry-driven panels; Claude status from DB. MCP/grant-generator/worker-financial are not client-visible panels. |
 | Autonomous Ops — Authority rules | Pilot | Yes | JSON for enabled agents when row exists |
 | Autonomous Ops — Executive | Pilot | Yes | Obligations, what matters, module states, financial summary strip |
 | Autonomous Ops — Control tower | Pilot | Yes | Rollups; nav may say “Audit” |
@@ -52,6 +52,25 @@ Current status as of 2026-06-11: **Production Certification: Not Yet Approved**.
 ---
 
 ## Backend capabilities (`org-dashboard-api` and packages)
+
+## Subscription feature keys
+
+Feature keys are exact entitlements; tier bundles are collections of those keys.
+
+| Feature key | Minimum public tier | Public scope |
+|-------------|---------------------|--------------|
+| `donor_crm` | STARTER | Donors, manual donations, receipts/import records |
+| `campaigns` | STARTER | Basic campaign admin |
+| `stripe_connect_campaigns` | GROWTH | Stripe Connect onboarding/readiness and campaign payment publishing |
+| `fund_accounting_lite` | GROWTH | Fund accounting lite and reports |
+| `compliance_reminders` | GROWTH | Compliance reminder CRUD/status workflows |
+| `ai_concierge` | GROWTH | Limited AI Concierge pilot workflows |
+| `board_packets` | GROWTH | Board/executive packet drafts |
+| `grant_generator` | GROWTH | Internal AI Concierge / grant drafting pilot capability |
+| `mcp_tools` | Internal only | Operator-only; not public tiered |
+| `worker_financial_layer` | Not public | Internal scaffold/deferred |
+
+Legacy platform keys such as `autonomous_ops_assisted`, `autonomous_ops_standard`, and `agents_layer` remain for scheduled-agent policy and should not replace the product feature keys above.
 
 | Feature | Status | Client-facing pilot | Notes |
 |---------|--------|---------------------|--------|
@@ -74,9 +93,9 @@ Canonical fields (maturity, actions, approval, disclaimers) live in the [connect
 | Connector | Status | Client sees in web | Classification |
 |-----------|--------|--------------------|----------------|
 | Claude Partner | Gated | Yes (registry panel + status from DB) | **LIMITED** in registry; enablement depends on deployment |
-| MCP Connector | Pilot | Yes (`PILOT_ONLY`) | Not production truth for finance/compliance |
-| Grant Generator | Scaffolded / internal | Yes (`PILOT_ONLY`) | Not self-serve production scope unless real org-scoped API/tests are verified |
-| Worker Financial Layer | Gated / scaffolded | Yes (`PILOT_ONLY`) | Worker-scoped sensitivity; not an HQ production capability |
+| MCP Connector | Internal / operator-only | No | Block public exposure until permissions, audit redaction, rate limiting, and staging smoke are proven |
+| Grant Generator | Internal / AI Concierge | No standalone panel | Gated behind AI Concierge / grant drafting pilot capability |
+| Worker Financial Layer | Scaffolded / deferred | No | Must stay `FEATURE_NOT_CONFIGURED`, omitted, or isolated from public claims |
 | Plaid, Candid, Stripe linkage, Magnus HQ, Slack | Gated / deferred | Per registry | Mostly **INTERNAL_ONLY** / **NOT_IMPLEMENTED**; see registry table |
 
 ---

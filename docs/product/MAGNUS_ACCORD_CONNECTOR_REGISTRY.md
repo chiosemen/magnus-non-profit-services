@@ -28,9 +28,9 @@ Actions describe **intent**, not a full permission system. **`requiresApproval: 
 |---------------|--------------|----------|-------------------|----------------|--------|
 | `magnusHq` | Magnus HQ (database and org APIs) | LIVE | No | No | Authoritative tenant data plane. |
 | `claudePartner` | Claude Partner API | LIMITED | Yes | No | Status from `Organization.claudeStatus`. |
-| `mcpConnector` | MCP Connector | PILOT | Yes | Yes | Checklist §4 non-truth paths. |
-| `grantGenerator` | Grant Generator | PILOT | Yes | Yes | Adjacent app; pilot API row. |
-| `workerFinancialLayer` | Worker Financial Layer | PILOT | Yes | Yes | Adjacent app; pilot API row. |
+| `mcpConnector` | MCP Connector | INTERNAL_ONLY | No | No | Operator-only until permissions, audit redaction, rate limiting, and staging smoke are proven. |
+| `grantGenerator` | Grant Generator | INTERNAL_ONLY | No | No | Internal AI Concierge capability first; not a standalone public connector. |
+| `workerFinancialLayer` | Worker Financial Layer | INTERNAL_ONLY | No | No | Internal scaffold/deferred; public surfaces must omit or return `FEATURE_NOT_CONFIGURED`. |
 | `plaidFinancialWatch` | Plaid (FinancialSentinel) | INTERNAL_ONLY | No | No | Read + internal alerts only. |
 | `candidGrantIntelligence` | Candid (GrantIntelligenceHerald) | INTERNAL_ONLY | No | No | Read + internal prep/alerts. |
 | `stripeDonorLinkage` | Stripe (org donor linkage) | LIMITED | No | No | Donor-ops signals; not full CRM UI. |
@@ -40,13 +40,13 @@ Actions describe **intent**, not a full permission system. **`requiresApproval: 
 
 ## Client-visible panels (web)
 
-The Autonomous Ops **Operating Doors** page renders **`claudePartner`**, **`mcpConnector`**, **`grantGenerator`**, **`workerFinancialLayer`** using `buildClientConnectorPanels()` plus runtime status (Claude from DB; others `PILOT_ONLY` until product state exists).
+The Autonomous Ops **Operating Doors** page renders **`claudePartner`** using `buildClientConnectorPanels()` plus runtime status from the database. MCP, Grant Generator, and Worker Financial Layer remain in the registry for operator/internal planning but are not client-visible panels.
 
 ---
 
 ## Required reading for operators
 
-- **MCP:** Do not treat as production financial or compliance truth — [PRODUCTION_TRUTH_CHECKLIST.md §4](../PRODUCTION_TRUTH_CHECKLIST.md).
+- **MCP:** Internal/operator-only. Do not expose publicly or treat as production financial/compliance truth until tool permissions, audit redaction, rate limiting, and staging smoke are proven.
 - **Deploy health:** Registry maturity does not imply migrations or env validation passed.
 
 ---

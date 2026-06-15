@@ -14,12 +14,14 @@ test('CLIENT_CONNECTOR_PANEL_KEYS are subset of registry and ordered', () => {
   }
 });
 
-test('buildClientConnectorPanels merges Claude status and pilot static rows', () => {
+test('buildClientConnectorPanels renders only client-visible connector panels', () => {
   const rows = buildClientConnectorPanels({ claudePartnerStatus: 'ACTIVE' });
-  assert.equal(rows.length, 4);
+  assert.equal(rows.length, 1);
   assert.equal(rows[0].key, 'claudePartner');
   assert.equal(rows[0].runtimeStatus, 'ACTIVE');
-  assert.equal(rows[1].runtimeStatus, 'PILOT_ONLY');
+  assert.equal(ACCORD_CONNECTOR_REGISTRY.mcpConnector.clientVisible, false);
+  assert.equal(ACCORD_CONNECTOR_REGISTRY.grantGenerator.clientVisible, false);
+  assert.equal(ACCORD_CONNECTOR_REGISTRY.workerFinancialLayer.clientVisible, false);
 });
 
 test('listAllRegistryKeys includes internal connectors', () => {

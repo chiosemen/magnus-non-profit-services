@@ -20,7 +20,7 @@ Eligibility for which **scheduled agents** may run is enforced in subscription p
 | Label | Meaning |
 |--------|---------|
 | **LIVE** | Implemented in this repository and usable in a correctly configured deployment. May require entitlement (e.g. subscription), org settings, or external API keys. |
-| **PILOT** | Exposed with **explicit pilot labeling** in product surfaces, **or** known paths that are **not** production truth (e.g. demo/stub behavior in MCP services per production checklist §4). |
+| **PILOT** | Exposed with **explicit pilot labeling** in product surfaces. Internal MCP/demo/stub behavior is not public pilot surface. |
 | **LIMITED** | Implemented but **materially constrained** relative to the long-term product story (capabilities are real; expectations must be narrower). |
 | **NOT_YET_AVAILABLE** | Not implemented as a product capability in this repo. |
 | **INTERNAL_ONLY** | Implemented for **worker-scoped** or operator/engineering use; **not** positioned as a core “headquarters” persona in v1 Autonomous Ops positioning (see roadmap note on worker optimizer). |
@@ -38,7 +38,7 @@ Names below match what is persisted on runs and alerts. Scheduling and policy de
 | `FinancialSentinel` | LIVE | Scheduled daily. **ENTERPRISE** only when ACTIVE. Produces **internal alerts** (watch), not autonomous money movement. |
 | `GrantLifecycleManager` | LIVE | Scheduled daily. **ENTERPRISE** only when ACTIVE. |
 | `GrantIntelligenceHerald` | LIVE | Scheduled weekly (separate job from grant lifecycle). **ENTERPRISE** only when ACTIVE. Bounded grant intelligence; no autonomous submission. |
-| `WorkerIncomeOptimizer` | INTERNAL_ONLY | Scheduled weekly for eligible scopes. **Worker-scoped**; outside the v1 Autonomous Ops persona set for headquarters positioning per roadmap. |
+| `WorkerIncomeOptimizer` | INTERNAL_ONLY | Deferred/scaffolded for public scope. **Worker-scoped**; not scheduled by nonprofit subscription tier and outside v1 headquarters positioning. |
 
 | Capability | Maturity | Notes |
 |------------|----------|--------|
@@ -51,9 +51,9 @@ Names below match what is persisted on runs and alerts. Scheduling and policy de
 | Item | Maturity | Notes |
 |------|----------|--------|
 | **Claude Partner** (org `claudeStatus` in database) | LIVE | Integration exists; orgs progress through states **NOT_ENABLED**, **CONFIGURING**, **ACTIVE**, **SUSPENDED**. Only **ACTIVE** (and operational claude-partner deployment) represents a fully enabled integration path. |
-| **MCP Connector** (as shown in web connectors API) | PILOT | Web API returns **pilot-only** for this connector row. Separately, known MCP services include **demo/stub** behavior—**do not** treat as dashboard or compliance truth; see [production checklist §4](../PRODUCTION_TRUTH_CHECKLIST.md). |
-| **Grant Generator** (as shown in web connectors API) | PILOT | Web API returns **pilot-only** until wired to org-scoped product state aligned with dashboard truth. |
-| **Worker Financial Layer** (as shown in web connectors API) | PILOT | Web API returns **pilot-only** for this product row. |
+| **MCP Connector** | INTERNAL_ONLY | Operator-only. Do not expose as public beta until permissions, audit redaction, rate limiting, and staging smoke are proven. |
+| **Grant Generator** | INTERNAL_ONLY | Internal AI Concierge / proposal assistant capability first; not a standalone public app or connector card. |
+| **Worker Financial Layer** | INTERNAL_ONLY | Internal scaffold/deferred. Public product surfaces must omit it or return `FEATURE_NOT_CONFIGURED`. |
 
 ---
 
@@ -84,6 +84,6 @@ These are **staff-facing** surfaces in `apps/web` and related APIs, subject to d
 
 ## Refusal language (do not overstate)
 
-- **MCP Connector** paths documented as mock/in-memory/random in the production checklist are **not** client financial or compliance authority.
+- **MCP Connector** paths are internal/operator-only and are **not** client financial or compliance authority.
 - **Agents** do **not** autonomously submit grants, file forms, or send external mail—see roadmap autonomy section.
 - **Volunteer** module does **not** imply deduplicated people, in-kind valuation, or attendance systems—see volunteer status doc.

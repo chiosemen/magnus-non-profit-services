@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 
 type Campaign = {
   id: string;
-  name: string;
+  title: string;
   slug: string;
   description: string | null;
   goalAmount: string | null;
@@ -148,7 +148,7 @@ export default function PublicCampaignPage() {
           <span style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--accent)', fontWeight: 600 }}>
             Active Fundraiser
           </span>
-          <h1 className="h1" style={{ fontSize: 48, marginTop: 8, marginBottom: 16 }}>{campaign.name}</h1>
+          <h1 className="h1" style={{ fontSize: 48, marginTop: 8, marginBottom: 16 }}>{campaign.title}</h1>
           <p style={{ fontSize: 18, color: 'var(--accent)', marginBottom: 24, fontWeight: 500 }}>
             Benefitting <b>{orgName}</b>
           </p>

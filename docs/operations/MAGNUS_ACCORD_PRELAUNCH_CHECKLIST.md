@@ -3,6 +3,24 @@
 **Status**: [DRAFT] Active against Wave 5 Remediation Standards
 **Objective**: Guarantee that Staging perfectly mirrors Production boundaries before pushing traffic to V1 logic.
 
+## 0. Evidence Authority
+
+Signed launch evidence must come from the named production-like staging environment: **`magnus-accord-staging`**.
+
+- [ ] Staging URL is durable and separate from local/preview environments.
+- [ ] Staging database is separate from production and seeded with: Starter/inactive org, Growth/Enterprise eligible org, published campaign, unpublished campaign, and archived campaign if supported.
+- [ ] Staging Redis is provisioned and observable.
+- [ ] Stripe is **test mode only**; no `sk_live`, `pk_live`, live Connect account, or production payment object is present.
+- [ ] Test JWTs, request logs, CI artifacts, and smoke outputs are captured.
+- [ ] Local machine evidence and casual preview deployments are not used as signed launch evidence.
+
+Approval ownership:
+
+- **Implementation owner:** Codex.
+- **Technical verification owner:** Hermes Agent.
+- **Launch checklist owner / final approval:** GrandMaster Chi / Product Owner.
+- No agent self-approves its own patch.
+
 ## 1. Environment Parity
 All core cluster services (`web`, `org-dashboard-api`, `worker-financial-layer`, `agents`, `mcp-connector`, `grant-generator`, `claude-partner`, `billing`) must undergo exact `.env.template` verification.
 - [ ] `NODE_ENV` is explicitly `production`.

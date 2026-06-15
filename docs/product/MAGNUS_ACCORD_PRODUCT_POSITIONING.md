@@ -27,7 +27,7 @@ It includes, when you intend to run Autonomous Ops end-to-end:
 3. **`apps/agents`** deployed **only if** you want scheduled agent runs; it requires its own env validation, database access, and typically `AGENTS_ENABLED` (or equivalent operational choice) plus subscription eligibility per org.
 4. **Web app** (`apps/web`) as the **authenticated** shell for staff (pilot-labeled in the protected app), consuming backend APIs—not as a substitute for API and DB truth.
 
-**Important:** The launch package **does not** imply that the **MCP Connector**, **Grant Generator**, or **Worker Financial Layer** are **dashboard or compliance truth**. Those surfaces are treated as **pilot or adjacent** in product framing; parts of MCP include explicit demo/stub behavior—see checklist §4 and the [maturity map](./MAGNUS_ACCORD_MATURITY_MAP.md).
+**Important:** The launch package **does not** imply public exposure for the **MCP Connector**, a standalone **Grant Generator**, or the **Worker Financial Layer**. MCP is internal/operator-only, grant drafting sits under AI Concierge first, and worker financial remains deferred/scaffolded.
 
 ---
 
@@ -45,7 +45,7 @@ Subject to **correct deployment**, **migrations**, **entitlements** (subscriptio
 
 ## What is pilot-only
 
-- In the **connectors** product view, **MCP Connector**, **Grant Generator**, and **Worker Financial Layer** are returned as **pilot-only** until they have first-class, org-scoped product states aligned with dashboard truth (today’s web API reflects that honestly).
+- In the **connectors** product view, only client-visible connector panels should render. MCP, Grant Generator, and Worker Financial Layer remain internal/deferred and are not public beta panels.
 - The **protected web app** carries an explicit **pilot** indicator on the shell—meaning **surface and program maturity**, not “all backends are incomplete.”
 - Any environment that still relies on **MCP demo/stub paths** for compliance, financial, or worker narratives must **not** be described to clients as production financial or compliance truth.
 
@@ -66,7 +66,7 @@ The platform **does not** offer, as autonomous agent behavior without human auth
 - Autonomous **outbound email** or messaging on behalf of the org.
 - Autonomous **grant submission** or **government filing**.
 - **Moving money** or mutating **authoritative** external financial systems.
-- Treating **MCP connector demo/stub** outputs as **production** compliance or financial records.
+- Exposing **MCP tools** as public beta or treating MCP outputs as **production** compliance or financial records.
 
 Near-term **non-goals** called out in the roadmap (e.g. certain memory and comms patterns) remain in force—see [roadmap non-goals](../AUTONOMOUS_OPS_ROADMAP.md).
 
