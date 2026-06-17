@@ -52,6 +52,8 @@ jobs:
         run: pnpm -r --if-present test
 
       - name: Build
+        env:
+          REDIS_URL: redis://localhost:6379
         run: pnpm build
 
       - name: Validate migrations (additive-only)

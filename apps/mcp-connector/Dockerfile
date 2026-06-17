@@ -41,7 +41,9 @@ WORKDIR /app
 # Copy production artifacts from builder
 COPY --from=builder /app/apps/mcp-connector/package.json ./apps/mcp-connector/
 COPY --from=builder /app/apps/mcp-connector/dist ./apps/mcp-connector/dist
-COPY --from=builder /app/package.json ./pnpm-lock.yaml ./pnpm-workspace.yaml ./
+COPY --from=builder /app/package.json ./
+COPY --from=builder /app/pnpm-lock.yaml ./
+COPY --from=builder /app/pnpm-workspace.yaml ./
 COPY --from=builder /app/packages/config ./packages/config
 COPY --from=builder /app/packages/db ./packages/db
 COPY --from=builder /app/packages/subscription ./packages/subscription

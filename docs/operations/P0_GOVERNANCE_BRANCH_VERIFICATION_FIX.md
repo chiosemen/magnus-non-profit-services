@@ -88,6 +88,57 @@ This note captures the exact clean-checkout verification failures observed on `c
 - Minimal fix:
   Copy `packages/subscription` and `packages/org-autonomous-ops-context` into the build context and build MCP workspace dependencies before building the app itself.
 
+## GitHub Actions Parity Follow-up
+
+GitHub Actions run `27707248592` failed after local clean-copy verification passed on commit `3c17e591eb55917550e22e28e67d118c38bc87fd`.
+
+### CI job failure
+
+- Exact failing command:
+  `pnpm build`
+- Exact error:
+  `Invalid environment configuration for web: REDIS_URL` while loading `apps/web/next.config.js`.
+- Owning files:
+  `.github/workflows/ci.yml`
+  `apps/web/next.config.js`
+  `packages/config/src/env.ts`
+- Root cause:
+  The required local production verification command supplied `REDIS_URL=redis://localhost:6379`, but the GitHub `Build` step ran the same production web build without `REDIS_URL`. The runtime validation was correct; the workflow was missing a safe build-time Redis URL for the production build.
+- Minimal fix:
+  Set `REDIS_URL: redis://localhost:6379` on the CI `Build` step only. Production runtime validation remains strict, and production builds without `REDIS_URL` still fail closed.
+
+### Docker Build Check failure
+
+- Exact failing command:
+  `docker build -t mcp-connector:test -f apps/mcp-connector/Dockerfile .`
+- Exact error:
+  Docker failed in the production stage while evaluating:
+  `COPY --from=builder /app/package.json ./pnpm-lock.yaml ./pnpm-workspace.yaml ./`
+  with `/pnpm-workspace.yaml: not found`.
+- Owning file:
+  `apps/mcp-connector/Dockerfile`
+- Root cause:
+  The multi-source `COPY --from=builder` mixed one absolute builder-stage source with two relative sources. Docker resolved the relative sources from the builder image root instead of `/app`, so it looked for `/pnpm-workspace.yaml` rather than `/app/pnpm-workspace.yaml`.
+- Minimal fix:
+  Split the production-stage copies into explicit absolute builder-stage sources:
+  `/app/package.json`, `/app/pnpm-lock.yaml`, and `/app/pnpm-workspace.yaml`.
+
+## Verification After CI/Docker Parity Fix
+
+- `pnpm install --frozen-lockfile`: pass.
+- `git diff --check`: pass.
+- `pnpm --filter @magnus/subscription test`: pass.
+- `pnpm --filter @magnus/config test`: pass.
+- `pnpm --filter @magnus/org-dashboard-api test`: pass.
+- `pnpm --filter @magnus/mcp-connector test`: pass.
+- `pnpm --filter @magnus/web test`: pass.
+- `pnpm --filter @magnus/org-autonomous-ops-context test`: pass with four explicit DB/schema precondition skips.
+- `pnpm -r exec tsc --noEmit`: pass.
+- `NODE_ENV=production REDIS_URL=redis://localhost:6379 pnpm --filter @magnus/web build`: pass.
+- `NODE_ENV=production REDIS_URL= pnpm --filter @magnus/web build`: fails as expected with `Invalid environment configuration for web: REDIS_URL`.
+- `REDIS_URL=redis://localhost:6379 pnpm build`: pass, matching the GitHub CI `Build` step after the workflow fix.
+- `docker info`: failed because the local Docker daemon was unavailable at `unix:///Users/chinyeosemene/.docker/run/docker.sock`; Docker Build Check confirmation is expected from GitHub Actions after push.
+
 ## Guardrails Preserved
 
 - Redis remains fail-closed for production protected/payment write paths.
