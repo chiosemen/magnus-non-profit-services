@@ -23,7 +23,7 @@ test('Campaign migration creates enum, table, unique index and org foreign key',
 
   const allSql = entries.map(p => fs.readFileSync(p, 'utf8')).join('\n');
   assert.match(allSql, /CREATE TYPE\s+"CampaignStatus"\s+AS ENUM/i);
-  assert.match(allSql, /CREATE TABLE\s+"Campaign"/i);
-  assert.match(allSql, /CREATE UNIQUE INDEX\s+"Campaign_orgId_slug_key"/i);
+  assert.match(allSql, /CREATE TABLE\s+(?:IF NOT EXISTS\s+)?"Campaign"/i);
+  assert.match(allSql, /CREATE UNIQUE INDEX\s+(?:IF NOT EXISTS\s+)?"Campaign_orgId_slug_key"/i);
   assert.match(allSql, /CONSTRAINT\s+"Campaign_orgId_fkey"/i);
 });

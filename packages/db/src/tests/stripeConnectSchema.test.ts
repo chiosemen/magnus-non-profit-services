@@ -23,7 +23,7 @@ test('StripeConnectAccount migration creates enum, table, and constraints', () =
 
   const allSql = entries.map(p => fs.readFileSync(p, 'utf8')).join('\n');
   assert.match(allSql, /CREATE TYPE\s+"StripeConnectOnboardingStatus"\s+AS ENUM/i);
-  assert.match(allSql, /CREATE TABLE\s+"StripeConnectAccount"/i);
-  assert.match(allSql, /CREATE UNIQUE INDEX\s+"StripeConnectAccount_orgId_key"/i);
-  assert.match(allSql, /CREATE UNIQUE INDEX\s+"StripeConnectAccount_stripeAccountId_key"/i);
+  assert.match(allSql, /CREATE TABLE\s+(?:IF NOT EXISTS\s+)?"StripeConnectAccount"/i);
+  assert.match(allSql, /CREATE UNIQUE INDEX\s+(?:IF NOT EXISTS\s+)?"StripeConnectAccount_orgId_key"/i);
+  assert.match(allSql, /CREATE UNIQUE INDEX\s+(?:IF NOT EXISTS\s+)?"StripeConnectAccount_stripeAccountId_key"/i);
 });
