@@ -1,17 +1,22 @@
 -- CreateEnum
-CREATE TYPE "StripeConnectOnboardingStatus" AS ENUM (
-    'NOT_STARTED',
-    'LINK_CREATED',
-    'IN_PROGRESS',
-    'ENABLED',
-    'RESTRICTED'
-);
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'StripeConnectOnboardingStatus') THEN
+        CREATE TYPE "StripeConnectOnboardingStatus" AS ENUM (
+            'NOT_STARTED',
+            'LINK_CREATED',
+            'IN_PROGRESS',
+            'ENABLED',
+            'RESTRICTED'
+        );
+    END IF;
+END $$;
 
 -- CreateTable
-CREATE TABLE "StripeConnectAccount" (
+CREATE TABLE IF NOT EXISTS "StripeConnectAccount" (
     "id" UUID NOT NULL,
     "orgId" UUID NOT NULL,
-    "stripeAccountId" TEXT NOT NULL,
+    "stripeAccountId" VARCHAR(255) NOT NULL,
     "onboardingStatus" "StripeConnectOnboardingStatus" NOT NULL DEFAULT 'NOT_STARTED',
     "detailsSubmitted" BOOLEAN NOT NULL DEFAULT false,
     "chargesEnabled" BOOLEAN NOT NULL DEFAULT false,
@@ -29,19 +34,42 @@ CREATE TABLE "StripeConnectAccount" (
     CONSTRAINT "StripeConnectAccount_pkey" PRIMARY KEY ("id")
 );
 
--- CreateIndex
-CREATE UNIQUE INDEX "StripeConnectAccount_orgId_key" ON "StripeConnectAccount"("orgId");
+-- Converge any earlier lightweight Stripe Connect table to the canonical shape.
+ALTER TABLE "StripeConnectAccount"
+ADD COLUMN IF NOT EXISTS "onboardingStatus" "StripeConnectOnboardingStatus" NOT NULL DEFAULT 'NOT_STARTED',
+ADD COLUMN IF NOT EXISTS "requirementsCurrentlyDue" JSONB,
+ADD COLUMN IF NOT EXISTS "requirementsEventuallyDue" JSONB,
+ADD COLUMN IF NOT EXISTS "disabledReason" TEXT,
+ADD COLUMN IF NOT EXISTS "country" VARCHAR(2),
+ADD COLUMN IF NOT EXISTS "defaultCurrency" VARCHAR(8),
+ADD COLUMN IF NOT EXISTS "onboardingLinkLastCreatedAt" TIMESTAMP(3),
+ADD COLUMN IF NOT EXISTS "onboardingLinkExpiresAt" TIMESTAMP(3);
 
 -- CreateIndex
-CREATE UNIQUE INDEX "StripeConnectAccount_stripeAccountId_key" ON "StripeConnectAccount"("stripeAccountId");
+CREATE UNIQUE INDEX IF NOT EXISTS "StripeConnectAccount_orgId_key" ON "StripeConnectAccount"("orgId");
 
 -- CreateIndex
-CREATE INDEX "StripeConnectAccount_onboardingStatus_idx" ON "StripeConnectAccount"("onboardingStatus");
+CREATE UNIQUE INDEX IF NOT EXISTS "StripeConnectAccount_stripeAccountId_key" ON "StripeConnectAccount"("stripeAccountId");
+
+-- CreateIndex
+CREATE INDEX IF NOT EXISTS "StripeConnectAccount_orgId_idx" ON "StripeConnectAccount"("orgId");
+
+-- CreateIndex
+CREATE INDEX IF NOT EXISTS "StripeConnectAccount_onboardingStatus_idx" ON "StripeConnectAccount"("onboardingStatus");
 
 -- AddForeignKey
-ALTER TABLE "StripeConnectAccount"
-ADD CONSTRAINT "StripeConnectAccount_orgId_fkey"
-FOREIGN KEY ("orgId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'StripeConnectAccount_orgId_fkey'
+          AND conrelid = '"StripeConnectAccount"'::regclass
+    ) THEN
+        ALTER TABLE "StripeConnectAccount"
+        ADD CONSTRAINT "StripeConnectAccount_orgId_fkey"
+        FOREIGN KEY ("orgId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+END $$;
 
 -- Backfill compatibility rows for organizations that already carry a Stripe account id.
 INSERT INTO "StripeConnectAccount" (
@@ -67,8 +95,4 @@ SELECT
     CURRENT_TIMESTAMP
 FROM "Organization" o
 WHERE o."stripeAccountId" IS NOT NULL
-  AND NOT EXISTS (
-    SELECT 1
-    FROM "StripeConnectAccount" s
-    WHERE s."orgId" = o."id"
-  );
+ON CONFLICT DO NOTHING;

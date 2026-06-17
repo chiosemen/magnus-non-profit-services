@@ -1,39 +1,46 @@
 -- CreateEnum
-CREATE TYPE "CampaignStatus" AS ENUM ('DRAFT', 'LIVE', 'ARCHIVED');
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'CampaignStatus') THEN
+        CREATE TYPE "CampaignStatus" AS ENUM ('DRAFT', 'LIVE', 'ARCHIVED');
+    END IF;
+END $$;
 
 -- AlterEnum
-ALTER TYPE "DonationSource" ADD VALUE 'STRIPE';
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_enum e
+        JOIN pg_type t ON t.oid = e.enumtypid
+        WHERE t.typname = 'DonationSource'
+          AND e.enumlabel = 'STRIPE'
+    ) THEN
+        ALTER TYPE "DonationSource" ADD VALUE 'STRIPE';
+    END IF;
+END $$;
 
 -- AlterTable
-ALTER TABLE "Donation" ADD COLUMN     "campaignId" UUID,
-ADD COLUMN     "feeCovered" DECIMAL(12,2) NOT NULL DEFAULT 0.00,
-ADD COLUMN     "stripeCheckoutSessionId" VARCHAR(256),
-ADD COLUMN     "stripePaymentIntentId" VARCHAR(256);
+ALTER TABLE "Donation"
+ADD COLUMN IF NOT EXISTS "campaignId" UUID,
+ADD COLUMN IF NOT EXISTS "feeCovered" DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+ADD COLUMN IF NOT EXISTS "stripeCheckoutSessionId" VARCHAR(256),
+ADD COLUMN IF NOT EXISTS "stripePaymentIntentId" VARCHAR(256);
 
 -- CreateTable
-CREATE TABLE "StripeConnectAccount" (
+CREATE TABLE IF NOT EXISTS "Campaign" (
     "id" UUID NOT NULL,
     "orgId" UUID NOT NULL,
-    "stripeAccountId" VARCHAR(255) NOT NULL,
-    "chargesEnabled" BOOLEAN NOT NULL DEFAULT false,
-    "payoutsEnabled" BOOLEAN NOT NULL DEFAULT false,
-    "detailsSubmitted" BOOLEAN NOT NULL DEFAULT false,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "StripeConnectAccount_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "Campaign" (
-    "id" UUID NOT NULL,
-    "orgId" UUID NOT NULL,
-    "name" VARCHAR(256) NOT NULL,
+    "title" VARCHAR(256) NOT NULL,
     "slug" VARCHAR(256) NOT NULL,
     "description" TEXT,
-    "goalAmount" DECIMAL(12,2),
-    "currency" VARCHAR(8) NOT NULL DEFAULT 'USD',
     "status" "CampaignStatus" NOT NULL DEFAULT 'DRAFT',
+    "goalAmount" DECIMAL(14,2),
+    "currency" VARCHAR(8) NOT NULL DEFAULT 'USD',
+    "startsAt" TIMESTAMP(3),
+    "endsAt" TIMESTAMP(3),
+    "publishedAt" TIMESTAMP(3),
+    "archivedAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -41,7 +48,7 @@ CREATE TABLE "Campaign" (
 );
 
 -- CreateTable
-CREATE TABLE "CampaignDonationIntent" (
+CREATE TABLE IF NOT EXISTS "CampaignDonationIntent" (
     "id" UUID NOT NULL,
     "orgId" UUID NOT NULL,
     "campaignId" UUID NOT NULL,
@@ -59,7 +66,7 @@ CREATE TABLE "CampaignDonationIntent" (
 );
 
 -- CreateTable
-CREATE TABLE "StripeWebhookEvent" (
+CREATE TABLE IF NOT EXISTS "StripeWebhookEvent" (
     "id" UUID NOT NULL,
     "eventId" VARCHAR(256) NOT NULL,
     "processed" BOOLEAN NOT NULL DEFAULT false,
@@ -69,52 +76,70 @@ CREATE TABLE "StripeWebhookEvent" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "StripeConnectAccount_orgId_key" ON "StripeConnectAccount"("orgId");
+CREATE UNIQUE INDEX IF NOT EXISTS "Campaign_orgId_slug_key" ON "Campaign"("orgId", "slug");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "StripeConnectAccount_stripeAccountId_key" ON "StripeConnectAccount"("stripeAccountId");
+CREATE INDEX IF NOT EXISTS "Campaign_orgId_idx" ON "Campaign"("orgId");
 
 -- CreateIndex
-CREATE INDEX "StripeConnectAccount_orgId_idx" ON "StripeConnectAccount"("orgId");
+CREATE INDEX IF NOT EXISTS "Campaign_orgId_status_idx" ON "Campaign"("orgId", "status");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Campaign_slug_key" ON "Campaign"("slug");
+CREATE INDEX IF NOT EXISTS "Campaign_orgId_createdAt_idx" ON "Campaign"("orgId", "createdAt");
 
 -- CreateIndex
-CREATE INDEX "Campaign_orgId_idx" ON "Campaign"("orgId");
+CREATE UNIQUE INDEX IF NOT EXISTS "CampaignDonationIntent_stripeCheckoutSessionId_key" ON "CampaignDonationIntent"("stripeCheckoutSessionId");
 
 -- CreateIndex
-CREATE INDEX "Campaign_slug_idx" ON "Campaign"("slug");
+CREATE INDEX IF NOT EXISTS "CampaignDonationIntent_orgId_idx" ON "CampaignDonationIntent"("orgId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "CampaignDonationIntent_stripeCheckoutSessionId_key" ON "CampaignDonationIntent"("stripeCheckoutSessionId");
+CREATE INDEX IF NOT EXISTS "CampaignDonationIntent_campaignId_idx" ON "CampaignDonationIntent"("campaignId");
 
 -- CreateIndex
-CREATE INDEX "CampaignDonationIntent_orgId_idx" ON "CampaignDonationIntent"("orgId");
+CREATE UNIQUE INDEX IF NOT EXISTS "StripeWebhookEvent_eventId_key" ON "StripeWebhookEvent"("eventId");
 
 -- CreateIndex
-CREATE INDEX "CampaignDonationIntent_campaignId_idx" ON "CampaignDonationIntent"("campaignId");
+CREATE UNIQUE INDEX IF NOT EXISTS "Donation_stripePaymentIntentId_key" ON "Donation"("stripePaymentIntentId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "StripeWebhookEvent_eventId_key" ON "StripeWebhookEvent"("eventId");
+CREATE UNIQUE INDEX IF NOT EXISTS "Donation_stripeCheckoutSessionId_key" ON "Donation"("stripeCheckoutSessionId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Donation_stripePaymentIntentId_key" ON "Donation"("stripePaymentIntentId");
-
--- CreateIndex
-CREATE UNIQUE INDEX "Donation_stripeCheckoutSessionId_key" ON "Donation"("stripeCheckoutSessionId");
-
--- CreateIndex
-CREATE INDEX "Donation_campaignId_idx" ON "Donation"("campaignId");
+CREATE INDEX IF NOT EXISTS "Donation_campaignId_idx" ON "Donation"("campaignId");
 
 -- AddForeignKey
-ALTER TABLE "Donation" ADD CONSTRAINT "Donation_campaignId_fkey" FOREIGN KEY ("campaignId") REFERENCES "Campaign"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'Donation_campaignId_fkey'
+          AND conrelid = '"Donation"'::regclass
+    ) THEN
+        ALTER TABLE "Donation" ADD CONSTRAINT "Donation_campaignId_fkey" FOREIGN KEY ("campaignId") REFERENCES "Campaign"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "StripeConnectAccount" ADD CONSTRAINT "StripeConnectAccount_orgId_fkey" FOREIGN KEY ("orgId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'Campaign_orgId_fkey'
+          AND conrelid = '"Campaign"'::regclass
+    ) THEN
+        ALTER TABLE "Campaign" ADD CONSTRAINT "Campaign_orgId_fkey" FOREIGN KEY ("orgId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "Campaign" ADD CONSTRAINT "Campaign_orgId_fkey" FOREIGN KEY ("orgId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "CampaignDonationIntent" ADD CONSTRAINT "CampaignDonationIntent_campaignId_fkey" FOREIGN KEY ("campaignId") REFERENCES "Campaign"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'CampaignDonationIntent_campaignId_fkey'
+          AND conrelid = '"CampaignDonationIntent"'::regclass
+    ) THEN
+        ALTER TABLE "CampaignDonationIntent" ADD CONSTRAINT "CampaignDonationIntent_campaignId_fkey" FOREIGN KEY ("campaignId") REFERENCES "Campaign"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+END $$;

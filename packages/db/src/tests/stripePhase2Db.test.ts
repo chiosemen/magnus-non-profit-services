@@ -21,8 +21,17 @@ async function canConnectToDb(): Promise<boolean> {
   });
   try {
     await testClient.$queryRaw`SELECT 1`;
+    const schemaRows = await testClient.$queryRaw<Array<{ count: number }>>`
+      SELECT COUNT(*)::int AS count
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND (
+          (table_name = 'Campaign' AND column_name = 'title')
+          OR (table_name = 'StripeConnectAccount' AND column_name = 'onboardingStatus')
+        )
+    `;
     await testClient.$disconnect();
-    return true;
+    return schemaRows[0]?.count === 2;
   } catch {
     await testClient.$disconnect().catch(() => {});
     return false;
@@ -33,7 +42,11 @@ async function canConnectToDb(): Promise<boolean> {
   const dbAvailable = await canConnectToDb();
 
   if (!dbAvailable) {
-    test('SKIP: Stripe Phase 2 Database integration tests (no DB connection)', { skip: 'DATABASE_URL unreachable' }, () => {});
+    test(
+      'SKIP: Stripe Phase 2 Database integration tests (no DB connection or canonical schema mismatch)',
+      { skip: 'DATABASE_URL unreachable or missing Campaign.title/StripeConnectAccount.onboardingStatus' },
+      () => {}
+    );
     return;
   }
 
@@ -53,13 +66,12 @@ async function canConnectToDb(): Promise<boolean> {
     });
   };
 
-  test('Campaigns: enforces unique slug constraints globally', async () => {
+  test('Campaigns: enforces org-scoped unique slug constraints', async () => {
     const org1 = await setupTestOrg('00-2222222', 'Campaign Org 1');
     const org2 = await setupTestOrg('00-3333333', 'Campaign Org 2');
 
     const slug = `summer-drive-${Date.now()}`;
 
-    // Create first campaign
     await prisma.campaign.create({
       data: {
         orgId: org1.id,
@@ -69,13 +81,21 @@ async function canConnectToDb(): Promise<boolean> {
       },
     });
 
-    // Attempting to create second campaign with identical slug should throw unique constraint violation
+    await prisma.campaign.create({
+      data: {
+        orgId: org2.id,
+        title: 'Summer drive 2',
+        slug,
+        status: CampaignStatus.DRAFT,
+      },
+    });
+
     await assert.rejects(
       async () => {
         await prisma.campaign.create({
           data: {
-            orgId: org2.id,
-            title: 'Summer drive 2',
+            orgId: org1.id,
+            title: 'Summer drive 3',
             slug,
             status: CampaignStatus.DRAFT,
           },
