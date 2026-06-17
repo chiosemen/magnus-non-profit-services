@@ -20,12 +20,14 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY apps/mcp-connector ./apps/mcp-connector
 COPY packages/config ./packages/config
 COPY packages/db ./packages/db
+COPY packages/subscription ./packages/subscription
+COPY packages/org-autonomous-ops-context ./packages/org-autonomous-ops-context
 
 # Install dependencies (including workspace dependencies)
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 
-# Build the app (and its workspace dependencies if needed)
-RUN pnpm --filter @magnus/mcp-connector build
+# Build the app and its workspace dependencies in deterministic order
+RUN pnpm --filter @magnus/mcp-connector^... build && pnpm --filter @magnus/mcp-connector build
 
 # ─── Stage 3: Production ──────────────────────────────────────────────────────
 FROM base AS production
@@ -42,6 +44,8 @@ COPY --from=builder /app/apps/mcp-connector/dist ./apps/mcp-connector/dist
 COPY --from=builder /app/package.json ./pnpm-lock.yaml ./pnpm-workspace.yaml ./
 COPY --from=builder /app/packages/config ./packages/config
 COPY --from=builder /app/packages/db ./packages/db
+COPY --from=builder /app/packages/subscription ./packages/subscription
+COPY --from=builder /app/packages/org-autonomous-ops-context ./packages/org-autonomous-ops-context
 
 # Install ONLY production dependencies
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --prod --frozen-lockfile

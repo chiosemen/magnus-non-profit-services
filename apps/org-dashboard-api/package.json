@@ -8,7 +8,7 @@
     "build": "tsc --project tsconfig.json",
     "start": "node dist/server.js",
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
-    "test": "pnpm build && node --test dist/tests/*.test.js"
+    "test": "pnpm --filter @magnus/org-dashboard-api^... build && pnpm build && node --test dist/tests/*.test.js"
   },
   "dependencies": {
     "@magnus/auth": "workspace:*",

@@ -6,7 +6,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "pnpm build && node --test dist/tests/*.test.js"
+    "test": "pnpm --filter @magnus/db build && pnpm build && node --test dist/tests/*.test.js"
   },
   "dependencies": {
     "@magnus/db": "workspace:*",

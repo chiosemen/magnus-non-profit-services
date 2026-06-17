@@ -85,6 +85,7 @@ test('WorkerService: getSeedOrgs method does NOT exist', () => {
 // These tests require a working database connection.
 // When DB is unavailable (no creds or connection failure), they're skipped.
 test('WorkerService: getMultiOrgProfile throws NotFoundError for unregistered user', async () => {
+  if (!HAS_DATABASE) return;
   const svc = new WorkerService();
   try {
     await svc.getMultiOrgProfile('completely-unknown-user-xyz');
@@ -102,6 +103,7 @@ test('WorkerService: getMultiOrgProfile throws NotFoundError for unregistered us
 });
 
 test('WorkerService: getMultiOrgProfile does NOT return fabricated org "Community Health Initiative"', async () => {
+  if (!HAS_DATABASE) return;
   const svc = new WorkerService();
   try {
     await svc.getMultiOrgProfile('any-user-id');

@@ -26,28 +26,19 @@ import {
   getIncomeExpenseReport,
   getBoardFinancialSummary,
 } from '../fundAccountingService';
+import { canConnectToDb, DEFAULT_TEST_DATABASE_URL } from './testDb';
 
-const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://postgres@localhost/magnus';
-
-async function canConnectToDb(): Promise<boolean> {
-  const testClient = new PrismaClient({
-    datasources: { db: { url: DATABASE_URL } },
-  });
-  try {
-    await testClient.$queryRaw`SELECT 1`;
-    await testClient.$disconnect();
-    return true;
-  } catch {
-    await testClient.$disconnect().catch(() => {});
-    return false;
-  }
-}
+const DATABASE_URL = process.env.DATABASE_URL || DEFAULT_TEST_DATABASE_URL;
 
 (async () => {
-  const dbAvailable = await canConnectToDb();
+  const dbAvailable = await canConnectToDb([{ table: 'Campaign', column: 'title' }]);
 
   if (!dbAvailable) {
-    test('SKIP: S4NP Phase 3 Service tests (no DB connection)', { skip: 'DATABASE_URL unreachable' }, () => {});
+    test(
+      'SKIP: S4NP Phase 3 Service tests (no DB connection or Campaign.title schema mismatch)',
+      { skip: 'DATABASE_URL unreachable or local schema lacks Campaign.title' },
+      () => {},
+    );
     return;
   }
 
