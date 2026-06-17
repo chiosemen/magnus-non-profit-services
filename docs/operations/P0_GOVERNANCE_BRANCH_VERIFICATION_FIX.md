@@ -139,6 +139,32 @@ GitHub Actions run `27707248592` failed after local clean-copy verification pass
 - `REDIS_URL=redis://localhost:6379 pnpm build`: pass, matching the GitHub CI `Build` step after the workflow fix.
 - `docker info`: failed because the local Docker daemon was unavailable at `unix:///Users/chinyeosemene/.docker/run/docker.sock`; Docker Build Check confirmation is expected from GitHub Actions after push.
 
+## Final Hermes Launch-gate Fixes
+
+Hermes' final fast review found two remaining launch-gate blockers after CI and Docker were green.
+
+### MCP audit privacy boundary
+
+- Exact issue:
+  `/tools` audit middleware ran before rate limiting and `mcpToolSubscriptionGate()`, and `AuditMiddleware` sent `req.body.params` to `AuditLogger.logToolCall`.
+- Risk:
+  An authenticated but non-entitled caller could submit `/tools/execute`, be denied later, and still have raw tool params persisted in audit storage.
+- Minimal fix:
+  Change MCP middleware order for `/tools/execute` to auth, rate limit, subscription/tool gate, sanitized audit, handler.
+- Sanitization behavior:
+  `AuditMiddleware` now logs metadata only: `toolName`, `userId`, `orgId`, `requestId`, route, method, `hasParameters`, and `parameterCount`. It no longer logs raw `params`, full request bodies, tokens, donor PII, payment details, IP address, user-agent strings, or arbitrary tool input values.
+- Test coverage:
+  `apps/mcp-connector/__tests__/subscription-gate.test.js` now proves unknown denied MCP calls fail closed with `FEATURE_NOT_ENABLED` before `AuditLogger.logToolCall` receives anything, and successful audit middleware calls log sanitized metadata without secret-like payload content.
+
+### Unsupported protected UI claim
+
+- Exact issue:
+  `apps/web/src/app/(protected)/app/accounting/page.tsx` displayed an unsupported deterministic audit status claim.
+- Minimal fix:
+  Replace the claim with `Status: Pilot review mode`.
+- Search check:
+  The repo-wide unsupported launch-claim scan returns no matches.
+
 ## Guardrails Preserved
 
 - Redis remains fail-closed for production protected/payment write paths.

@@ -5,15 +5,24 @@
 
 import { prisma } from '@magnus/db/client';
 
+export type ToolCallMetadata = {
+  toolName: string;
+  userId: string;
+  orgId: string;
+  requestId: string;
+  route: string;
+  method: string;
+  hasParameters: boolean;
+  parameterCount: number;
+};
+
 export interface ToolCallLog {
   toolName: string;
   userId: string;
   orgId: string;
-  params: unknown;
+  metadata: ToolCallMetadata;
   timestamp: Date;
   requestId: string;
-  ipAddress?: string;
-  userAgent?: string;
 }
 
 export interface ToolResultLog {
@@ -38,11 +47,9 @@ export class AuditLogger {
           kind: 'tool_call',
           payload: {
             toolName: call.toolName,
-            params: call.params as any,
+            metadata: call.metadata,
             timestamp: call.timestamp.toISOString(),
             requestId: call.requestId,
-            ipAddress: call.ipAddress,
-            userAgent: call.userAgent,
           },
         },
       });

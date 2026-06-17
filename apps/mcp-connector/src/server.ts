@@ -87,8 +87,7 @@ function authMiddleware(req: Request, res: Response, next: express.NextFunction)
   }
 }
 
-// Global Audit Middleware
-app.use('/tools', authMiddleware, auditMiddleware);
+app.use('/tools', authMiddleware);
 
 function rateLimitMiddleware(req: Request, res: Response, next: express.NextFunction) {
   const identifier = (req as any).userId ?? req.ip ?? 'anonymous';
@@ -107,7 +106,7 @@ function rateLimitMiddleware(req: Request, res: Response, next: express.NextFunc
 }
 
 app.use('/tools', rateLimitMiddleware);
-app.use('/tools/execute', mcpToolSubscriptionGate());
+app.use('/tools/execute', mcpToolSubscriptionGate(), auditMiddleware);
 
 import WorkerService from './services/WorkerService';
 const workerService = new WorkerService();
