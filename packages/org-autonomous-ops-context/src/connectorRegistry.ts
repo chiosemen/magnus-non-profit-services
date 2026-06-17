@@ -41,7 +41,7 @@ export type AccordConnectorRegistryEntry = {
   actions: ConnectorActionDef[];
   /** Shown on Autonomous Ops Connectors (or related) UI when true. */
   clientVisible: boolean;
-  /** Product is explicitly pilot-scoped for this row (e.g. web API returns PILOT_ONLY). */
+  /** Product is explicitly pilot-scoped for this row. */
   pilotOnly: boolean;
   setupPrerequisites: string[];
   disclaimer: string;
@@ -50,9 +50,6 @@ export type AccordConnectorRegistryEntry = {
 /** Keys rendered on the web Connectors page (order preserved). */
 export const CLIENT_CONNECTOR_PANEL_KEYS = [
   'claudePartner',
-  'mcpConnector',
-  'grantGenerator',
-  'workerFinancialLayer',
 ] as const;
 
 export type ClientConnectorPanelKey = (typeof CLIENT_CONNECTOR_PANEL_KEYS)[number];
@@ -96,15 +93,18 @@ export const ACCORD_CONNECTOR_REGISTRY: Record<AccordConnectorKey, AccordConnect
   mcpConnector: {
     key: 'mcpConnector',
     displayName: 'MCP Connector',
-    maturity: 'PILOT',
+    maturity: 'INTERNAL_ONLY',
     actions: [
       { kind: 'read', requiresApproval: false, note: 'Tool reads may hit demo or stub paths; not dashboard truth.' },
       { kind: 'draft', requiresApproval: false, note: 'Assistive outputs are not authoritative financial or compliance records.' },
       { kind: 'write', requiresApproval: true, note: 'External or authoritative writes are out of scope for autonomous agents (Tier A only).' },
     ],
-    clientVisible: true,
-    pilotOnly: true,
-    setupPrerequisites: ['Custom deployment of apps/mcp-connector', 'Org policy on what MCP output may be used for'],
+    clientVisible: false,
+    pilotOnly: false,
+    setupPrerequisites: [
+      'Operator-only deployment of apps/mcp-connector',
+      'Tool permissions, audit redaction, rate limiting, and staging smoke proven before any public exposure',
+    ],
     disclaimer:
       'Known non-truth surfaces: compliance, financial, and worker services include mock, random, or in-memory behavior per docs/PRODUCTION_TRUTH_CHECKLIST.md §4. Do not market as production financial or compliance authority.',
   },
@@ -112,32 +112,36 @@ export const ACCORD_CONNECTOR_REGISTRY: Record<AccordConnectorKey, AccordConnect
   grantGenerator: {
     key: 'grantGenerator',
     displayName: 'Grant Generator',
-    maturity: 'PILOT',
+    maturity: 'INTERNAL_ONLY',
     actions: [
       { kind: 'draft', requiresApproval: false, note: 'Assistive drafting only.' },
       { kind: 'submit', requiresApproval: true, note: 'No autonomous grant submission by Magnus Accord agents.' },
     ],
-    clientVisible: true,
-    pilotOnly: true,
-    setupPrerequisites: ['apps/grant-generator deployed', 'Environment validation and secrets for that service'],
+    clientVisible: false,
+    pilotOnly: false,
+    setupPrerequisites: [
+      'Internal AI Concierge workflow enabled',
+      'Org entitlement for AI Concierge / grant_generator pilot capability',
+      'Environment validation and secrets for internal grant drafting service',
+    ],
     disclaimer:
-      'Web product shows pilot-only until org-scoped connector state is stored and aligned with dashboard truth.',
+      'Internal AI Concierge capability first; not a standalone public connector or self-serve app.',
   },
 
   workerFinancialLayer: {
     key: 'workerFinancialLayer',
     displayName: 'Worker Financial Layer',
-    maturity: 'PILOT',
+    maturity: 'INTERNAL_ONLY',
     actions: [
       { kind: 'read', requiresApproval: false, note: 'Intended for worker-scoped views when deployed.' },
       { kind: 'draft', requiresApproval: false, note: 'Estimates and assists are not authoritative payroll or tax filings.' },
       { kind: 'write', requiresApproval: true, note: 'No autonomous mutation of authoritative external records.' },
     ],
-    clientVisible: true,
-    pilotOnly: true,
+    clientVisible: false,
+    pilotOnly: false,
     setupPrerequisites: ['apps/worker-financial-layer deployed', 'Tier and routing as defined for that app'],
     disclaimer:
-      'Pilot-only in web connector API; MCP worker paths may use in-memory registry—see production checklist §4.',
+      'Internal scaffold only. Public product surfaces must return FEATURE_NOT_CONFIGURED or omit this capability until real production scope is approved.',
   },
 
   plaidFinancialWatch: {
@@ -209,7 +213,7 @@ export type ConnectorClientPanelRow = {
   displayName: string;
   maturity: ConnectorMaturity;
   actions: ConnectorActionDef[];
-  /** Runtime status string from API/DB (e.g. ClaudeStatus or PILOT_ONLY). */
+  /** Runtime status string from API/DB (e.g. ClaudeStatus). */
   runtimeStatus: string;
   clientVisible: boolean;
   pilotOnly: boolean;
@@ -218,17 +222,13 @@ export type ConnectorClientPanelRow = {
 };
 
 /**
- * Build rows for the four Autonomous Ops connector cards with registry metadata + runtime status.
+ * Build rows for Autonomous Ops connector cards with registry metadata + runtime status.
  */
 export function buildClientConnectorPanels(params: {
   claudePartnerStatus: string;
 }): ConnectorClientPanelRow[] {
-  const staticPilot = 'PILOT_ONLY';
   const statuses: Record<ClientConnectorPanelKey, string> = {
     claudePartner: params.claudePartnerStatus,
-    mcpConnector: staticPilot,
-    grantGenerator: staticPilot,
-    workerFinancialLayer: staticPilot,
   };
 
   return CLIENT_CONNECTOR_PANEL_KEYS.map(key => {

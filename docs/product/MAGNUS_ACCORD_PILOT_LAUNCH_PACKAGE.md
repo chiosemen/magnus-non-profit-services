@@ -35,9 +35,8 @@ Eligibility requires subscription **ACTIVE** and, for runs, the **agents service
 | `FinancialSentinel` | **Internal** financial and grant-pace **alerts** only—no money movement (SENTINEL). |
 | `GrantLifecycleManager` | Grant lifecycle **monitoring / internal** signals (scheduled daily). |
 | `GrantIntelligenceHerald` | Bounded grant **intelligence / prep** (scheduled weekly)—**no** autonomous submission (HERALD). |
-| `WorkerIncomeOptimizer` | **Worker-scoped** automation—**not** part of the nonprofit **headquarters** promise for the pilot; treat as **internal / adjacent** (see [maturity map](./MAGNUS_ACCORD_MATURITY_MAP.md)). |
 
-**Not included as agents:** reflection / SOLARIS-style synthesis agent (**not implemented**).
+**Not included as agents:** `WorkerIncomeOptimizer` / worker financial layer (internal scaffold/deferred) and reflection / SOLARIS-style synthesis agent (**not implemented**).
 
 ---
 
@@ -96,14 +95,14 @@ Authoritative per-connector actions, maturity, approval flags, and disclaimers: 
 
 | Connector | Pilot truth |
 |-----------|-------------|
-| **MCP Connector** | Web API returns **pilot-only** for this row. Known MCP paths include **demo/stub** behavior—**must not** be sold as production compliance or financial **truth** ([production checklist §4](../PRODUCTION_TRUTH_CHECKLIST.md)). |
-| **Grant Generator** | Web API returns **pilot-only** until org-scoped product state matches dashboard truth. |
-| **Worker Financial Layer** | Web API returns **pilot-only** for this product row. |
+| **MCP Connector** | **Internal/operator-only**. It may support controlled workflows behind the scenes, but is not a public beta feature until tool permissions, audit redaction, rate limiting, and staging smoke are proven. |
+| **Grant Generator** | Internal AI Concierge / proposal-assistant capability first; not a standalone public app or connector card. |
+| **Worker Financial Layer** | Internal scaffold/deferred. Public product surfaces must omit it or return `FEATURE_NOT_CONFIGURED`. |
 
 ### Later (not promised in this pilot)
 
 - **Fully self-serve** connector onboarding and health **for all** adjacent apps with org-scoped, DB-backed status aligned to executive modules.
-- **Authoritative** financial/compliance narratives sourced from MCP **without** the stub caveats above.
+- Public MCP exposure or authoritative financial/compliance narratives sourced from MCP.
 
 ---
 
@@ -112,7 +111,7 @@ Authoritative per-connector actions, maturity, approval flags, and disclaimers: 
 - Autonomous **outbound email** or messaging on behalf of the org.
 - Autonomous **grant submission** or **government filing**.
 - **Moving money** or mutating **authoritative** external financial records via agents.
-- **MCP demo/stub** outputs as **client** financial or compliance **authority**.
+- **MCP tools** as a public beta feature or as **client** financial/compliance **authority**.
 - **SOLARIS** / reflection synthesis agent.
 - **True semantic / vector** memory as the client story (keyword-only search until embeddings pipeline exists).
 - **Volunteer roster, in-kind valuation, scheduling** as ledger truth ([volunteer status](../AUTONOMOUS_OPS_VOLUNTEER_STATUS.md)).
@@ -129,7 +128,7 @@ Authoritative per-connector actions, maturity, approval flags, and disclaimers: 
 4. **Financial strip on Executive:** Subtitle states **alerts + grants only**; it is **not** a financial **projection** or forecast product.
 5. **SENTINEL / HERALD (ENTERPRISE):** Outcomes depend on **configuration and data** (e.g. external APIs, Plaid)—expect honest **not configured / insufficient data / unavailable** style outcomes in product semantics.
 6. **Semantic memory:** Tier 3 search is **limited** to substring/keyword behavior until embedding-backed search exists.
-7. **Worker agent:** Do not describe `WorkerIncomeOptimizer` as part of the **nonprofit HQ** pilot promise unless you explicitly expand scope and caveats.
+7. **Worker agent:** Do not describe `WorkerIncomeOptimizer` or the worker financial layer as part of the **nonprofit HQ** pilot promise; they are internal/deferred.
 
 ---
 

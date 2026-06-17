@@ -20,7 +20,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "pnpm build && node --test dist/tests"
+    "test": "pnpm build && node --test dist/tests/*.test.js"
   },
   "dependencies": {
     "dotenv": "^16.4.5",

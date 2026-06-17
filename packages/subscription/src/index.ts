@@ -9,6 +9,12 @@ export type { FeatureKey } from './features';
 export { FeatureNotEnabledError } from './errors';
 export { AuthRequiredError, InvalidTokenError, SubscriptionNotActiveError } from './errors';
 export { featuresForTier, isFeatureEnabled } from './policy';
+export {
+  CLAUDE_PARTNER_ROUTE_FEATURE,
+  MCP_TOOL_FEATURES,
+  ORG_DASHBOARD_ROUTE_FEATURES,
+  featureForMcpTool,
+} from './routeFeatureMap';
 export { subscriptionAllowsScheduledAgent } from './autonomousOpsPolicy';
 export type { ScheduledAgentName } from './autonomousOpsPolicy';
 export { requireFeature } from './middleware/requireFeature';

@@ -8,17 +8,20 @@
     "build": "tsc --project tsconfig.json",
     "start": "node dist/server.js",
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
-    "test": "pnpm build && node --test dist/tests"
+    "test": "pnpm --filter @magnus/org-dashboard-api^... build && pnpm build && node --test dist/tests/*.test.js"
   },
   "dependencies": {
     "@magnus/auth": "workspace:*",
     "@magnus/config": "workspace:*",
     "@magnus/db": "workspace:*",
+    "@magnus/subscription": "workspace:*",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "helmet": "^7.1.0",
+    "ioredis": "^5.4.1",
     "@magnus/org-autonomous-ops-context": "workspace:*",
+    "rate-limiter-flexible": "^5.0.3",
     "stripe": "^16.12.0"
   },
   "devDependencies": {

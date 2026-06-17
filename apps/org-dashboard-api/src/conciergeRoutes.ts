@@ -1,6 +1,8 @@
 import type { Express, RequestHandler } from 'express';
 import prisma from '@magnus/db/client';
 import type { PrismaClient } from '@magnus/db/types';
+import { ORG_DASHBOARD_ROUTE_FEATURES } from '@magnus/subscription';
+import { createSubscriptionGate } from './subscriptionGate';
 import {
   analyzeLegacyCsvMapping,
   suggestDonorSegmentation,
@@ -15,6 +17,10 @@ import {
 
 export function registerConciergeRoutes(app: Express, jwtAuth: RequestHandler): void {
   const db = prisma as unknown as PrismaClient;
+  const featureGate = createSubscriptionGate(ORG_DASHBOARD_ROUTE_FEATURES.conciergeAi, {
+    db,
+    routeName: 'concierge-ai',
+  });
 
   const handleError = (err: any, res: any, next: any) => {
     if (
@@ -34,7 +40,7 @@ export function registerConciergeRoutes(app: Express, jwtAuth: RequestHandler): 
   };
 
   // ─── CSV Import Mapping ────────────────────────────────────────────────────
-  app.post('/api/org/concierge/csv-mapping', jwtAuth, async (req, res, next) => {
+  app.post('/api/org/concierge/csv-mapping', jwtAuth, featureGate, async (req, res, next) => {
     try {
       const orgId = (req as any).auth.orgId as string;
       const { headers, sampleRows } = req.body || {};
@@ -49,7 +55,7 @@ export function registerConciergeRoutes(app: Express, jwtAuth: RequestHandler): 
   });
 
   // ─── Donor Segmentation Suggestions ────────────────────────────────────────
-  app.post('/api/org/concierge/segmentation', jwtAuth, async (req, res, next) => {
+  app.post('/api/org/concierge/segmentation', jwtAuth, featureGate, async (req, res, next) => {
     try {
       const orgId = (req as any).auth.orgId as string;
       const result = await suggestDonorSegmentation(db, orgId);
@@ -60,7 +66,7 @@ export function registerConciergeRoutes(app: Express, jwtAuth: RequestHandler): 
   });
 
   // ─── Campaign Draft Generation ─────────────────────────────────────────────
-  app.post('/api/org/concierge/campaign-draft', jwtAuth, async (req, res, next) => {
+  app.post('/api/org/concierge/campaign-draft', jwtAuth, featureGate, async (req, res, next) => {
     try {
       const orgId = (req as any).auth.orgId as string;
       const { goalTopic } = req.body || {};
@@ -75,7 +81,7 @@ export function registerConciergeRoutes(app: Express, jwtAuth: RequestHandler): 
   });
 
   // ─── Board Brief Draft Generation ──────────────────────────────────────────
-  app.post('/api/org/concierge/board-brief', jwtAuth, async (req, res, next) => {
+  app.post('/api/org/concierge/board-brief', jwtAuth, featureGate, async (req, res, next) => {
     try {
       const orgId = (req as any).auth.orgId as string;
       const result = await generateBoardBriefDraft(db, orgId);
@@ -86,7 +92,7 @@ export function registerConciergeRoutes(app: Express, jwtAuth: RequestHandler): 
   });
 
   // ─── Compliance Reminder Suggestions ───────────────────────────────────────
-  app.post('/api/org/concierge/compliance', jwtAuth, async (req, res, next) => {
+  app.post('/api/org/concierge/compliance', jwtAuth, featureGate, async (req, res, next) => {
     try {
       const orgId = (req as any).auth.orgId as string;
       const result = await suggestComplianceReminders(db, orgId);
@@ -97,7 +103,7 @@ export function registerConciergeRoutes(app: Express, jwtAuth: RequestHandler): 
   });
 
   // ─── Proposal Management ───────────────────────────────────────────────────
-  app.get('/api/org/concierge/proposals', jwtAuth, async (req, res, next) => {
+  app.get('/api/org/concierge/proposals', jwtAuth, featureGate, async (req, res, next) => {
     try {
       const orgId = (req as any).auth.orgId as string;
       const { status, type } = req.query as Record<string, any>;
@@ -108,7 +114,7 @@ export function registerConciergeRoutes(app: Express, jwtAuth: RequestHandler): 
     }
   });
 
-  app.patch('/api/org/concierge/proposals/:id/status', jwtAuth, async (req, res, next) => {
+  app.patch('/api/org/concierge/proposals/:id/status', jwtAuth, featureGate, async (req, res, next) => {
     try {
       const orgId = (req as any).auth.orgId as string;
       const proposalId = req.params.id;
@@ -120,7 +126,7 @@ export function registerConciergeRoutes(app: Express, jwtAuth: RequestHandler): 
     }
   });
 
-  app.post('/api/org/concierge/proposals/:id/apply', jwtAuth, async (req, res, next) => {
+  app.post('/api/org/concierge/proposals/:id/apply', jwtAuth, featureGate, async (req, res, next) => {
     try {
       const orgId = (req as any).auth.orgId as string;
       const proposalId = req.params.id;
@@ -144,7 +150,7 @@ export function registerConciergeRoutes(app: Express, jwtAuth: RequestHandler): 
             .replace(/[^a-z0-9]+/g, '-')
             .replace(/(^-|-$)/g, '') + '-' + Date.now();
           return await createCampaign(db, orgId, {
-            name: payload.title,
+            title: payload.title,
             slug,
             description: payload.story,
             goalAmount: payload.suggestedAmounts?.[0] || 1000

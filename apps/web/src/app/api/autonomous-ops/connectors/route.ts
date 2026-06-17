@@ -35,9 +35,6 @@ export async function GET() {
     panels,
     connectors: {
       claudePartner: org.claudeStatus,
-      mcpConnector: 'PILOT_ONLY',
-      grantGenerator: 'PILOT_ONLY',
-      workerFinancialLayer: 'PILOT_ONLY',
     },
   });
 }

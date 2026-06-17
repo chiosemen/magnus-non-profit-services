@@ -18,7 +18,7 @@ const EXPECTED: Record<ScheduledAgentName, Record<SubscriptionTier, boolean>> = 
   GrantLifecycleManager: { STARTER: false, GROWTH: false, ENTERPRISE: true },
   GrantIntelligenceHerald: { STARTER: false, GROWTH: false, ENTERPRISE: true },
   FinancialSentinel: { STARTER: false, GROWTH: false, ENTERPRISE: true },
-  WorkerIncomeOptimizer: { STARTER: false, GROWTH: false, ENTERPRISE: true },
+  WorkerIncomeOptimizer: { STARTER: false, GROWTH: false, ENTERPRISE: false },
 };
 
 test('getLaunchAgentPolicyRows covers every ScheduledAgentName once', () => {

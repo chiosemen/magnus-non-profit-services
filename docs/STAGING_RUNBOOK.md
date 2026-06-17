@@ -1,13 +1,18 @@
 # Staging Runbook
 
-Branch: `feat/platform-unification`  
+Branch: `feat/platform-unification`
 Service env: `staging`
+Named evidence environment: `magnus-accord-staging`
 
 ## Scope
 This runbook defines how to stand up and operate a staging environment for the Magnus monorepo using:
 - Neon Postgres (staging database)
+- Shared staging Redis
+- Stripe test mode only
 - pnpm monorepo builds
 - One or more deployed services (API and/or web)
+
+Do not use local machines or casual preview deployments as signed launch evidence. A preview deployment only qualifies if it is configured with staging-grade env vars, separate staging DB, Redis, Stripe test mode, seeded orgs, test JWTs, and durable evidence capture.
 
 ## Environment Variables
 Start from `.env.staging.template`.
@@ -15,12 +20,25 @@ Start from `.env.staging.template`.
 Required staging variables:
 - `SERVICE_ENV=staging`
 - `DATABASE_URL_STAGING`
+- `REDIS_URL`
 - `JWT_SECRET_STAGING`
 - `STRIPE_SECRET_KEY_STAGING`
 
 Compatibility note:
 - Prisma commonly expects `DATABASE_URL`. If your deploy platform cannot run Prisma with `DATABASE_URL_STAGING`,
   set `DATABASE_URL` to the same value as `DATABASE_URL_STAGING` in the platform environment variables.
+- Staging Stripe keys must be test-mode keys only. Abort if any live Stripe key or live Connect account appears in staging configuration.
+
+## Seed Data
+
+Before signed smoke evidence, seed or verify:
+
+- Starter or inactive org for negative entitlement checks.
+- Growth or Enterprise eligible org for positive entitlement checks.
+- Published campaign.
+- Unpublished campaign.
+- Archived campaign if supported by the route under test.
+- Test JWTs for the seeded orgs.
 
 ## Database: Migrate (Deploy-Mode)
 Run migrations against the staging database:
@@ -53,6 +71,13 @@ Known health routes in this repo (service-dependent):
 - `@magnus/billing`: `GET /health`
 - `@magnus/claude-partner`: `GET /health`
 - `@magnus/worker-financial-layer`: `GET /health`
+
+## Approval
+
+- Codex implements changes and fixes.
+- Hermes Agent performs technical verification and signs the checklist evidence.
+- GrandMaster Chi / Product Owner owns the launch checklist and gives final approval.
+- No agent self-approves its own implementation.
 
 ## Deployment Options
 

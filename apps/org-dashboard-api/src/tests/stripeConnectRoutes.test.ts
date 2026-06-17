@@ -2,16 +2,18 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { registerStripeConnectRoutes } from '../stripeConnectRoutes';
 
-type CapturedHandler = (req: any, res: any, next: (err?: unknown) => void) => Promise<any>;
+process.env.JWT_SECRET = 'org-dashboard-subscription-gate-test-secret-32';
+
+type CapturedHandler = (req: any, res: any, next: (err?: unknown) => void) => any;
 
 function createHarness() {
   const handlers = new Map<string, CapturedHandler>();
   const app: any = {
-    get: (path: string, _auth: any, handler: CapturedHandler) => {
-      handlers.set(`GET ${path}`, handler);
+    get: (path: string, ...chain: CapturedHandler[]) => {
+      handlers.set(`GET ${path}`, compose(chain));
     },
-    post: (path: string, _auth: any, handler: CapturedHandler) => {
-      handlers.set(`POST ${path}`, handler);
+    post: (path: string, ...chain: CapturedHandler[]) => {
+      handlers.set(`POST ${path}`, compose(chain));
     },
   };
 
@@ -34,10 +36,37 @@ function createHarness() {
   return { app, handlers, response };
 }
 
+function compose(chain: CapturedHandler[]): CapturedHandler {
+  return async (req, res, next) => {
+    let index = -1;
+    const run = async (i: number, err?: unknown): Promise<void> => {
+      if (err) {
+        next(err);
+        return;
+      }
+      if (i <= index) throw new Error('next_called_multiple_times');
+      index = i;
+      const fn = chain[i];
+      if (!fn) return;
+      let nextPromise: Promise<void> | null = null;
+      await fn(req, res, (nextErr?: unknown) => {
+        nextPromise = run(i + 1, nextErr);
+      });
+      if (nextPromise) await nextPromise;
+    };
+    await run(0);
+  };
+}
+
 function createDb() {
   return {
     organization: {
-      findUnique: async ({ where }: any) => ({ id: where.id, stripeAccountId: null }),
+      findUnique: async ({ where, select }: any) => {
+        if (select?.subscriptionTier) {
+          return { subscriptionTier: 'ENTERPRISE', subscriptionStatus: 'ACTIVE' };
+        }
+        return { id: where.id, stripeAccountId: null };
+      },
       update: async ({ where }: any) => ({ id: where.id }),
     },
     stripeConnectAccount: {
@@ -80,6 +109,8 @@ function createDb() {
   };
 }
 
+const passAuth: CapturedHandler = (_req, _res, next) => next();
+
 function createGateway() {
   return {
     createAccount: async (orgId: string) => ({
@@ -113,7 +144,7 @@ function createGateway() {
 
 test('status route returns 401 without auth org context', async () => {
   const h = createHarness();
-  registerStripeConnectRoutes(h.app, (() => undefined) as any, {
+  registerStripeConnectRoutes(h.app, passAuth as any, {
     db: createDb() as any,
     gateway: createGateway() as any,
     returnUrl: 'https://app.test/return',
@@ -126,12 +157,12 @@ test('status route returns 401 without auth org context', async () => {
   const res = h.response();
   await handler!({}, res, () => undefined);
   assert.equal(res.statusCode, 401);
-  assert.deepEqual(res.body, { error: 'AUTH_INVALID' });
+  assert.deepEqual(res.body, { error: 'AUTH_REQUIRED' });
 });
 
 test('status route returns current org status payload', async () => {
   const h = createHarness();
-  registerStripeConnectRoutes(h.app, (() => undefined) as any, {
+  registerStripeConnectRoutes(h.app, passAuth as any, {
     db: createDb() as any,
     gateway: createGateway() as any,
     returnUrl: 'https://app.test/return',
@@ -150,7 +181,7 @@ test('status route returns current org status payload', async () => {
 
 test('onboarding-link route returns 201 with onboarding URL', async () => {
   const h = createHarness();
-  registerStripeConnectRoutes(h.app, (() => undefined) as any, {
+  registerStripeConnectRoutes(h.app, passAuth as any, {
     db: createDb() as any,
     gateway: createGateway() as any,
     returnUrl: 'https://app.test/return',
@@ -169,7 +200,7 @@ test('onboarding-link route returns 201 with onboarding URL', async () => {
 
 test('refresh route returns 404 when connect account does not exist', async () => {
   const h = createHarness();
-  registerStripeConnectRoutes(h.app, (() => undefined) as any, {
+  registerStripeConnectRoutes(h.app, passAuth as any, {
     db: createDb() as any,
     gateway: createGateway() as any,
     returnUrl: 'https://app.test/return',

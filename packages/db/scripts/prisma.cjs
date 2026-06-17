@@ -8,28 +8,34 @@ const path = require('path');
  * Enforces fail-closed behavior if DATABASE_URL is missing.
  */
 function main() {
-  // Load environment variables from packages/db/.env
-  require('dotenv').config({
-    path: path.resolve(__dirname, '../.env')
-  });
-
-  // Fail-closed: Ensure DATABASE_URL is present before executing any Prisma command
-  if (!process.env.DATABASE_URL) {
-    console.error('FATAL: DATABASE_URL not set in packages/db/.env');
-    console.error('Please ensure the Neon connection string is present.');
-    process.exit(1);
-  }
-
   const args = process.argv.slice(2);
   if (args.length === 0) {
     console.error('Usage: pnpm prisma <command> [args]');
     process.exit(2);
   }
 
+  const [command, ...rest] = args;
+
+  // Load environment variables from packages/db/.env
+  require('dotenv').config({
+    path: path.resolve(__dirname, '../.env')
+  });
+
+  // `prisma generate` only needs a syntactically valid URL to resolve env("DATABASE_URL")
+  // and emit the client. Keep fail-closed behavior for commands that actually need a live DB.
+  if (!process.env.DATABASE_URL) {
+    if (command === 'generate') {
+      process.env.DATABASE_URL =
+        'postgresql://user:pass@localhost:5432/magnus_ci_typegen?schema=public';
+    } else {
+      console.error('FATAL: DATABASE_URL not set in packages/db/.env');
+      console.error('Please ensure the Neon connection string is present.');
+      process.exit(1);
+    }
+  }
+
   const prismaCli = require.resolve('prisma/build/index.js');
   const schemaPath = path.join('prisma', 'schema.prisma');
-
-  const [command, ...rest] = args;
 
   // Certain Prisma commands (like migrate diff) handle schema flags differently
   const skipSchema =

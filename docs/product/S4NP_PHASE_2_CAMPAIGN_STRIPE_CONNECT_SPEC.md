@@ -110,10 +110,10 @@ model StripeWebhookEvent {
 - `GET /api/org/stripe/status`: Check Connected Account capabilities (charges_enabled, payouts_enabled).
 - `POST /api/org/campaigns`: Create a new fundraising campaign.
 - `GET /api/org/campaigns`: List campaigns for the authenticated organization.
-- `PATCH /api/org/campaigns/:id`: Update campaign properties (name, description, goal, status).
+- `PATCH /api/org/campaigns/:id`: Update campaign properties (`title`, description, goal, status). UI labels may say “Campaign name,” but the data contract is `title`.
 
 ### 5.2. Public Endpoints (No Auth Required)
-- `GET /api/public/campaigns/:slug`: Fetch public details of a campaign (name, goal, amount raised so far, and nonprofit public info).
+- `GET /api/public/campaigns/:slug`: Fetch public details of a campaign (`title`, goal, amount raised so far, and nonprofit public info).
 - `POST /api/public/campaigns/:slug/checkout`: Create a Stripe Checkout Session on behalf of the connected account. Takes amount, donor email, donor name, and fee-coverage flag.
 - `POST /api/public/stripe/webhook`: Root webhook handler to process Stripe events. Exposes raw body for signature verification.
 

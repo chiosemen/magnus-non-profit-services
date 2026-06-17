@@ -1,6 +1,8 @@
 import type { Express, RequestHandler } from 'express';
 import prisma from '@magnus/db/client';
 import type { PrismaClient } from '@magnus/db/types';
+import { ORG_DASHBOARD_ROUTE_FEATURES } from '@magnus/subscription';
+import { createSubscriptionGate } from './subscriptionGate';
 import {
   createFund,
   listFunds,
@@ -17,6 +19,10 @@ import {
 
 export function registerFundAccountingRoutes(app: Express, jwtAuth: RequestHandler): void {
   const db = prisma as unknown as PrismaClient;
+  const featureGate = createSubscriptionGate(ORG_DASHBOARD_ROUTE_FEATURES.fundAccounting, {
+    db,
+    routeName: 'fund-accounting',
+  });
 
   const handleError = (err: any, res: any, next: any) => {
     if (err.name === 'ValidationError') {
@@ -33,7 +39,7 @@ export function registerFundAccountingRoutes(app: Express, jwtAuth: RequestHandl
 
   // ─── Funds ─────────────────────────────────────────────────────────────────
 
-  app.post('/api/org/accounting/funds', jwtAuth, async (req, res, next) => {
+  app.post('/api/org/accounting/funds', jwtAuth, featureGate, async (req, res, next) => {
     try {
       const orgId = (req as any).auth.orgId as string;
       const { name, code, type, description } = req.body || {};
@@ -44,7 +50,7 @@ export function registerFundAccountingRoutes(app: Express, jwtAuth: RequestHandl
     }
   });
 
-  app.get('/api/org/accounting/funds', jwtAuth, async (req, res, next) => {
+  app.get('/api/org/accounting/funds', jwtAuth, featureGate, async (req, res, next) => {
     try {
       const orgId = (req as any).auth.orgId as string;
       const result = await listFunds(db, orgId);
@@ -54,7 +60,7 @@ export function registerFundAccountingRoutes(app: Express, jwtAuth: RequestHandl
     }
   });
 
-  app.patch('/api/org/accounting/funds/:id', jwtAuth, async (req, res, next) => {
+  app.patch('/api/org/accounting/funds/:id', jwtAuth, featureGate, async (req, res, next) => {
     try {
       const orgId = (req as any).auth.orgId as string;
       const fundId = req.params.id;
@@ -68,7 +74,7 @@ export function registerFundAccountingRoutes(app: Express, jwtAuth: RequestHandl
 
   // ─── Accounts ──────────────────────────────────────────────────────────────
 
-  app.post('/api/org/accounting/accounts', jwtAuth, async (req, res, next) => {
+  app.post('/api/org/accounting/accounts', jwtAuth, featureGate, async (req, res, next) => {
     try {
       const orgId = (req as any).auth.orgId as string;
       const { name, code, type, parentId } = req.body || {};
@@ -79,7 +85,7 @@ export function registerFundAccountingRoutes(app: Express, jwtAuth: RequestHandl
     }
   });
 
-  app.get('/api/org/accounting/accounts', jwtAuth, async (req, res, next) => {
+  app.get('/api/org/accounting/accounts', jwtAuth, featureGate, async (req, res, next) => {
     try {
       const orgId = (req as any).auth.orgId as string;
       const result = await listAccounts(db, orgId);
@@ -89,7 +95,7 @@ export function registerFundAccountingRoutes(app: Express, jwtAuth: RequestHandl
     }
   });
 
-  app.patch('/api/org/accounting/accounts/:id', jwtAuth, async (req, res, next) => {
+  app.patch('/api/org/accounting/accounts/:id', jwtAuth, featureGate, async (req, res, next) => {
     try {
       const orgId = (req as any).auth.orgId as string;
       const accountId = req.params.id;
@@ -103,7 +109,7 @@ export function registerFundAccountingRoutes(app: Express, jwtAuth: RequestHandl
 
   // ─── Donation Allocations ──────────────────────────────────────────────────
 
-  app.post('/api/org/accounting/allocations', jwtAuth, async (req, res, next) => {
+  app.post('/api/org/accounting/allocations', jwtAuth, featureGate, async (req, res, next) => {
     try {
       const orgId = (req as any).auth.orgId as string;
       const { donationId, fundId, amount } = req.body || {};
@@ -116,7 +122,7 @@ export function registerFundAccountingRoutes(app: Express, jwtAuth: RequestHandl
 
   // ─── Post Ledger Transaction ──────────────────────────────────────────────
 
-  app.post('/api/org/accounting/transactions', jwtAuth, async (req, res, next) => {
+  app.post('/api/org/accounting/transactions', jwtAuth, featureGate, async (req, res, next) => {
     try {
       const orgId = (req as any).auth.orgId as string;
       const { date, description, postedBy, approvedBy, lines } = req.body || {};
@@ -129,7 +135,7 @@ export function registerFundAccountingRoutes(app: Express, jwtAuth: RequestHandl
 
   // ─── Reports ───────────────────────────────────────────────────────────────
 
-  app.get('/api/org/accounting/reports/fund-balance', jwtAuth, async (req, res, next) => {
+  app.get('/api/org/accounting/reports/fund-balance', jwtAuth, featureGate, async (req, res, next) => {
     try {
       const orgId = (req as any).auth.orgId as string;
       const { startDate, endDate } = req.query as Record<string, string | undefined>;
@@ -140,7 +146,7 @@ export function registerFundAccountingRoutes(app: Express, jwtAuth: RequestHandl
     }
   });
 
-  app.get('/api/org/accounting/reports/income-expense', jwtAuth, async (req, res, next) => {
+  app.get('/api/org/accounting/reports/income-expense', jwtAuth, featureGate, async (req, res, next) => {
     try {
       const orgId = (req as any).auth.orgId as string;
       const { startDate, endDate, fundId } = req.query as Record<string, string | undefined>;
@@ -151,7 +157,7 @@ export function registerFundAccountingRoutes(app: Express, jwtAuth: RequestHandl
     }
   });
 
-  app.get('/api/org/accounting/reports/board-summary', jwtAuth, async (req, res, next) => {
+  app.get('/api/org/accounting/reports/board-summary', jwtAuth, featureGate, async (req, res, next) => {
     try {
       const orgId = (req as any).auth.orgId as string;
       const result = await getBoardFinancialSummary(db, orgId);

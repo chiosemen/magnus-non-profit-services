@@ -10,6 +10,7 @@ export type RequireFeatureOptions = {
   jwtSecret?: string;
   jwtIssuer?: string;
   jwtAudience?: string;
+  preferAuthContext?: boolean;
 };
 
 type JwtOrgPayload = {
@@ -30,27 +31,16 @@ export function requireFeature(featureKey: FeatureKey, opts: RequireFeatureOptio
   }
   const issuer = opts.jwtIssuer ?? process.env['JWT_ISSUER'];
   const audience = opts.jwtAudience ?? process.env['JWT_AUDIENCE'];
+  const preferAuthContext = opts.preferAuthContext ?? true;
 
   return async (req: any, _res: any, next: (err?: unknown) => void) => {
     try {
-      const auth = String(req?.headers?.authorization ?? req?.headers?.Authorization ?? '');
-      if (!auth) throw new AuthRequiredError('Missing Authorization header');
-      const token = extractBearer(auth);
-      if (!token) throw new AuthRequiredError('Missing bearer token');
-
-      let payload: JwtOrgPayload;
-      try {
-        payload = jwt.verify(token, secret, {
-          algorithms: ['HS256'],
-          ...(issuer ? { issuer } : {}),
-          ...(audience ? { audience } : {}),
-        }) as JwtOrgPayload;
-      } catch (err) {
-        throw new InvalidTokenError('Invalid token');
-      }
-
-      const orgId = payload.orgId;
+      const authContextOrgId = preferAuthContext && typeof req?.auth?.orgId === 'string'
+        ? req.auth.orgId
+        : null;
+      const orgId = authContextOrgId ?? orgIdFromBearer(req, { secret, issuer, audience });
       if (!orgId) throw new InvalidTokenError('Token missing orgId');
+      assertNoClientOrgConflict(req, orgId);
 
       const org = await db.organization.findUnique({
         where: { id: orgId },
@@ -59,15 +49,30 @@ export function requireFeature(featureKey: FeatureKey, opts: RequireFeatureOptio
       if (!org) throw new InvalidTokenError('Org not found');
 
       if (org.subscriptionStatus !== 'ACTIVE') {
-        throw new SubscriptionNotActiveError({ orgId, message: `Subscription status is ${org.subscriptionStatus}` });
+        throw new SubscriptionNotActiveError({
+          orgId,
+          tier: org.subscriptionTier,
+          subscriptionStatus: org.subscriptionStatus,
+          message: `Subscription status is ${org.subscriptionStatus}`,
+        });
       }
 
       if (!isFeatureEnabled({ tier: org.subscriptionTier, status: org.subscriptionStatus, featureKey })) {
-        throw new FeatureNotEnabledError({ orgId, featureKey });
+        throw new FeatureNotEnabledError({
+          orgId,
+          featureKey,
+          tier: org.subscriptionTier,
+          subscriptionStatus: org.subscriptionStatus,
+        });
       }
 
       // Attach org context for downstream handlers.
       req.org = { orgId };
+      req.subscription = {
+        featureKey,
+        tier: org.subscriptionTier,
+        status: org.subscriptionStatus,
+      };
       next();
     } catch (err) {
       next(err);
@@ -75,9 +80,44 @@ export function requireFeature(featureKey: FeatureKey, opts: RequireFeatureOptio
   };
 }
 
+function orgIdFromBearer(
+  req: any,
+  params: { secret: string; issuer?: string; audience?: string },
+): string {
+  const auth = String(req?.headers?.authorization ?? req?.headers?.Authorization ?? '');
+  if (!auth) throw new AuthRequiredError('Missing Authorization header');
+  const token = extractBearer(auth);
+  if (!token) throw new AuthRequiredError('Missing bearer token');
+
+  let payload: JwtOrgPayload;
+  try {
+    payload = jwt.verify(token, params.secret, {
+      algorithms: ['HS256'],
+      ...(params.issuer ? { issuer: params.issuer } : {}),
+      ...(params.audience ? { audience: params.audience } : {}),
+    }) as JwtOrgPayload;
+  } catch (err) {
+    throw new InvalidTokenError('Invalid token');
+  }
+
+  if (!payload.orgId) throw new InvalidTokenError('Token missing orgId');
+  return payload.orgId;
+}
+
+function assertNoClientOrgConflict(req: any, orgId: string): void {
+  for (const candidate of [
+    req?.params?.orgId,
+    req?.query?.orgId,
+    req?.body?.orgId,
+  ]) {
+    if (typeof candidate === 'string' && candidate.length > 0 && candidate !== orgId) {
+      throw new InvalidTokenError('Client orgId conflicts with authenticated orgId');
+    }
+  }
+}
+
 function extractBearer(auth: string): string | null {
   const s = auth.trim();
   if (s.toLowerCase().startsWith('bearer ')) return s.slice(7).trim();
   return s.length > 0 ? s : null;
 }
-

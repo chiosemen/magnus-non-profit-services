@@ -15,13 +15,19 @@ import {
   previewCsvImport,
   commitCsvImport,
 } from '@magnus/org-autonomous-ops-context';
+import { ORG_DASHBOARD_ROUTE_FEATURES } from '@magnus/subscription';
+import { createSubscriptionGate } from './subscriptionGate';
 
 export function registerDonorCrmRoutes(app: Express, jwtAuth: RequestHandler): void {
   const db = prisma as unknown as PrismaClient;
+  const featureGate = createSubscriptionGate(ORG_DASHBOARD_ROUTE_FEATURES.donorCrm, {
+    db,
+    routeName: 'donor-crm',
+  });
 
   // ─── Donor Routes ──────────────────────────────────────────────────────────
 
-  app.get('/api/org/donors', jwtAuth, async (req, res, next) => {
+  app.get('/api/org/donors', jwtAuth, featureGate, async (req, res, next) => {
     try {
       const orgId = (req as any).auth.orgId as string;
       const q = req.query as Record<string, string | undefined>;
@@ -39,7 +45,7 @@ export function registerDonorCrmRoutes(app: Express, jwtAuth: RequestHandler): v
     }
   });
 
-  app.post('/api/org/donors', jwtAuth, async (req, res, next) => {
+  app.post('/api/org/donors', jwtAuth, featureGate, async (req, res, next) => {
     try {
       const orgId = (req as any).auth.orgId as string;
       const body = req.body || {};
@@ -68,7 +74,7 @@ export function registerDonorCrmRoutes(app: Express, jwtAuth: RequestHandler): v
     }
   });
 
-  app.put('/api/org/donors/:id', jwtAuth, async (req, res, next) => {
+  app.put('/api/org/donors/:id', jwtAuth, featureGate, async (req, res, next) => {
     try {
       const orgId = (req as any).auth.orgId as string;
       const donorId = req.params.id;
@@ -96,7 +102,7 @@ export function registerDonorCrmRoutes(app: Express, jwtAuth: RequestHandler): v
     }
   });
 
-  app.get('/api/org/donors/:id', jwtAuth, async (req, res, next) => {
+  app.get('/api/org/donors/:id', jwtAuth, featureGate, async (req, res, next) => {
     try {
       const orgId = (req as any).auth.orgId as string;
       const donorId = req.params.id;
@@ -113,7 +119,7 @@ export function registerDonorCrmRoutes(app: Express, jwtAuth: RequestHandler): v
 
   // ─── Donation Routes ───────────────────────────────────────────────────────
 
-  app.get('/api/org/donations', jwtAuth, async (req, res, next) => {
+  app.get('/api/org/donations', jwtAuth, featureGate, async (req, res, next) => {
     try {
       const orgId = (req as any).auth.orgId as string;
       const q = req.query as Record<string, string | undefined>;
@@ -131,7 +137,7 @@ export function registerDonorCrmRoutes(app: Express, jwtAuth: RequestHandler): v
     }
   });
 
-  app.post('/api/org/donations/manual', jwtAuth, async (req, res, next) => {
+  app.post('/api/org/donations/manual', jwtAuth, featureGate, async (req, res, next) => {
     try {
       const orgId = (req as any).auth.orgId as string;
       const body = req.body || {};
@@ -172,7 +178,7 @@ export function registerDonorCrmRoutes(app: Express, jwtAuth: RequestHandler): v
 
   // ─── Receipt Routes ────────────────────────────────────────────────────────
 
-  app.post('/api/org/donations/:id/receipt', jwtAuth, async (req, res, next) => {
+  app.post('/api/org/donations/:id/receipt', jwtAuth, featureGate, async (req, res, next) => {
     try {
       const orgId = (req as any).auth.orgId as string;
       const donationId = req.params.id;
@@ -187,7 +193,7 @@ export function registerDonorCrmRoutes(app: Express, jwtAuth: RequestHandler): v
     }
   });
 
-  app.get('/api/org/donations/:id/receipt', jwtAuth, async (req, res, next) => {
+  app.get('/api/org/donations/:id/receipt', jwtAuth, featureGate, async (req, res, next) => {
     try {
       const orgId = (req as any).auth.orgId as string;
       const donationId = req.params.id;
@@ -202,7 +208,7 @@ export function registerDonorCrmRoutes(app: Express, jwtAuth: RequestHandler): v
     }
   });
 
-  app.get('/api/org/receipts/:id', jwtAuth, async (req, res, next) => {
+  app.get('/api/org/receipts/:id', jwtAuth, featureGate, async (req, res, next) => {
     try {
       const orgId = (req as any).auth.orgId as string;
       const receiptId = req.params.id;
@@ -217,7 +223,7 @@ export function registerDonorCrmRoutes(app: Express, jwtAuth: RequestHandler): v
     }
   });
 
-  app.post('/api/org/receipts/:id/void', jwtAuth, async (req, res, next) => {
+  app.post('/api/org/receipts/:id/void', jwtAuth, featureGate, async (req, res, next) => {
     try {
       const orgId = (req as any).auth.orgId as string;
       const receiptId = req.params.id;
@@ -239,7 +245,7 @@ export function registerDonorCrmRoutes(app: Express, jwtAuth: RequestHandler): v
 
   // ─── CSV Import Routes ─────────────────────────────────────────────────────
 
-  app.post('/api/org/donors/import-preview', jwtAuth, async (req, res, next) => {
+  app.post('/api/org/donors/import-preview', jwtAuth, featureGate, async (req, res, next) => {
     try {
       const orgId = (req as any).auth.orgId as string;
       const body = req.body || {};
@@ -248,14 +254,14 @@ export function registerDonorCrmRoutes(app: Express, jwtAuth: RequestHandler): v
         return res.status(400).json({ error: 'CSV_CONTENT_REQUIRED' });
       }
 
-      const preview = await previewCsvImport(db, orgId, body.csvContent);
+      const preview = previewCsvImport(orgId, body.csvContent);
       return res.json(preview);
     } catch (err) {
       return next(err);
     }
   });
 
-  app.post('/api/org/donors/import-commit', jwtAuth, async (req, res, next) => {
+  app.post('/api/org/donors/import-commit', jwtAuth, featureGate, async (req, res, next) => {
     try {
       const orgId = (req as any).auth.orgId as string;
       const body = req.body || {};

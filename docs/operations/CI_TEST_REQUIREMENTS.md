@@ -108,7 +108,7 @@ For full integration test coverage, configure these secrets:
 | `fail` | Test assertion failed |
 | `skip` | Test skipped (integration test without DB) |
 
-**Acceptable CI State**: All `pass` + some `skip` for integration tests = GREEN
+**Acceptable CI State**: All `pass` + some `skip` for integration tests = PASS
 
 ## Fail-Closed Behavior
 

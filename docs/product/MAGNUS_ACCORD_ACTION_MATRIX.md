@@ -88,11 +88,11 @@ Legend: **A** = AUTONOMOUS, **Q** = ASK_FIRST, **N** = NEVER, **—** = NOT_SUPP
 | data_write_back | — | |
 | irreversible_action | N | |
 
-### mcpConnector (pilot; stub paths exist)
+### mcpConnector (internal/operator-only)
 
 | Class | Band | Notes |
 |-------|------|--------|
-| observe_read | Q | Pilot + non-truth paths per checklist §4 → treat as ask-first for packaging. |
+| observe_read | Q | Internal/operator-only until tool permissions, audit redaction, rate limiting, and staging smoke are proven. |
 | internal_draft | Q | |
 | internal_notify | — | |
 | internal_escalate | — | |
@@ -102,12 +102,12 @@ Legend: **A** = AUTONOMOUS, **Q** = ASK_FIRST, **N** = NEVER, **—** = NOT_SUPP
 | data_write_back | N | Too risky with stub/demo behavior. |
 | irreversible_action | N | |
 
-### grantGenerator
+### grantGenerator (internal AI Concierge capability)
 
 | Class | Band | Notes |
 |-------|------|--------|
 | observe_read | A | Read context for drafting. |
-| internal_draft | A | Assistive draft inside product. |
+| internal_draft | A | Assistive draft inside AI Concierge / grants workflow; not standalone public app. |
 | internal_notify | — | |
 | internal_escalate | — | |
 | external_draft | Q | LOI / proposal text for external use. |
@@ -116,11 +116,11 @@ Legend: **A** = AUTONOMOUS, **Q** = ASK_FIRST, **N** = NEVER, **—** = NOT_SUPP
 | data_write_back | — | |
 | irreversible_action | N | |
 
-### workerFinancialLayer
+### workerFinancialLayer (internal scaffold / deferred)
 
 | Class | Band | Notes |
 |-------|------|--------|
-| observe_read | Q | Pilot; worker-scoped sensitivity. |
+| observe_read | Q | Internal scaffold; worker-scoped sensitivity. |
 | internal_draft | Q | |
 | internal_notify | — | |
 | internal_escalate | — | |

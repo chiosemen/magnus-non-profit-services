@@ -525,7 +525,7 @@ export default function AccountingDashboardPage() {
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: 16, marginBottom: 20 }}>
                     <h3 style={{ fontSize: 22, margin: 0 }}>Executive Board Summary — FY {boardSummary.fiscalYear}</h3>
-                    <span style={{ fontSize: 12, color: 'var(--muted)' }}>Status: DETERMINISTIC AUDIT GREEN</span>
+                    <span style={{ fontSize: 12, color: 'var(--muted)' }}>Status: Pilot review mode</span>
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 20, marginBottom: 24 }}>

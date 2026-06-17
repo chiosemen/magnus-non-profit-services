@@ -7,9 +7,11 @@ import {
   verifyStripeSignature,
   processWebhookEvent,
 } from '@magnus/org-autonomous-ops-context';
+import { createOrgDashboardRateLimitMiddleware } from './rateLimit';
 
 export function registerPublicDonationRoutes(app: Express): void {
   const db = prisma as unknown as PrismaClient;
+  const rateLimitWrites = createOrgDashboardRateLimitMiddleware();
 
   // ─── Campaign Public Details ───────────────────────────────────────────────
 
@@ -20,7 +22,7 @@ export function registerPublicDonationRoutes(app: Express): void {
       return res.json({
         campaign: {
           id: campaign.id,
-          name: campaign.name,
+          title: campaign.title,
           slug: campaign.slug,
           description: campaign.description,
           goalAmount: campaign.goalAmount,
@@ -42,7 +44,7 @@ export function registerPublicDonationRoutes(app: Express): void {
 
   // ─── Create Checkout Redirect Link ──────────────────────────────────────────
 
-  app.post('/api/public/campaigns/:slug/checkout', async (req, res, next) => {
+  app.post('/api/public/campaigns/:slug/checkout', rateLimitWrites, async (req, res, next) => {
     try {
       const { slug } = req.params;
       const { amount, donorEmail, donorName, coverFees, successUrl, cancelUrl } = req.body || {};
@@ -70,7 +72,7 @@ export function registerPublicDonationRoutes(app: Express): void {
 
   // ─── Webhook Listener ──────────────────────────────────────────────────────
 
-  app.post('/api/public/stripe/webhook', async (req, res, next) => {
+  app.post('/api/public/stripe/webhook', rateLimitWrites, async (req, res, next) => {
     try {
       const signatureHeader = req.headers['stripe-signature'] as string;
       const rawBody = (req as any).rawBody || '';

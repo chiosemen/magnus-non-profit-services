@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { prisma } from '@magnus/db/client';
 import { buildBoardPacket, createProposal } from '@magnus/org-autonomous-ops-context';
-import { ConciergeProposalType } from '@prisma/client';
+import { ConciergeProposalType } from '@magnus/db/types';
 
 export const draftBoardPacketSchema = z.object({
   includeAiNarrative: z.boolean().default(false).describe('Include draft AI narrative insights'),

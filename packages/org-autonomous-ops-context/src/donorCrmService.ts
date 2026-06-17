@@ -475,6 +475,29 @@ export async function getReceiptMetadata(db: PrismaClient, orgId: string, receip
   };
 }
 
+export async function getReceiptByDonationId(db: PrismaClient, orgId: string, donationId: string): Promise<ReceiptDto> {
+  if (!orgId) throw new Error('ORG_CONTEXT_REQUIRED');
+  if (!donationId) throw new Error('DONATION_ID_REQUIRED');
+
+  const row = await db.donationReceipt.findFirst({
+    where: { donationId, orgId },
+  });
+  if (!row) throw new Error('RECEIPT_NOT_FOUND');
+
+  return {
+    id: row.id,
+    orgId: row.orgId,
+    donationId: row.donationId,
+    receiptNumber: row.receiptNumber,
+    status: row.status as ReceiptStatus,
+    issuedAt: row.issuedAt ? row.issuedAt.toISOString() : null,
+    voidedAt: row.voidedAt ? row.voidedAt.toISOString() : null,
+    voidReason: row.voidReason,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
 export async function voidReceipt(db: PrismaClient, orgId: string, receiptId: string, reason: string): Promise<ReceiptDto> {
   if (!orgId) throw new Error('ORG_CONTEXT_REQUIRED');
   if (!reason || !reason.trim()) throw new Error('VOID_REASON_REQUIRED');

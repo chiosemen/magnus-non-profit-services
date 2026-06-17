@@ -8,12 +8,13 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
-    "test": "pnpm build && node --test dist/tests"
+    "test": "pnpm build && node --test dist/tests/*.test.js"
   },
   "dependencies": {
     "@magnus/auth": "workspace:*",
     "@magnus/config": "workspace:*",
     "@magnus/db": "workspace:*",
+    "@magnus/subscription": "workspace:*",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",

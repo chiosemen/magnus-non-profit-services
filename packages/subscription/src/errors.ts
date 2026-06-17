@@ -4,11 +4,15 @@ export class FeatureNotEnabledError extends Error {
   readonly status = 403;
   readonly orgId: string;
   readonly featureKey: string;
+  readonly tier?: string;
+  readonly subscriptionStatus?: string;
 
-  constructor(params: { orgId: string; featureKey: string; message?: string }) {
+  constructor(params: { orgId: string; featureKey: string; message?: string; tier?: string; subscriptionStatus?: string }) {
     super(params.message ?? `Feature not enabled: ${params.featureKey}`);
     this.orgId = params.orgId;
     this.featureKey = params.featureKey;
+    this.tier = params.tier;
+    this.subscriptionStatus = params.subscriptionStatus;
   }
 }
 
@@ -29,9 +33,13 @@ export class SubscriptionNotActiveError extends Error {
   readonly code = 'SUBSCRIPTION_NOT_ACTIVE';
   readonly status = 403;
   readonly orgId: string;
+  readonly tier?: string;
+  readonly subscriptionStatus?: string;
 
-  constructor(params: { orgId: string; message?: string }) {
+  constructor(params: { orgId: string; message?: string; tier?: string; subscriptionStatus?: string }) {
     super(params.message ?? 'Subscription is not active');
     this.orgId = params.orgId;
+    this.tier = params.tier;
+    this.subscriptionStatus = params.subscriptionStatus;
   }
 }

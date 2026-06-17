@@ -5,9 +5,9 @@
  *   - When REDIS_URL is set: uses RateLimiterRedis (rate-limiter-flexible + ioredis)
  *     → State is shared across all instances, pods, and Railway containers.
  *     → Attack distribute-across-instances bypass is closed.
- *   - When REDIS_URL is absent: falls back to RateLimiterMemory
- *     → Single-process only. Acceptable for local dev; NOT production-safe.
- *     → A startup warning is emitted so ops teams know Redis is unconfigured.
+ *   - When REDIS_URL is absent outside production: falls back to RateLimiterMemory
+ *     → Single-process only. Acceptable for local dev/test; NOT production-safe.
+ *   - In production: REDIS_URL is mandatory, and Redis connection failures throw.
  *
  * Design:
  *   The `rate-limiter-flexible` library provides both RateLimiterRedis and
@@ -21,7 +21,7 @@
  *
  * Environment:
  *   REDIS_URL — e.g. redis://default:password@redis.railway.internal:6379
- *   Optional; set this in production (Railway Redis, Upstash, etc.)
+ *   Required in production (Railway Redis, Upstash, etc.)
  *
  * Exported interface (async, compatible with Redis I/O):
  *   checkRateLimit(ip) → Promise<{ limited: true, retryAfterMs } | { limited: false }>
@@ -49,6 +49,20 @@ interface RateLimiterLike {
   delete(key: string): Promise<boolean>;
 }
 
+export class RateLimitBackendUnavailableError extends Error {
+  readonly code = 'RATE_LIMIT_BACKEND_UNAVAILABLE';
+
+  constructor(message = 'Rate limit backend is unavailable') {
+    super(message);
+    this.name = 'RateLimitBackendUnavailableError';
+  }
+}
+
+export function isRateLimitBackendUnavailableError(err: unknown): err is RateLimitBackendUnavailableError {
+  return err instanceof RateLimitBackendUnavailableError
+    || (Boolean(err) && typeof err === 'object' && (err as { code?: unknown }).code === 'RATE_LIMIT_BACKEND_UNAVAILABLE');
+}
+
 // ─── Lazy singleton ───────────────────────────────────────────────────────────
 
 let _limiter: RateLimiterLike | null = null;
@@ -71,6 +85,7 @@ async function getLimiter(): Promise<RateLimiterLike> {
   if (_limiter) return _limiter;
 
   const redisUrl = process.env['REDIS_URL']?.trim();
+  const isProduction = process.env['NODE_ENV'] === 'production';
 
   if (redisUrl) {
     // ── Redis path (multi-instance safe) ─────────────────────────────────────
@@ -88,7 +103,7 @@ async function getLimiter(): Promise<RateLimiterLike> {
         lazyConnect: true,
       });
 
-      // Test connection once. If it fails, fall back to in-memory with a loud warning.
+      // Test connection once. Production must not boot or serve auth without Redis.
       await redis.connect();
 
       _limiter = new RateLimiterRedis({
@@ -101,9 +116,12 @@ async function getLimiter(): Promise<RateLimiterLike> {
       console.info('[magnus:rate-limit] Redis-backed rate limiter active (multi-instance safe).');
 
     } catch (err) {
+      if (isProduction) {
+        throw new RateLimitBackendUnavailableError('Redis rate limit backend failed to connect');
+      }
       console.error(
         '[magnus:rate-limit] Redis connection failed — falling back to in-memory limiter. ' +
-        'Login throttling will NOT be multi-instance safe until Redis is restored.\n',
+        'Login throttling will NOT be multi-instance safe until Redis is restored. This fallback is disabled in production.\n',
         err
       );
       _limiter = await buildMemoryLimiter();
@@ -111,13 +129,13 @@ async function getLimiter(): Promise<RateLimiterLike> {
 
   } else {
     // ── In-memory fallback (dev / single-instance) ────────────────────────────
-    if (process.env['NODE_ENV'] === 'production') {
-      console.warn(
-        '[magnus:rate-limit] ⚠️  REDIS_URL is not set. Using in-memory rate limiter. ' +
-        'Login throttling is NOT multi-instance safe. ' +
-        'Set REDIS_URL to a shared Redis instance in all production deployments.'
-      );
+    if (isProduction) {
+      throw new RateLimitBackendUnavailableError('REDIS_URL is required for production rate limiting');
     }
+    console.warn(
+      '[magnus:rate-limit] REDIS_URL is not set. Using in-memory rate limiter for local dev/test only. ' +
+      'Production deployments must set REDIS_URL.'
+    );
     _limiter = await buildMemoryLimiter();
   }
 
@@ -142,9 +160,11 @@ export async function checkRateLimit(
       return { limited: true, retryAfterMs: Math.max(Math.ceil(res.msBeforeNext), 1000) };
     }
     return { limited: false };
-  } catch {
-    // Safety valve: if the limiter throws (e.g. Redis down mid-request),
-    // allow the request through. Credential validation still runs — open limiter ≠ free pass.
+  } catch (err) {
+    if (process.env['NODE_ENV'] === 'production') {
+      if (isRateLimitBackendUnavailableError(err)) throw err;
+      throw new RateLimitBackendUnavailableError();
+    }
     return { limited: false };
   }
 }
@@ -160,6 +180,10 @@ export async function recordFailure(ip: string): Promise<void> {
   } catch (err: unknown) {
     // RateLimiterRes is thrown by consume() when the limit is already exceeded — expected.
     if (err && typeof err === 'object' && 'msBeforeNext' in err) return;
+    if (process.env['NODE_ENV'] === 'production') {
+      if (isRateLimitBackendUnavailableError(err)) throw err;
+      throw new RateLimitBackendUnavailableError();
+    }
     console.error('[magnus:rate-limit] recordFailure error:', err);
   }
 }
@@ -172,6 +196,10 @@ export async function clearFailures(ip: string): Promise<void> {
     const limiter = await getLimiter();
     await limiter.delete(ip);
   } catch (err) {
+    if (process.env['NODE_ENV'] === 'production') {
+      if (isRateLimitBackendUnavailableError(err)) throw err;
+      throw new RateLimitBackendUnavailableError();
+    }
     console.error('[magnus:rate-limit] clearFailures error:', err);
   }
 }
@@ -189,5 +217,8 @@ export function _resetLimiterForTest(): void {
  * Do NOT call in production code.
  */
 export function _injectLimiterForTest(limiter: RateLimiterLike): void {
+  if (process.env['NODE_ENV'] === 'production') {
+    throw new Error('_injectLimiterForTest is disabled in production');
+  }
   _limiter = limiter;
 }

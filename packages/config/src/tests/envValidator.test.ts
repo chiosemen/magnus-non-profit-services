@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { validateEnv } from '../envValidator';
+import { validateEnvForService } from '../env';
 
 function withEnv(overrides: Record<string, string | undefined>, fn: () => void) {
   const prev: Record<string, string | undefined> = {};
@@ -69,9 +70,88 @@ test('validateEnv requires JWT_SECRET for mcp-connector', () => {
   );
 });
 
+test('validateEnv requires REDIS_URL for mcp-connector in production only', () => {
+  withEnv(
+    {
+      NODE_ENV: 'production',
+      DATABASE_URL: 'postgres://localhost/db',
+      JWT_SECRET: 'x'.repeat(32),
+      REDIS_URL: undefined,
+    },
+    () => {
+      assert.throws(() => validateEnv('mcp-connector'), /REDIS_URL/);
+    },
+  );
+
+  withEnv(
+    {
+      NODE_ENV: 'development',
+      DATABASE_URL: 'postgres://localhost/db',
+      JWT_SECRET: 'x'.repeat(32),
+      REDIS_URL: undefined,
+    },
+    () => {
+      assert.doesNotThrow(() => validateEnv('mcp-connector'));
+    },
+  );
+});
+
+test('validateEnv requires REDIS_URL for org-dashboard-api in production only', () => {
+  withEnv(
+    {
+      NODE_ENV: 'production',
+      DATABASE_URL: 'postgres://localhost/db',
+      JWT_SECRET: 'x'.repeat(32),
+      REDIS_URL: undefined,
+      STRIPE_SECRET_KEY: 'sk_test',
+      STRIPE_WEBHOOK_SECRET: 'whsec_test',
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: 'pk_test',
+      NEXT_PUBLIC_APP_URL: 'https://example.com',
+      STRIPE_CONNECT_RETURN_URL: 'https://example.com/stripe/return',
+      STRIPE_CONNECT_REFRESH_URL: 'https://example.com/stripe/refresh',
+    },
+    () => {
+      assert.throws(() => validateEnv('org-dashboard-api'), /REDIS_URL/);
+    },
+  );
+
+  withEnv(
+    {
+      NODE_ENV: 'development',
+      DATABASE_URL: 'postgres://localhost/db',
+      JWT_SECRET: 'x'.repeat(32),
+      REDIS_URL: undefined,
+      STRIPE_CONNECT_RETURN_URL: 'https://example.com/stripe/return',
+      STRIPE_CONNECT_REFRESH_URL: 'https://example.com/stripe/refresh',
+    },
+    () => {
+      assert.doesNotThrow(() => validateEnv('org-dashboard-api'));
+    },
+  );
+});
+
+test('unified web env requires REDIS_URL in production only', () => {
+  assert.throws(
+    () => validateEnvForService('web', {
+      NODE_ENV: 'production',
+      DATABASE_URL: 'postgres://localhost/db',
+      JWT_SECRET: 'x'.repeat(32),
+      REDIS_URL: '',
+    } as NodeJS.ProcessEnv),
+    /REDIS_URL/,
+  );
+
+  assert.doesNotThrow(() => validateEnvForService('web', {
+    NODE_ENV: 'development',
+    DATABASE_URL: 'postgres://localhost/db',
+    JWT_SECRET: 'x'.repeat(32),
+  } as NodeJS.ProcessEnv));
+});
+
 test('validateEnv requires Stripe Connect vars for org-dashboard-api', () => {
   withEnv(
     {
+      NODE_ENV: 'development',
       DATABASE_URL: 'postgres://localhost/db',
       JWT_SECRET: 'x'.repeat(32),
       STRIPE_SECRET_KEY: undefined,
@@ -86,4 +166,3 @@ test('validateEnv requires Stripe Connect vars for org-dashboard-api', () => {
     },
   );
 });
-

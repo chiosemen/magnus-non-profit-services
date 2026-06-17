@@ -123,7 +123,7 @@ Validated at app boot by `apps/web/src/instrumentation.ts`; **must** be set for 
 | `grant-generator` | `DATABASE_URL`, `ANTHROPIC_API_KEY` |
 | `mcp-connector` | `DATABASE_URL`, `JWT_SECRET` |
 
-**If these are not deployed:** Claude Partner / grant-gen / MCP rows may show **pilot** or **stub** status—see §4.
+**If these are not deployed:** Claude Partner may show **not enabled** or **configuring**; MCP, grant generator, and worker financial capabilities must not appear as client-visible connector rows—see §4.
 
 ---
 
@@ -133,15 +133,15 @@ Validated at app boot by `apps/web/src/instrumentation.ts`; **must** be set for 
 | --- | --- | --- |
 | **Magnus HQ (DB)** | Implicit: `DATABASE_URL` works; org-scoped tables exist | N/A — pilot cannot run |
 | **Claude Partner** | `Organization.claudeStatus` in DB → **ACTIVE** for “ready” narratives; **CONNECTORS** UI: `/app/autonomous-ops/connectors` | **PARTIAL** pilot: document that agent-assisted Claude paths are limited; do not claim full automation |
-| **MCP Connector** | **Pilot-only**; demo/stub paths in `apps/mcp-connector` | **Do not** use MCP output as compliance/finance truth ([PRODUCTION_TRUTH_CHECKLIST.md §4](../PRODUCTION_TRUTH_CHECKLIST.md)). Record “MCP not used for decisions” in client notes |
-| **Grant Generator / Worker Financial** | Pilot-labeled rows in UI | Treat as **visibility only** until product state is wired |
+| **MCP Connector** | **Internal/operator-only**; demo/stub paths in `apps/mcp-connector` are not public beta features | **Do not** use MCP output as compliance/finance truth ([PRODUCTION_TRUTH_CHECKLIST.md §4](../PRODUCTION_TRUTH_CHECKLIST.md)). Record “MCP not used for decisions” in client notes |
+| **Grant Generator / Worker Financial** | No client-visible connector card. Grant drafting is an internal AI Concierge capability first; worker financial is scaffolded/deferred | Public/client surfaces must omit these rows or return `FEATURE_NOT_CONFIGURED` |
 | **Plaid / Candid** | **INTERNAL_ONLY** — no web connector card ([MAGNUS_ACCORD_CONNECTOR_REGISTRY.md](../product/MAGNUS_ACCORD_CONNECTOR_REGISTRY.md)) | **Enterprise agents** (FinancialSentinel, GrantIntelligenceHerald) may show **NOT_CONFIGURED** / **INSUFFICIENT_DATA** in executive modules—expected; document |
 
 ---
 
 ## 5) Org onboarding steps
 
-1. **Subscription** — Org row must have `subscriptionStatus: ACTIVE`. Tier **GROWTH** enables `ComplianceWatchdog` + `BoardIntelligenceOracle`; **ENTERPRISE** adds `FinancialSentinel`, `GrantLifecycleManager`, `GrantIntelligenceHerald`, `WorkerIncomeOptimizer` (`packages/subscription/src/autonomousOpsPolicy.ts`).
+1. **Subscription** — Org row must have `subscriptionStatus: ACTIVE`. Tier **GROWTH** enables `ComplianceWatchdog` + `BoardIntelligenceOracle`; **ENTERPRISE** adds `FinancialSentinel`, `GrantLifecycleManager`, and `GrantIntelligenceHerald`. `WorkerIncomeOptimizer` is not scheduled for nonprofit public tiers (`packages/subscription/src/autonomousOpsPolicy.ts`).
 2. **Org context files** — five kinds in `OrgContextFile`: `ORG_IDENTITY`, `ORG_SOUL`, `ORG_AGENTS`, `ORG_MEMORY`, `ORG_HEARTBEAT`. Use **Directory** `/app/autonomous-ops/directory` — validation report shows per-kind status. Remove or replace template markers (`<!-- magnus:template … -->`) and add substantive content per [MAGNUS_ACCORD_ORG_CONTEXT_FILES.md](../product/MAGNUS_ACCORD_ORG_CONTEXT_FILES.md).
 3. **ORG_IDENTITY for HERALD** — If `GrantIntelligenceHerald` is in scope: `## Mission`, `## Sector / NTEE` (NTEE code), `## State footprint` (US state); set **`Organization.annualRevenue`** to a positive number in DB.
 4. **Readiness API** — `GET /api/autonomous-ops/readiness` (authenticated) returns `dimensions`, `overall`, `memoryEvaluation`. **If `overall.summary` is `PARTIAL` or `NOT_CONFIGURED`:** record blockers in operator log; do not claim “all green.”
@@ -161,7 +161,7 @@ Validated at app boot by `apps/web/src/instrumentation.ts`; **must** be set for 
 **Implementation note (`apps/agents/src/scheduler/scheduler.ts`):**  
 - **Org-scoped** scheduled agents (`ComplianceWatchdog`, `BoardIntelligenceOracle`, `FinancialSentinel`, `GrantIntelligenceHerald`) are filtered by **`enabledAgents`** and boundary mode via `filterOrgsByAutonomySettings`.  
 - **`GrantLifecycleManager`** is scheduled per **`grant` scope** and **does not** pass through `filterOrgsByAutonomySettings`—the cron tick runs it for every grant whose org passes **subscription** only. **Disabling it in `enabledAgents` does not stop GrantLifecycleManager** in the current code. If GrantLifecycleManager must be off for a pilot, use **subscription tier** (not ENTERPRISE), **remove/avoid `Grant` rows**, or stop the agents process—document the chosen approach in operator notes.  
-- **`WorkerIncomeOptimizer`** is scheduled per **worker** scope and **does not** consult org `enabledAgents` in `runScheduled` (same pattern as GrantLifecycleManager—subscription gate only on the worker–org relationship query).
+- **`WorkerIncomeOptimizer`** is wired as a **worker** scope but is blocked by subscription policy for all nonprofit public tiers. It does not consult org `enabledAgents`; keep it out of pilot claims and use `AGENTS_ENABLED=false` only if the global worker tick itself must be disabled.
 
 **If an org-scoped agent is intentionally disabled:** remove its name from `enabledAgents` (empty array `[]` disables **org-scoped** agents that respect the filter). Cron still fires globally but those orgs are skipped for filtered agents.
 
@@ -217,10 +217,10 @@ Validated at app boot by `apps/web/src/instrumentation.ts`; **must** be set for 
 
 ## 12) Rollback and disable steps
 
-1. **Stop scheduled agents globally** — Set `AGENTS_ENABLED=false` (or unset), restart `apps/agents` process. Cron does not start (`apps/agents/src/index.ts`).  
-2. **Disable per-org (org-scoped agents only)** — `PUT /api/org/autonomous-ops/settings` with `"enabledAgents": []` and valid `maxAutonomyTier`. Scheduler skips **org-scoped** agents that use `filterOrgsByAutonomySettings`. **Does not** stop `GrantLifecycleManager` or `WorkerIncomeOptimizer` ticks—see §6.  
-3. **Subscription downgrade** — Moving org to **STARTER** or non-**ACTIVE** prevents all scheduled agents via `subscriptionAllowsScheduledAgent` (no code change to settings required).  
-4. **Dashboard API** — Stop `org-dashboard-api` process; JWT clients lose access to `/api/org/*`.  
+1. **Stop scheduled agents globally** — Set `AGENTS_ENABLED=false` (or unset), restart `apps/agents` process. Cron does not start (`apps/agents/src/index.ts`).
+2. **Disable per-org (org-scoped agents only)** — `PUT /api/org/autonomous-ops/settings` with `"enabledAgents": []` and valid `maxAutonomyTier`. Scheduler skips **org-scoped** agents that use `filterOrgsByAutonomySettings`. **Does not** stop `GrantLifecycleManager` ticks or the global worker tick; `WorkerIncomeOptimizer` remains blocked for nonprofit public tiers by subscription policy—see §6.
+3. **Subscription downgrade** — Moving org to **STARTER** or non-**ACTIVE** prevents all scheduled agents via `subscriptionAllowsScheduledAgent` (no code change to settings required).
+4. **Dashboard API** — Stop `org-dashboard-api` process; JWT clients lose access to `/api/org/*`.
 5. **Web** — Stop Next deployment; staff lose UI. **Data** remains in Postgres until separately deleted.
 
 ---

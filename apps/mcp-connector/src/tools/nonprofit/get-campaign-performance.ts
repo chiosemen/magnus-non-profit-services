@@ -32,7 +32,7 @@ export async function execute(
 
   return JSON.stringify({
     campaignId: campaign.id,
-    name: campaign.name,
+    name: campaign.title,
     slug: campaign.slug,
     status: campaign.status,
     goal,

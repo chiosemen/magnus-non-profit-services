@@ -15,12 +15,12 @@ export default function ToolsPage() {
               <p className="cardBody">Deadlines tracked centrally and exposed to dashboards via `/api/*` endpoints.</p>
             </div>
             <div className="card">
-              <div className="cardTitle">Grant Generator</div>
-              <p className="cardBody">Assistive drafting workflows with clear guardrails and environment validation.</p>
+              <div className="cardTitle">AI Concierge</div>
+              <p className="cardBody">Pilot-controlled drafting and readiness workflows with human approval boundaries.</p>
             </div>
             <div className="card">
-              <div className="cardTitle">Worker Financial Layer</div>
-              <p className="cardBody">Worker-level views with tier gating enforced on the server.</p>
+              <div className="cardTitle">Board Packets</div>
+              <p className="cardBody">Executive prep and board packet drafts grounded in org records and campaign context.</p>
             </div>
           </div>
           <div className="ctaRow" style={{ marginTop: 16 }}>
@@ -33,4 +33,3 @@ export default function ToolsPage() {
     </main>
   );
 }
-

@@ -22,6 +22,8 @@ import {
 } from '../conciergeAiService';
 import { updateProposalStatus, applyProposal } from '../conciergeProposalService';
 
+process.env.NODE_ENV = 'test';
+
 const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://postgres@localhost/magnus';
 
 async function canConnectToDb(): Promise<boolean> {

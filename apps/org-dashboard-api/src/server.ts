@@ -26,6 +26,10 @@ import { registerCampaignRoutes } from './campaignRoutes';
 import prisma from '@magnus/db/client';
 import type { PrismaClient } from '@magnus/db/types';
 import { assertDbShape, MAGNUS_ACCORD_AUTONOMOUS_OPS_SHAPE } from '@magnus/db/types';
+import {
+  createOrgDashboardRateLimitMiddleware,
+  initializeOrgDashboardRateLimiter,
+} from './rateLimit';
 
 try {
   validateEnv('org-dashboard-api');
@@ -45,6 +49,9 @@ app.use(express.json({
     req.rawBody = buf.toString();
   }
 }));
+
+const orgDashboardRateLimit = createOrgDashboardRateLimitMiddleware();
+app.use('/api/org', orgDashboardRateLimit);
 
 const jwtAuth = createJwtAuthMiddleware();
 const stripe = new Stripe(process.env['STRIPE_SECRET_KEY']!, {
@@ -118,6 +125,7 @@ async function boot(): Promise<void> {
   // Fail-closed: DB reachable + schema compatible for all Autonomous Ops routes.
   await (prisma as unknown as PrismaClient).$queryRaw`SELECT 1`;
   await assertDbShape(prisma as any, MAGNUS_ACCORD_AUTONOMOUS_OPS_SHAPE);
+  await initializeOrgDashboardRateLimiter();
 
   app.listen(port, () => {
     // Intentionally minimal logging.

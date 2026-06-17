@@ -23,7 +23,7 @@
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "pnpm prisma:generate && tsc -p tsconfig.build.json",
     "prisma": "node scripts/prisma.cjs",
     "prisma:generate": "pnpm prisma generate",
     "prisma:migrate": "pnpm prisma migrate dev",

@@ -59,13 +59,12 @@ test('GROWTH runs assisted agents only', () => {
   );
 });
 
-test('ENTERPRISE runs full agent set', () => {
+test('ENTERPRISE runs nonprofit HQ agent set', () => {
   for (const agentName of [
     'ComplianceWatchdog',
     'BoardIntelligenceOracle',
     'FinancialSentinel',
     'GrantLifecycleManager',
-    'WorkerIncomeOptimizer',
   ] as const) {
     assert.equal(
       subscriptionAllowsScheduledAgent({
@@ -76,6 +75,17 @@ test('ENTERPRISE runs full agent set', () => {
       true,
     );
   }
+});
+
+test('worker optimizer is internal/deferred and not scheduled by nonprofit subscription tier', () => {
+  assert.equal(
+    subscriptionAllowsScheduledAgent({
+      tier: 'ENTERPRISE',
+      status: 'ACTIVE',
+      agentName: 'WorkerIncomeOptimizer',
+    }),
+    false,
+  );
 });
 
 test('unknown agent name is fail-closed', () => {

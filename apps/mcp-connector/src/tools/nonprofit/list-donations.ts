@@ -26,7 +26,7 @@ export async function execute(
     take: limit,
     include: {
       donor: { select: { name: true } },
-      campaign: { select: { name: true } },
+      campaign: { select: { title: true } },
     },
   });
 
@@ -34,7 +34,7 @@ export async function execute(
     donations.map((d: any) => ({
       id: d.id,
       donorName: d.donor.name,
-      campaignName: d.campaign?.name ?? null,
+      campaignName: d.campaign?.title ?? null,
       amount: Number(d.amount),
       receivedAt: d.receivedAt,
       paymentMethod: d.paymentMethod,

@@ -1,4 +1,12 @@
 export type FeatureKey =
+  | 'donor_crm'
+  | 'campaigns'
+  | 'stripe_connect_campaigns'
+  | 'fund_accounting_lite'
+  | 'ai_concierge'
+  | 'board_packets'
+  | 'compliance_reminders'
+  | 'mcp_tools'
   | 'compliance_calendar'
   | 'grant_generator'
   | 'claude_partner'
@@ -10,4 +18,3 @@ export type FeatureKey =
   | 'autonomous_ops_standard'
   /** Institutional / reflection / portfolio intelligence packaging (maps to roadmap Tier 4; reserved). */
   | 'autonomous_ops_institutional';
-

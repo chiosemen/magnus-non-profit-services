@@ -16,8 +16,9 @@ Legend:
 
 ## Packages
 
-- **P1:** Assisted Ops Pilot (GROWTH)
-- **P2:** HQ Expansion (Enterprise add-on)
+- **Starter:** Donor CRM, basic campaigns, receipts/manual records, basic compliance checklist.
+- **Growth:** Stripe Connect campaign payments, fund accounting lite, compliance reminders, limited AI Concierge, board packet drafts.
+- **Enterprise:** Advanced AI/board workflows, grant drafting pilot, custom compliance/reporting, and scheduled HQ Expansion agents where configured.
 
 ---
 
@@ -30,7 +31,7 @@ Legend:
 | `FinancialSentinel` | Not supported | Available (with caveats) | Internal alerts only; ENTERPRISE only; data/config dependent. |
 | `GrantLifecycleManager` | Not supported | Available (with caveats) | ENTERPRISE only; internal monitoring. |
 | `GrantIntelligenceHerald` | Not supported | Available (with caveats) | ENTERPRISE only; bounded prep; requires org identity inputs; no submission. |
-| “Worker income optimizer” (`WorkerIncomeOptimizer`) | Not supported | Internal/API only | Worker-scoped; not an HQ package promise. |
+| “Worker income optimizer” (`WorkerIncomeOptimizer`) | Not supported | Not supported | Worker-scoped internal scaffold; not scheduled by nonprofit subscription tier. |
 | Reflection / SOLARIS | Not supported | Not supported | Not implemented. |
 
 ---
@@ -40,7 +41,7 @@ Legend:
 | Surface | P1 | P2 | Notes |
 | --- | --- | --- | --- |
 | Directory & org context | Included | Included | Templates auto-seed; validation report explains required vs optional. |
-| Connectors (“Operating Doors”) | Included | Included | Claude status from DB; MCP/grant-gen/worker-financial are pilot-only rows. |
+| Connectors (“Operating Doors”) | Included | Included | Claude status from DB; MCP/grant-gen/worker-financial are internal and not client-visible panels. |
 | Authority Rules | Included | Included | Visibility of autonomy settings; not a full config editor. |
 | Readiness dashboard | Included | Included | Truthful `NOT_CONFIGURED/PARTIAL/READY` with blockers. |
 | Executive | Included | Included | Visibility and deterministic rollups; not a forecast and not a task UI for everything. |
@@ -57,9 +58,9 @@ Legend:
 | Connector panel | P1 | P2 | Notes |
 | --- | --- | --- | --- |
 | Claude Partner (`claudePartner`) | Available (with caveats) | Available (with caveats) | Status from `Organization.claudeStatus`. Enablement requires correct deployment/config; only `ACTIVE` is truly enabled. |
-| MCP Connector (`mcpConnector`) | Pilot-only | Pilot-only | Stub/non-truth paths exist; do not market as compliance/finance authority. |
-| Grant Generator (`grantGenerator`) | Pilot-only | Pilot-only | Adjacent app row; not a fully self-serve connector product. |
-| Worker Financial Layer (`workerFinancialLayer`) | Pilot-only | Pilot-only | Adjacent app row; worker-scoped sensitivity; not an HQ promise. |
+| MCP Connector (`mcpConnector`) | Internal/operator-only | Internal/operator-only | Do not expose publicly until permissions, audit redaction, rate limiting, and staging smoke are proven. |
+| Grant Generator (`grantGenerator`) | Internal AI Concierge capability | Internal AI Concierge capability | Not a standalone public app or connector product. |
+| Worker Financial Layer (`workerFinancialLayer`) | Not public | Not public | Internal scaffold/deferred; worker-scoped sensitivity. |
 
 Internal-only connectors are governed by the connector registry and action matrix; they are not “self-serve connector cards” in the pilot web app.
 
@@ -91,6 +92,5 @@ Internal-only connectors are governed by the connector registry and action matri
 - Autonomous outbound email/messaging, filing, grant submission, money movement, or write-back to authoritative external ledgers.
 - “Custom agent builder” as a self-serve product.
 - Reflection / SOLARIS synthesis agent.
-- MCP demo/stub outputs as compliance/finance truth.
+- MCP tools or worker financial layer as public beta features.
 - Volunteer roster/in-kind valuation/scheduling as ledger truth.
-

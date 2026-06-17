@@ -2,7 +2,12 @@ import { prisma } from '@magnus/db/client';
 import { cookies, headers } from 'next/headers';
 import { AUTH_COOKIE_NAME, REFRESH_COOKIE_NAME, signAppToken } from '@/lib/auth';
 import { createSession } from '@/lib/session';
-import { checkRateLimit, recordFailure, clearFailures } from '@/lib/rate-limit';
+import {
+  checkRateLimit,
+  recordFailure,
+  clearFailures,
+  isRateLimitBackendUnavailableError,
+} from '@/lib/rate-limit';
 import { validateCsrfOrigin, csrfRejectionResponse } from '@/lib/csrf';
 import bcrypt from 'bcryptjs';
 
@@ -14,7 +19,13 @@ export async function POST(req: Request) {
 
   // ── Rate-limit gate (Redis-backed when REDIS_URL set) ──────────────
   const ip = extractIp();
-  const rateCheck = await checkRateLimit(ip);
+  let rateCheck: Awaited<ReturnType<typeof checkRateLimit>>;
+  try {
+    rateCheck = await checkRateLimit(ip);
+  } catch (err) {
+    if (isRateLimitBackendUnavailableError(err)) return rateLimitBackendUnavailableResponse();
+    throw err;
+  }
   if (rateCheck.limited) {
     const retryAfterSec = Math.ceil(rateCheck.retryAfterMs / 1000);
     return Response.json(
@@ -31,7 +42,8 @@ export async function POST(req: Request) {
 
   const org = await prisma.organization.findUnique({ where: { ein } });
   if (!org) {
-    await recordFailure(ip);
+    const unavailable = await recordAuthFailure(ip);
+    if (unavailable) return unavailable;
     return Response.json({ error: 'ORG_NOT_FOUND' }, { status: 401 });
   }
 
@@ -40,20 +52,23 @@ export async function POST(req: Request) {
     select: { id: true, passwordHash: true },
   });
   if (!worker) {
-    await recordFailure(ip);
+    const unavailable = await recordAuthFailure(ip);
+    if (unavailable) return unavailable;
     return Response.json({ error: 'WORKER_NOT_FOUND' }, { status: 401 });
   }
 
   // Fail closed: reject login if no password hash is stored
   if (!worker.passwordHash) {
-    await recordFailure(ip);
+    const unavailable = await recordAuthFailure(ip);
+    if (unavailable) return unavailable;
     return Response.json({ error: 'CREDENTIALS_INVALID' }, { status: 401 });
   }
 
   // Compare raw password bytes — no trim/toLowerCase on password
   const valid = await bcrypt.compare(password, worker.passwordHash);
   if (!valid) {
-    await recordFailure(ip);
+    const unavailable = await recordAuthFailure(ip);
+    if (unavailable) return unavailable;
     return Response.json({ error: 'CREDENTIALS_INVALID' }, { status: 401 });
   }
 
@@ -62,12 +77,18 @@ export async function POST(req: Request) {
     select: { id: true },
   });
   if (!rel) {
-    await recordFailure(ip);
+    const unavailable = await recordAuthFailure(ip);
+    if (unavailable) return unavailable;
     return Response.json({ error: 'NOT_ASSOCIATED' }, { status: 401 });
   }
 
   // Login succeeded — clear rate-limit record for this IP
-  await clearFailures(ip);
+  try {
+    await clearFailures(ip);
+  } catch (err) {
+    if (isRateLimitBackendUnavailableError(err)) return rateLimitBackendUnavailableResponse();
+    throw err;
+  }
 
   // Create server-side session row bound to the verified org
   const { sessionId, refreshToken } = await createSession(worker.id, org.id);
@@ -94,6 +115,20 @@ export async function POST(req: Request) {
   });
 
   return Response.json({ ok: true });
+}
+
+async function recordAuthFailure(ip: string): Promise<Response | null> {
+  try {
+    await recordFailure(ip);
+    return null;
+  } catch (err) {
+    if (isRateLimitBackendUnavailableError(err)) return rateLimitBackendUnavailableResponse();
+    throw err;
+  }
+}
+
+function rateLimitBackendUnavailableResponse(): Response {
+  return Response.json({ error: 'RATE_LIMIT_BACKEND_UNAVAILABLE' }, { status: 503 });
 }
 
 async function safeJson(req: Request): Promise<any | null> {

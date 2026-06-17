@@ -154,6 +154,7 @@ const serviceSchemas: Record<EnvServiceName, z.ZodTypeAny> = {
     DATABASE_URL: true,
     JWT_SECRET: true,
     NODE_ENV: true,
+    REDIS_URL: true,
     ORG_DASHBOARD_API_BASE_URL: true,
     NEXT_PUBLIC_APP_URL: true,
   }),
@@ -226,7 +227,6 @@ const serviceSchemas: Record<EnvServiceName, z.ZodTypeAny> = {
     JWT_SECRET: true,
     JWT_ISSUER: true,
     JWT_AUDIENCE: true,
-    MCP_CONNECTOR_URL: true,
   }),
   'mcp-connector': allEnvSchema.pick({
     DATABASE_URL: true,
@@ -262,6 +262,16 @@ function formatEnvError(service: EnvServiceName, error: z.ZodError): string {
   return `Invalid environment configuration for ${service}${details}`;
 }
 
+function assertProductionRedisConfigured(service: EnvServiceName, env: { NODE_ENV?: string; REDIS_URL?: string }): void {
+  if (
+    (service === 'web' || service === 'org-dashboard-api' || service === 'mcp-connector') &&
+    env.NODE_ENV === 'production' &&
+    !env.REDIS_URL?.trim()
+  ) {
+    throw new Error(`Invalid environment configuration for ${service}: REDIS_URL`);
+  }
+}
+
 export function loadPublicEnv(input: NodeJS.ProcessEnv = process.env): PublicEnv {
   const parsed = publicEnvSchema.safeParse(input);
   if (!parsed.success) {
@@ -287,6 +297,7 @@ export function requireEnvForService<S extends EnvServiceName>(
   if (!parsed.success) {
     throw new Error(formatEnvError(service, parsed.error));
   }
+  assertProductionRedisConfigured(service, parsed.data as { NODE_ENV?: string; REDIS_URL?: string });
   return parsed.data as z.infer<(typeof serviceSchemas)[S]>;
 }
 

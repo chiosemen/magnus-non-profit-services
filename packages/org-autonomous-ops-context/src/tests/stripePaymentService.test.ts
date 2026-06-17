@@ -13,28 +13,19 @@ import {
   verifyStripeSignature,
   processWebhookEvent,
 } from '../stripePaymentService';
+import { canConnectToDb, DEFAULT_TEST_DATABASE_URL } from './testDb';
 
-const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://postgres@localhost/magnus';
-
-async function canConnectToDb(): Promise<boolean> {
-  const testClient = new PrismaClient({
-    datasources: { db: { url: DATABASE_URL } },
-  });
-  try {
-    await testClient.$queryRaw`SELECT 1`;
-    await testClient.$disconnect();
-    return true;
-  } catch {
-    await testClient.$disconnect().catch(() => {});
-    return false;
-  }
-}
+const DATABASE_URL = process.env.DATABASE_URL || DEFAULT_TEST_DATABASE_URL;
 
 (async () => {
-  const dbAvailable = await canConnectToDb();
+  const dbAvailable = await canConnectToDb([{ table: 'Campaign', column: 'title' }]);
 
   if (!dbAvailable) {
-    test('SKIP: S4NP payment tests (no DB connection)', { skip: 'DATABASE_URL unreachable' }, () => {});
+    test(
+      'SKIP: S4NP payment tests (no DB connection or Campaign.title schema mismatch)',
+      { skip: 'DATABASE_URL unreachable or local schema lacks Campaign.title' },
+      () => {},
+    );
     return;
   }
 
@@ -75,7 +66,7 @@ async function canConnectToDb(): Promise<boolean> {
     await prisma.campaign.create({
       data: {
         orgId: org.id,
-        name: 'Live campaign',
+        title: 'Live campaign',
         slug: slugLive,
         status: CampaignStatus.LIVE,
       },
@@ -84,7 +75,7 @@ async function canConnectToDb(): Promise<boolean> {
     await prisma.campaign.create({
       data: {
         orgId: org.id,
-        name: 'Draft campaign',
+        title: 'Draft campaign',
         slug: slugDraft,
         status: CampaignStatus.DRAFT,
       },
@@ -110,7 +101,7 @@ async function canConnectToDb(): Promise<boolean> {
     await prisma.campaign.create({
       data: {
         orgId: org.id,
-        name: 'Checkout campaign',
+        title: 'Checkout campaign',
         slug,
         status: CampaignStatus.LIVE,
       },
@@ -160,7 +151,7 @@ async function canConnectToDb(): Promise<boolean> {
 
     await prisma.stripeConnectAccount.update({
       where: { orgId: org.id },
-      data: { chargesEnabled: true },
+      data: { onboardingStatus: 'ENABLED', chargesEnabled: true },
     });
 
     const prevFetch = globalThis.fetch;
@@ -225,7 +216,7 @@ async function canConnectToDb(): Promise<boolean> {
     const campaign = await prisma.campaign.create({
       data: {
         orgId: org.id,
-        name: 'Webhook Campaign',
+        title: 'Webhook Campaign',
         slug: `webhook-c-${Date.now()}`,
         status: CampaignStatus.LIVE,
       },

@@ -30,7 +30,7 @@ Autonomous Ops is a **bounded** nonprofit operations layer: agents **draft, moni
 | SENTINEL | Financial watch (conservative) | `FinancialSentinel` |
 | SOLARIS | Reflection / synthesis | *Stage 2+ — not implemented yet* |
 
-`WorkerIncomeOptimizer` is an internal worker-scoped agent; it is **outside** the Autonomous Ops persona set for v1 positioning but remains scheduled for eligible orgs.
+`WorkerIncomeOptimizer` is an internal worker-scoped scaffold; it is **outside** the Autonomous Ops persona set for v1 positioning and is not scheduled by nonprofit subscription tier.
 
 ---
 
@@ -54,9 +54,9 @@ Subscription tiers are defined in Prisma (`SubscriptionTier`). Feature flags liv
 
 | Roadmap offering | Subscription tier | Feature keys (indicative) |
 |------------------|--------------------|---------------------------|
-| Core Magnus Accord | `STARTER` | Core compliance/features only; **no** autonomous agents |
-| Assisted Ops | `GROWTH` | `autonomous_ops_assisted` — internal compliance + board-prep style agents |
-| Autonomous Ops | `ENTERPRISE` | `autonomous_ops_standard`, `agents_layer` — full internal agent set including grant + financial **watch** |
+| Core Magnus Accord | `STARTER` | `donor_crm`, `campaigns`, `compliance_calendar`; **no** autonomous agents |
+| Assisted Ops / Growth | `GROWTH` | Adds `stripe_connect_campaigns`, `fund_accounting_lite`, `compliance_reminders`, `ai_concierge`, `board_packets`, `grant_generator`, and `autonomous_ops_assisted` |
+| Autonomous Ops / Enterprise | `ENTERPRISE` | Adds `autonomous_ops_standard`, `agents_layer`, advanced AI/board/grant workflows; `mcp_tools` and `worker_financial_layer` remain internal/not public |
 | Autonomous Ops Plus / institutional | `ENTERPRISE` | `autonomous_ops_institutional` — reserved for stronger memory, reflection, portfolio intelligence (stages 2–4) |
 
 Eligibility for **which** agent runs on a schedule is implemented in `packages/subscription/src/autonomousOpsPolicy.ts` (tier + `ACTIVE` status).
