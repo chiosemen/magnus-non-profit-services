@@ -59,6 +59,7 @@ DNS scope:
 - Prisma migrations are current in staging Postgres.
 - The named pilot seed fixtures exist in staging.
 - The custom domain is verified and serving the web app over HTTPS.
+- Native pilot payments are intentionally gated off with `PAYMENTS_ENABLED=false` on staging API.
 
 ## Seeded Pilot Fixtures
 
@@ -83,10 +84,9 @@ Stripe Connect fixture state:
 ## Remaining Objective
 
 1. Keep all private-pilot gating evidence current.
-2. Replace the placeholder Stripe secret on `accord-org-dashboard-api-staging` with a real `sk_test_...` secret from the user-owned Stripe test account.
-3. Redeploy the API after the real Stripe test secret is set.
-4. Rerun enterprise checkout and webhook-adjacent payment checks.
-5. Keep production GA and public beta closed.
+2. Preserve payment-gated mode until Stripe Connect platform verification is complete.
+3. Keep production GA and public beta closed.
+4. Reopen payment-live validation only under a separate launch gate.
 
 ## Required Smoke Matrix
 
@@ -102,7 +102,7 @@ Stripe Connect fixture state:
 - Public campaign read works for published campaigns.
 - Unpublished and archived campaigns are not donation-actionable.
 - Stripe is test mode only.
-- Stripe Connect readiness is required for payment writes.
+- Stripe Connect-dependent payment writes are blocked safely when pilot payments are disabled.
 - Donation and payment write paths are rate-limited.
 - Redis-backed rate limiting is active in staging.
 - Missing Redis production configuration fails closed.
@@ -114,9 +114,8 @@ Stripe Connect fixture state:
 
 ## Current Blockers
 
-- `accord-org-dashboard-api-staging` currently carries a placeholder `STRIPE_SECRET_KEY` with an `sk_test_...` prefix, but the key is not valid against Stripe and causes enterprise checkout to fail with a server-side payment error.
-- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` is also still a placeholder test-mode value on staging.
-- `STRIPE_WEBHOOK_SECRET` is present, but webhook handling is not trusted as final pilot evidence until a real enterprise checkout can be created with valid Stripe test credentials.
+- No blocker remains for the non-payment private pilot.
+- Stripe Connect platform verification still blocks any future payment-live launch, so native checkout and payouts remain intentionally disabled.
 - No internal/operator MCP allow-org is seeded in staging, so the optional MCP allow-path remains `N/A unless configured later`.
 
 ## Evidence Rules
@@ -125,4 +124,4 @@ Stripe Connect fixture state:
 - Redact Railway tokens, database URLs, Redis URLs, JWT/encryption secrets, Stripe secrets, donor PII, payment details, and raw MCP tool params.
 - Do not deploy production GA.
 - Do not claim public beta.
-- Do not mark private pilot ready while enterprise Stripe checkout remains blocked.
+- Do not claim payments are live while Stripe Connect verification is pending.

@@ -10,6 +10,8 @@ import {
   calculateFeeCoverage,
   getPublicCampaign,
   createDonationCheckoutSession,
+  PaymentProcessingNotEnabledError,
+  StripeConnectNotReadyError,
   verifyStripeSignature,
   processWebhookEvent,
 } from '../stripePaymentService';
@@ -193,6 +195,112 @@ const DATABASE_URL = process.env.DATABASE_URL || DEFAULT_TEST_DATABASE_URL;
     } finally {
       globalThis.fetch = prevFetch;
       process.env.STRIPE_SECRET_KEY = prevEnv;
+    }
+  });
+
+  test('Payment Flow: pilot payment gate blocks native checkout before Stripe session creation', async () => {
+    const org = await setupTestOrg('00-2233999', 'Payment Gate Org');
+    const slug = `checkout-gated-${Date.now()}`;
+
+    await prisma.campaign.create({
+      data: {
+        orgId: org.id,
+        title: 'Payment gated campaign',
+        slug,
+        status: CampaignStatus.LIVE,
+      },
+    });
+
+    await prisma.stripeConnectAccount.upsert({
+      where: { orgId: org.id },
+      update: {
+        stripeAccountId: 'acct_ready_for_gate',
+        onboardingStatus: 'ENABLED',
+        chargesEnabled: true,
+      },
+      create: {
+        orgId: org.id,
+        stripeAccountId: 'acct_ready_for_gate',
+        onboardingStatus: 'ENABLED',
+        chargesEnabled: true,
+      },
+    });
+
+    const prevPaymentsEnabled = process.env.PAYMENTS_ENABLED;
+    process.env.PAYMENTS_ENABLED = 'false';
+
+    try {
+      await assert.rejects(
+        () => createDonationCheckoutSession(prisma, slug, {
+          amount: 20.00,
+          donorEmail: 'donor@example.com',
+          donorName: 'John Doe',
+          coverFees: false,
+          successUrl: 'http://success',
+          cancelUrl: 'http://cancel',
+        }),
+        (err: any) => {
+          assert.ok(err instanceof PaymentProcessingNotEnabledError);
+          assert.match(err.message, /Payments are not enabled in this private pilot/);
+          return true;
+        },
+      );
+    } finally {
+      if (prevPaymentsEnabled === undefined) delete process.env.PAYMENTS_ENABLED;
+      else process.env.PAYMENTS_ENABLED = prevPaymentsEnabled;
+    }
+  });
+
+  test('Payment Flow: placeholder staging Stripe account IDs fail as connect-not-ready instead of generic 500', async () => {
+    const org = await setupTestOrg('00-2244000', 'Placeholder Stripe Org');
+    const slug = `checkout-placeholder-${Date.now()}`;
+
+    await prisma.campaign.create({
+      data: {
+        orgId: org.id,
+        title: 'Placeholder account campaign',
+        slug,
+        status: CampaignStatus.LIVE,
+      },
+    });
+
+    await prisma.stripeConnectAccount.upsert({
+      where: { orgId: org.id },
+      update: {
+        stripeAccountId: 'acct_stage_enterprise_ready',
+        onboardingStatus: 'ENABLED',
+        chargesEnabled: true,
+      },
+      create: {
+        orgId: org.id,
+        stripeAccountId: 'acct_stage_enterprise_ready',
+        onboardingStatus: 'ENABLED',
+        chargesEnabled: true,
+      },
+    });
+
+    const prevPaymentsEnabled = process.env.PAYMENTS_ENABLED;
+    process.env.PAYMENTS_ENABLED = 'true';
+
+    try {
+      await assert.rejects(
+        () => createDonationCheckoutSession(prisma, slug, {
+          amount: 30.00,
+          donorEmail: 'donor@example.com',
+          donorName: 'John Doe',
+          coverFees: false,
+          successUrl: 'http://success',
+          cancelUrl: 'http://cancel',
+        }),
+        (err: any) => {
+          assert.ok(err instanceof StripeConnectNotReadyError);
+          assert.match(err.message, /onboarding is incomplete/);
+          return true;
+        },
+      );
+    } finally {
+      if (prevPaymentsEnabled === undefined) delete process.env.PAYMENTS_ENABLED;
+      else process.env.PAYMENTS_ENABLED = prevPaymentsEnabled;
     }
   });
 

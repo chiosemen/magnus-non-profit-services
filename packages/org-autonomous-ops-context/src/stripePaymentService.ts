@@ -24,6 +24,55 @@ export class NotFoundError extends Error {
   }
 }
 
+export const PAYMENT_PILOT_DISABLED_MESSAGE =
+  'Payments are not enabled in this private pilot. Use your existing donation processor while Magnus Accord tracks campaign readiness. Stripe Connect verification pending.';
+
+export class PaymentProcessingNotEnabledError extends Error {
+  readonly code = 'PAYMENT_PROCESSING_NOT_ENABLED';
+  constructor(message = PAYMENT_PILOT_DISABLED_MESSAGE) {
+    super(message);
+    this.name = 'PaymentProcessingNotEnabledError';
+  }
+}
+
+export class StripeConnectNotReadyError extends Error {
+  readonly code = 'STRIPE_CONNECT_NOT_READY';
+  constructor(message = 'Organization payments onboarding is incomplete.') {
+    super(message);
+    this.name = 'StripeConnectNotReadyError';
+  }
+}
+
+function arePaymentsEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env.PAYMENTS_ENABLED?.trim().toLowerCase() !== 'false';
+}
+
+function isPlaceholderStripeAccountId(stripeAccountId: string): boolean {
+  return stripeAccountId.startsWith('acct_stage_');
+}
+
+function parseStripeError(errorText: string): { code?: string; message?: string; type?: string } | null {
+  try {
+    const parsed = JSON.parse(errorText) as { error?: { code?: string; message?: string; type?: string } };
+    return parsed.error ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function isExpectedStripeConnectUnavailable(errorText: string): boolean {
+  const stripeError = parseStripeError(errorText);
+  const code = stripeError?.code?.toLowerCase();
+  const message = stripeError?.message?.toLowerCase() ?? errorText.toLowerCase();
+
+  return (
+    code === 'account_invalid' ||
+    message.includes("signed up for connect") ||
+    message.includes('no such account') ||
+    message.includes('account_invalid')
+  );
+}
+
 // ─── Fee Coverage Utility ───────────────────────────────────────────────────
 
 export function calculateFeeCoverage(netAmount: number): { grossAmount: number; feeCovered: number } {
@@ -113,9 +162,17 @@ export async function createDonationCheckoutSession(
     throw new ValidationError('Stripe Connect campaign payments are not enabled for this organization.');
   }
 
+  if (!arePaymentsEnabled()) {
+    throw new PaymentProcessingNotEnabledError();
+  }
+
   const stripeAccount = campaign.organization.stripeConnectAccount;
   if (!stripeAccount || stripeAccount.onboardingStatus !== 'ENABLED' || !stripeAccount.chargesEnabled) {
-    throw new ValidationError('Organization payments onboarding is incomplete.');
+    throw new StripeConnectNotReadyError();
+  }
+
+  if (isPlaceholderStripeAccountId(stripeAccount.stripeAccountId)) {
+    throw new StripeConnectNotReadyError();
   }
 
   // Calculate gross fee coverage if opted in
@@ -162,6 +219,9 @@ export async function createDonationCheckoutSession(
 
   if (!stripeResponse.ok) {
     const errorText = await stripeResponse.text();
+    if (isExpectedStripeConnectUnavailable(errorText)) {
+      throw new StripeConnectNotReadyError();
+    }
     throw new Error(`Stripe Checkout Session Generation Failed: ${errorText}`);
   }
 

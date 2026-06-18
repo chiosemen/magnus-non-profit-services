@@ -14,6 +14,7 @@ type Campaign = {
 };
 
 type StripeConnectAccount = {
+  paymentsEnabled?: boolean;
   stripeAccountId: string | null;
   onboardingStatus: 'NOT_STARTED' | 'LINK_CREATED' | 'IN_PROGRESS' | 'ENABLED' | 'RESTRICTED' | null;
   chargesEnabled: boolean;
@@ -39,6 +40,7 @@ export default function AdminCampaignsPage() {
   // Stripe onboarding loading state
   const [onboardingLoading, setOnboardingLoading] = useState(false);
   const stripeReady = stripeAccount?.onboardingStatus === 'ENABLED' && !!stripeAccount?.chargesEnabled;
+  const nativeCheckoutEnabled = stripeReady && stripeAccount?.paymentsEnabled !== false;
 
   const fetchData = async () => {
     setLoading(true);
@@ -183,7 +185,7 @@ export default function AdminCampaignsPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <div>
           <h1 className="h1" style={{ fontSize: 34, marginBottom: 4 }}>Fundraising Campaigns</h1>
-          <p className="subhead" style={{ marginBottom: 0 }}>Create public donation campaigns and manage merchant payment processing integrations.</p>
+          <p className="subhead" style={{ marginBottom: 0 }}>Create public donation campaigns and manage campaign readiness plus merchant onboarding status.</p>
         </div>
         <button className="pill pillPrimary" onClick={openCreateModal}>
           Create Campaign
@@ -210,17 +212,23 @@ export default function AdminCampaignsPage() {
               fontSize: 11,
               padding: '2px 8px',
               borderRadius: 10,
-              background: stripeReady ? 'rgba(92,255,160,0.1)' : 'rgba(255,92,92,0.1)',
-              color: stripeReady ? 'var(--accent)' : 'var(--danger)',
+              background: nativeCheckoutEnabled
+                ? 'rgba(92,255,160,0.1)'
+                : stripeReady
+                  ? 'rgba(255,173,92,0.12)'
+                  : 'rgba(255,92,92,0.1)',
+              color: nativeCheckoutEnabled ? 'var(--accent)' : stripeReady ? '#ffad5c' : 'var(--danger)',
               fontWeight: 600,
             }}>
-              {stripeReady ? 'CONNECTED' : 'DISCONNECTED'}
+              {nativeCheckoutEnabled ? 'CONNECTED' : stripeReady ? 'PAYMENT-GATED' : 'DISCONNECTED'}
             </span>
           </h3>
           <p style={{ color: 'var(--muted)', fontSize: 13, margin: '8px 0 0 0', lineHeight: 1.5 }}>
-            {stripeReady
+            {nativeCheckoutEnabled
               ? `Connected Account ID: ${stripeAccount?.stripeAccountId}. Direct-to-merchant donation flow is enabled.`
-              : 'Stripe merchant onboarding is incomplete. You must link your Stripe account before campaign pages can be published LIVE.'}
+              : stripeReady
+                ? `Connected Account ID: ${stripeAccount?.stripeAccountId}. Stripe Connect verification is pending, so native Magnus Accord checkout remains disabled for this private pilot.`
+                : 'Stripe merchant onboarding is incomplete. Publish campaign pages for readiness review, but keep native checkout disabled until Stripe Connect is ready.'}
           </p>
         </div>
         <div>

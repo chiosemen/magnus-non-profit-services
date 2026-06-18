@@ -112,6 +112,7 @@ export const serverEnvSchema = z.object({
   FEATURE_FLAG_WORKER_FINANCIALS: boolFromString.optional(),
   FEATURE_FLAG_MOBILE_AUTH: boolFromString.optional(),
   FEATURE_FLAG_CLAUDE_MESSAGES: boolFromString.optional(),
+  PAYMENTS_ENABLED: boolFromString.optional(),
 
   AGENTS_ENABLED: boolFromString.optional(),
   AGENT_ENABLE_COMPLIANCE_WATCHDOG: boolFromString.optional(),
@@ -157,6 +158,7 @@ const serviceSchemas: Record<EnvServiceName, z.ZodTypeAny> = {
     REDIS_URL: true,
     ORG_DASHBOARD_API_BASE_URL: true,
     NEXT_PUBLIC_APP_URL: true,
+    PAYMENTS_ENABLED: true,
   }),
   'org-dashboard-api': allEnvSchema.pick({
     DATABASE_URL: true,
@@ -170,6 +172,7 @@ const serviceSchemas: Record<EnvServiceName, z.ZodTypeAny> = {
     STRIPE_CONNECT_REFRESH_URL: true,
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: true,
     NEXT_PUBLIC_APP_URL: true,
+    PAYMENTS_ENABLED: true,
   }),
   'worker-financial-layer': allEnvSchema.pick({
     DATABASE_URL: true,

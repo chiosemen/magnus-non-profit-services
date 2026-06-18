@@ -30,6 +30,7 @@ export type StripeConnectGateway = {
 export type StripeConnectStatusDto = {
   orgId: string;
   connected: boolean;
+  paymentsEnabled: boolean;
   stripeAccountId: string | null;
   onboardingStatus: StripeConnectOnboardingStatus | null;
   detailsSubmitted: boolean;
@@ -66,11 +67,16 @@ function deriveStatusForNewLink(account: StripeConnectAccountSnapshot): StripeCo
   return 'LINK_CREATED';
 }
 
+function arePaymentsEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env.PAYMENTS_ENABLED?.trim().toLowerCase() !== 'false';
+}
+
 function toStatusDto(orgId: string, row: any | null): StripeConnectStatusDto {
   if (!row) {
     return {
       orgId,
       connected: false,
+      paymentsEnabled: arePaymentsEnabled(),
       stripeAccountId: null,
       onboardingStatus: null,
       detailsSubmitted: false,
@@ -89,6 +95,7 @@ function toStatusDto(orgId: string, row: any | null): StripeConnectStatusDto {
   return {
     orgId,
     connected: true,
+    paymentsEnabled: arePaymentsEnabled(),
     stripeAccountId: row.stripeAccountId,
     onboardingStatus: row.onboardingStatus,
     detailsSubmitted: row.detailsSubmitted,

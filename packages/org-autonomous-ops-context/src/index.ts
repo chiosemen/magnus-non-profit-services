@@ -238,6 +238,9 @@ export {
   calculateFeeCoverage,
   getPublicCampaign,
   createDonationCheckoutSession,
+  PAYMENT_PILOT_DISABLED_MESSAGE,
+  PaymentProcessingNotEnabledError,
+  StripeConnectNotReadyError,
   verifyStripeSignature,
   processWebhookEvent,
 } from './stripePaymentService';
