@@ -1,22 +1,23 @@
 # P0 Production Hardening Staging Smoke Results
 
-Date: 2026-06-17
+Date: 2026-06-18
 Environment name: `magnus-accord-staging`
 Scope: private pilot smoke only
-Status: partial staging provisioned; DB migrations recovered; full pilot smoke blocked
+Status: staging infrastructure real; authenticated pilot smoke mostly complete; enterprise Stripe checkout still blocked
 Final verdict: PRIVATE PILOT BLOCKED
 
-## Merge Evidence
+## Merge And Deploy Context
 
-- PR #7: `chore(accord): harden P0 production gates`
-- PR #7 final branch HEAD before merge: `974936c490f75588feb8d6a4e9ba84109abbb345`
-- PR #7 final CI/Docker run: `27709789967`
 - PR #7 merge commit on `main`: `2f4f92a85300ecfabb0710ba596c11e62cda2b38`
-- PR #8: `fix(accord): make stripe enum migration staging-safe`
-- PR #8 head before merge: `096fd641ee149193c7f168e8d03db8192afcca74`
-- PR #8 CI/Docker run: `27722691631`
-- PR #8 checks: CI success, Docker Build Check success
-- Current merged `main`: `d8a995cb700c7f4b57cd40c756654c7890e0bd18`
+- Staging migration recovery already merged via PR #8.
+- Current local staging follow-up fixes deployed directly to Railway on 2026-06-18:
+  - `302054d` `fix(db): preserve Prisma scalar prototypes during decryption`
+  - `3523352` `fix(web): honor configured JWT issuer and audience`
+
+These two follow-up fixes were required to make the named staging environment truthfully usable for private pilot smoke:
+
+- `302054d` stopped the DB decryption layer from stripping `Date` and Prisma scalar prototypes, which restored donor/campaign/fund reads in live staging.
+- `3523352` made web-issued JWTs honor the configured issuer/audience, which restored custom-domain session compatibility with the API.
 
 ## Railway Provisioning Evidence
 
@@ -29,206 +30,209 @@ Railway project:
 
 Provisioned services:
 
-| Service | Railway status | Latest deployment |
+| Service | Railway status | Latest deployment ID |
 | --- | --- | --- |
-| `Postgres` | `SUCCESS` | `ec61b066-a12d-4355-9fda-9eafd9ea0177` |
-| `Redis` | `SUCCESS` | `3bd3d0f8-6bd8-417c-8475-62e953a8d41f` |
-| `accord-web` | `SUCCESS` | `12f99181-6fa8-4ed7-ac9c-34bdc7b8f154` |
-| `accord-mcp-connector` | `SUCCESS` | `58dce067-62cc-4584-8c14-fab073dc7857` |
-| `accord-org-dashboard-api` | Not deployed | blocked by missing Stripe test-mode secrets |
+| `accord-web-staging` | `SUCCESS` | `e4ffe590-1aea-485a-b0c7-9b0a033cfad2` |
+| `accord-org-dashboard-api-staging` | `SUCCESS` | `974984dd-69d6-4447-ab1e-11d3862e9681` |
+| `accord-mcp-connector-staging` | `SUCCESS` | `4a236d0c-0ae2-4c53-a353-a9b846a4a220` |
+| `accord-postgres-staging` | `SUCCESS` | `6f8c0c97-a783-4d98-b34b-cf39d534f060` |
+| `accord-redis-staging` | `SUCCESS` | `a80ea809-c0b6-40ea-83f0-120145ff1d4b` |
+
+Legacy/non-pilot staging service:
+
+- `magnus-non-profit-services`: `FAILED`, stopped, not part of the current staging pilot path
 
 Staging URLs:
 
-- Web: `https://accord-web-staging.up.railway.app`
-- Org Dashboard API: `https://accord-org-dashboard-api-staging.up.railway.app`
-- MCP Connector: `https://accord-mcp-connector-staging.up.railway.app`
+- Web: `https://accord-web-staging-staging.up.railway.app`
+- Org Dashboard API: `https://accord-org-dashboard-api-staging-staging.up.railway.app`
+- MCP Connector: `https://accord-mcp-connector-staging-staging.up.railway.app`
 - Custom web domain: `https://staging.magnusnonprofitservices.com`
 
 Custom domain / DNS:
 
-- Desired custom domain: `staging.magnusnonprofitservices.com`
 - Cloudflare zone ID: `ac889d...35ce`
-- DNS records created: yes
-- Railway custom-domain ID: `d7bc521b...5af0`
-- Railway required CNAME: `staging.magnusnonprofitservices.com` -> `a8jp35gf.up.railway.app`
-- Railway required TXT: `_railway-verify.staging.magnusnonprofitservices.com` -> Railway verification token, value redacted
-- Cloudflare CNAME record: `79777388...07e6f3` `CNAME` `staging.magnusnonprofitservices.com` -> `a8jp35gf.up.railway.app`, DNS only, TTL auto
-- Cloudflare TXT record: `2d80ec92...e25017` `TXT` `_railway-verify.staging.magnusnonprofitservices.com` -> Railway verification token, value redacted, TTL auto
-- Cloudflare API re-read: both records present with expected names, types, targets, DNS-only proxy status, and TTL auto
+- Cloudflare CNAME record: `79777388...07e6f3` `staging.magnusnonprofitservices.com` -> `a8jp35gf.up.railway.app`
+- Cloudflare TXT record: `2d80ec92...e25017` `_railway-verify.staging.magnusnonprofitservices.com` -> Railway verification token, redacted
 - `dig +short CNAME staging.magnusnonprofitservices.com`: `a8jp35gf.up.railway.app.`
-- `nslookup staging.magnusnonprofitservices.com`: CNAME resolves to `a8jp35gf.up.railway.app`, which resolved to an IP address
-- Custom domain HTTPS status: pass
-- `GET https://staging.magnusnonprofitservices.com/`: HTTP `200`, title `Magnus`, body size `12184` bytes
+- `GET https://staging.magnusnonprofitservices.com/`: HTTP `200`
 - Root domain touched: no
 - `www` touched: no
 
-Configured non-secret/non-value evidence:
+## Config Evidence
 
-- `DATABASE_URL`: set through Railway Postgres reference for app services
-- `REDIS_URL`: set through Railway Redis reference for app services
-- `JWT_SECRET`: generated staging-only value, redacted
-- `ENCRYPTION_KEY`: generated staging-only value, redacted
-- `NEXT_PUBLIC_APP_URL`: staging web URL
-- `API_URL`: staging org-dashboard-api URL
-- `MCP_CONNECTOR_URL`: staging MCP URL
+Configured staging variables, names only:
+
+- `NODE_ENV=production`
+- `APP_ENV=staging`
+- `DATABASE_URL`
+- `REDIS_URL`
+- `JWT_SECRET`
+- `JWT_ISSUER`
+- `JWT_AUDIENCE`
+- `ENCRYPTION_KEY`
+- `NEXT_PUBLIC_APP_URL`
+- `ORG_DASHBOARD_API_BASE_URL`
+- `MCP_CONNECTOR_URL`
 - `FEATURE_FLAG_MCP_LIVE=false`
 - `FEATURE_FLAG_WORKER_FINANCIALS=false`
 - `FEATURE_FLAG_MOBILE=false`
 
-Missing Stripe variables for org-dashboard-api:
+Staging URL alignment:
 
-- `STRIPE_SECRET_KEY`
-- `STRIPE_WEBHOOK_SECRET`
-- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
+- `NEXT_PUBLIC_APP_URL` on web: `https://staging.magnusnonprofitservices.com`
+- `NEXT_PUBLIC_APP_URL` on org-dashboard-api: `https://staging.magnusnonprofitservices.com`
+- `ORG_DASHBOARD_API_BASE_URL` on web points to the named staging org-dashboard-api URL
 
-Rejected Stripe inputs:
+Stripe-mode evidence:
 
-- Live-mode Stripe publishable and restricted keys were provided during the staging provisioning thread.
-- They were not used because this pilot requires Stripe test mode only.
-- The exposed live-mode keys should be revoked/rotated in Stripe before any further production activity.
+- `STRIPE_SECRET_KEY` on the API has an `sk_test_` prefix, but it is a placeholder and is invalid against Stripe.
+- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` on staging has a `pk_test_` prefix, but is also placeholder-valued.
+- `STRIPE_WEBHOOK_SECRET` is present with a `whsec_` prefix.
+- No live Stripe keys were used in this staging evidence run.
 
-## Deployment Evidence
+Direct proof of the current Stripe blocker:
 
-Web:
+- In-container call from `accord-org-dashboard-api-staging` to `https://api.stripe.com/v1/balance` with the current `STRIPE_SECRET_KEY` returned HTTP `401`.
+- Stripe response reported `Invalid API Key provided: sk_test_...450f` (masked by Stripe in the response).
 
-- First staging web deploy with no config used Railway default `node /app/index.js` and failed.
-- Second staging web deploy built but failed at runtime because the temporary start command passed `-- -p 8080` to Next.js.
-- Final staging web deploy `12f99181-6fa8-4ed7-ac9c-34bdc7b8f154` succeeded after using `pnpm --filter @magnus/web exec next start -p $PORT -H 0.0.0.0`.
+## DB Migration And Seed Evidence
 
-MCP:
+Prisma migration state:
 
-- Staging MCP deploy `58dce067-62cc-4584-8c14-fab073dc7857` succeeded with `/health` as the Railway healthcheck.
+- Final status: `Database schema is up to date!`
+- Canonical schema proof:
+  - `Campaign.title`: present, non-null
+  - `Campaign.name`: not used as the canonical campaign contract
+  - `Campaign.publishedAt`: present
+  - `Campaign.archivedAt`: present
+  - `Campaign_orgId_slug_key`: present
+  - `StripeConnectAccount.onboardingStatus`: present
+  - `StripeConnectAccount.requirementsCurrentlyDue`: present
 
-Org Dashboard API:
+Seeded staging orgs:
 
-- Not deployed.
-- Reason: `NODE_ENV=production` startup validation requires valid Stripe test-mode env vars.
-- Live-mode Stripe keys were intentionally not configured.
+- Starter org: `Pilot Starter Org` (`11-1111111`) tier `STARTER`
+- Enterprise org: `Pilot Enterprise Org` (`22-2222222`) tier `ENTERPRISE`
+- Growth pending org: `Pilot Growth Pending Org` (`33-3333333`) tier `GROWTH`
 
-## Staging DB Migration Evidence
+Seeded staging workers:
 
-Initial failure:
+- Starter admin: `pilot.starter+staging@magnusaccord.test`
+- Enterprise admin: `pilot.enterprise+staging@magnusaccord.test`
+- Growth admin: `pilot.growth+staging@magnusaccord.test`
 
-- Command attempted with Railway Postgres public staging URL: `pnpm --filter @magnus/db prisma:deploy`.
-- Migration `20260527181000_add_s4np_phase_2_stripe_connect` failed with Prisma `P3018`.
-- Database error code: `42710`.
-- Database error: duplicate enum label `STRIPE`.
-- Root cause: `20260527174500_add_s4np_models` already creates `DonationSource.STRIPE`, while `20260527181000_add_s4np_phase_2_stripe_connect` tried to add it again.
+Seeded staging campaigns:
 
-Recovery fix:
+- Published live: `pilot-enterprise-public-live`
+- Draft: `pilot-enterprise-draft`
+- Archived: `pilot-enterprise-archived`
+- Live with incomplete Stripe Connect: `pilot-growth-connect-pending-live`
 
-- PR #8 made the stale Phase 2 migration idempotent and kept the final canonical schema aligned to `Campaign.title`.
-- PR #8 made later Stripe Connect and Campaign migrations tolerate pre-existing canonical objects.
-- Local verification before merge:
-  - `pnpm --filter @magnus/db prisma:generate`: pass
-  - `pnpm --filter @magnus/db build`: pass
-  - `pnpm --filter @magnus/org-dashboard-api test`: pass
-  - `pnpm -r exec tsc --noEmit`: pass
-  - temporary local Postgres `pnpm --filter @magnus/db prisma:deploy`: all 20 migrations applied successfully
-  - compiled DB tests with explicit file glob: pass, 28 passing and 2 expected skips for unavailable/stale local DB integration targets
+Stripe Connect seed state:
 
-Staging recovery commands:
+- Enterprise org: `onboardingStatus=ENABLED`, `chargesEnabled=true`, `payoutsEnabled=true`
+- Growth pending org: `onboardingStatus=IN_PROGRESS`, `chargesEnabled=false`, `payoutsEnabled=false`
+
+Additional seeded accounting/donor evidence:
+
+- Enterprise org donors: `1`
+- Enterprise org campaigns: `3`
+- Enterprise org funds: `1`
+- Starter org donors: `0`
+- Starter org campaigns: `0`
+
+## Local Verification Tied To Staging Env
+
+Positive production-like web build with staging env:
 
 ```bash
-DATABASE_URL="$DATABASE_PUBLIC_URL" pnpm --filter @magnus/db prisma migrate resolve --rolled-back 20260527181000_add_s4np_phase_2_stripe_connect
-DATABASE_URL="$DATABASE_PUBLIC_URL" pnpm --filter @magnus/db prisma:deploy
-DATABASE_URL="$DATABASE_PUBLIC_URL" pnpm --filter @magnus/db prisma migrate status
+railway run -s accord-web-staging -e staging -- pnpm --filter @magnus/web build
 ```
 
-Staging recovery results:
+Result:
 
-- Failed migration marked rolled back: pass
-- Patched migration deploy: pass
-- Applied migrations during recovery:
-  - `20260527181000_add_s4np_phase_2_stripe_connect`
-  - `20260527221311_seed_organizations_if_needed`
-  - `20260528190000_add_stripe_connect_foundation`
-  - `20260528210000_add_campaign_admin_foundation`
-- Final Prisma status: `Database schema is up to date!`
+- Pass. Next.js production build completed successfully with the Railway staging environment variables.
 
-Post-recovery schema inspection:
-
-- `Campaign.title`: present, non-null
-- `Campaign.name`: absent from selected canonical inspection
-- `Campaign.publishedAt`: present
-- `Campaign.archivedAt`: present
-- `Campaign_orgId_slug_key`: present
-- `Campaign_slug_key`: absent
-- `StripeConnectAccount.onboardingStatus`: present, non-null
-- `StripeConnectAccount.requirementsCurrentlyDue`: present
-- `StripeConnectAccount.onboardingLinkExpiresAt`: present
-
-## Staging Smoke Results
-
-Commands used for successful web/MCP checks:
+Negative fail-closed check:
 
 ```bash
-curl -sS -D /tmp/accord-web-headers.txt -o /tmp/accord-web-body.html https://accord-web-staging.up.railway.app/
-curl -sS -o /tmp/mcp-health.json -w '%{http_code}' https://accord-mcp-connector-staging.up.railway.app/health
-curl -sS -o /tmp/mcp-no-auth.json -w '%{http_code}' \
-  -H 'content-type: application/json' \
-  -d '{"toolName":"get-donor-summary","params":{}}' \
-  https://accord-mcp-connector-staging.up.railway.app/tools/execute
-curl -sS -o /tmp/mcp-invalid-auth.json -w '%{http_code}' \
-  -H 'content-type: application/json' \
-  -H 'authorization: Bearer invalid-token' \
-  -d '{"toolName":"get-donor-summary","params":{}}' \
-  https://accord-mcp-connector-staging.up.railway.app/tools/execute
+railway run -s accord-web-staging -e staging -- env REDIS_URL= pnpm --filter @magnus/web build
+```
+
+Result:
+
+- Expected fail-closed behavior confirmed.
+- Build failed before startup with `Invalid environment configuration for web: REDIS_URL`.
+
+## Smoke Results
+
+Representative commands used:
+
+```bash
+curl -sS https://staging.magnusnonprofitservices.com/api/health
+curl -sS https://accord-org-dashboard-api-staging-staging.up.railway.app/health
+curl -sS https://accord-mcp-connector-staging-staging.up.railway.app/health
+curl -sS https://staging.magnusnonprofitservices.com/api/auth/me
+curl -sS -b /private/tmp/enterprise.cookies https://staging.magnusnonprofitservices.com/api/org/donors
+curl -sS -b /private/tmp/starter.cookies https://staging.magnusnonprofitservices.com/api/org/accounting/funds
+curl -sS https://staging.magnusnonprofitservices.com/api/public/campaigns/pilot-enterprise-public-live
+curl -sS https://staging.magnusnonprofitservices.com/api/public/campaigns/pilot-growth-connect-pending-live/checkout
 ```
 
 Observed results:
 
 | Check | Result | Evidence |
 | --- | --- | --- |
-| Web page responds | Pass | `GET /` on web returned HTTP `200`, title `Magnus`, body size `12184` bytes |
-| Custom domain web page responds | Pass | `GET https://staging.magnusnonprofitservices.com/` returned HTTP `200`, title `Magnus`, body size `12184` bytes |
-| Unsupported launch claim scan on web HTML | Pass | `GREEN`, `certified`, `production-ready`, `no-blockers`, and native-mobile-shipped pattern count: `0` |
-| Unsupported launch claim scan on custom domain HTML | Pass | `GREEN`, `certified`, `production-ready`, `no-blockers`, and native-mobile-shipped checks were clear |
-| MCP connector health | Pass | `GET /health` returned HTTP `200` with `{"ok":true}` |
-| MCP missing auth denied | Pass | `POST /tools/execute` without auth returned HTTP `401` with `{"error":"AUTH_REQUIRED"}` |
-| MCP invalid auth denied | Pass | `POST /tools/execute` with invalid bearer token returned HTTP `401` with `{"error":"AUTH_INVALID"}` |
-| Postgres service online | Pass | Railway service status `SUCCESS` |
-| Redis service online | Pass | Railway service status `SUCCESS` |
-| Prisma migration status | Pass | `Database schema is up to date!` |
-| Campaign canonical schema | Pass | `Campaign.title` present, org-scoped slug index present |
-| Stripe Connect canonical schema | Pass | `StripeConnectAccount.onboardingStatus` present |
-| Org-dashboard-api health | Blocked | API not deployed because valid Stripe test secrets are missing |
-| Subscription gates enforced | Blocked | Requires API deployment and seeded orgs |
-| MCP denied for public/non-entitled tiers | Blocked | Requires seeded orgs/JWTs |
-| MCP internal/operator-only allow path | Blocked | Requires internal/operator entitlement seed |
-| Donor CRM tier access | Blocked | Requires API deployment and seeded orgs |
-| Campaign admin access | Blocked | Requires API deployment and seeded campaigns |
-| Public campaign read | Blocked | Requires API deployment and seeded campaigns |
-| Unpublished/archived campaign not donation-actionable | Blocked | Requires API deployment and seeded campaigns |
-| Stripe test mode only | Blocked | Valid Stripe test secrets missing |
-| Stripe Connect readiness required | Blocked | Requires API deployment and seeded campaigns |
-| Donation/payment write paths rate-limited | Blocked | Requires API deployment |
-| Redis proof for API write paths | Blocked | Redis exists, but API write paths are not deployed |
-| Missing Redis production config fails closed | Not rerun in staging sprint | Previously covered by branch verification; not a live staging service check |
-| Accounting page says `Pilot review mode` | Not run | Requires authenticated web session/seed |
-| Worker Financial Layer not public | Not run | Requires authenticated/product surface traversal |
-| Grant Generator not public standalone | Not run | Requires authenticated/product surface traversal |
-| Native mobile not claimed as shipped | Partially pass | Web HTML scan found no native-mobile-shipped claim; full docs/UI pass not run |
+| Web health | Pass | `GET https://staging.magnusnonprofitservices.com/api/health` returned HTTP `200` with `{"ok":true}` |
+| Org-dashboard-api health | Pass | `GET https://accord-org-dashboard-api-staging-staging.up.railway.app/health` returned HTTP `200` with `{"ok":true}` |
+| MCP connector health | Pass | `GET https://accord-mcp-connector-staging-staging.up.railway.app/health` returned HTTP `200` with `{"ok":true}` |
+| Missing auth denied | Pass | `GET /api/auth/me` without cookies returned HTTP `401` with `{"error":"AUTH_REQUIRED"}` |
+| Invalid auth denied | Pass | `GET /api/auth/me` with invalid cookies returned HTTP `401` with `{"error":"AUTH_INVALID"}` |
+| Enterprise custom-domain session works | Pass | Enterprise register/login flow on the custom domain returned HTTP `200`; `/api/auth/me` returned `{"ok":true,...}` |
+| Starter custom-domain session works | Pass | Starter register/login flow on the custom domain returned HTTP `200`; `/api/auth/me` returned `{"ok":true,...}` |
+| Donor CRM tier access | Pass | Starter `/api/org/donors` returned HTTP `200`; enterprise `/api/org/donors` returned HTTP `200` with one donor row |
+| Campaign admin access | Pass | Enterprise `/api/org/campaigns` returned HTTP `200` with `LIVE`, `DRAFT`, and `ARCHIVED` campaigns |
+| Fund accounting gated by tier | Pass | Enterprise `/api/org/accounting/funds` returned HTTP `200`; starter `/api/org/accounting/funds` returned HTTP `403` `FEATURE_NOT_ENABLED` |
+| Subscription gates enforced | Pass | Starter fund-accounting denial and enterprise allow-path were both observed on live staging |
+| Public campaign read | Pass | `GET /api/public/campaigns/pilot-enterprise-public-live` returned HTTP `200` with the live campaign payload |
+| Unpublished campaign not donation-actionable | Pass | `GET /api/public/campaigns/pilot-enterprise-draft` returned HTTP `400` with `Campaign is not currently accepting donations.` |
+| Archived campaign not donation-actionable | Pass | `GET /api/public/campaigns/pilot-enterprise-archived` returned HTTP `400` with `Campaign is not currently accepting donations.` |
+| Stripe Connect readiness required for payment writes | Pass | `POST /api/public/campaigns/pilot-growth-connect-pending-live/checkout` returned HTTP `400` with `Organization payments onboarding is incomplete.` |
+| MCP missing auth denied | Pass | `POST /tools/execute` without auth returned HTTP `401` `AUTH_REQUIRED` |
+| MCP invalid auth denied | Pass | `POST /tools/execute` with invalid bearer token returned HTTP `401` `AUTH_INVALID` |
+| MCP denied for public/non-entitled tiers | Pass | Starter and enterprise signed staging JWTs both returned HTTP `403` `FEATURE_NOT_ENABLED` for `get-donor-summary` |
+| MCP internal/operator-only allow path | N/A | No internal/operator entitlement seed exists in staging; optional allow-path not configured |
+| Donation/payment write paths rate-limited | Pass | In-container burst against growth-pending checkout path produced `300` HTTP `400` responses followed by `30` HTTP `429` responses |
+| Redis-backed rate limiting active | Pass | API startup log contains `[magnus:org-dashboard-rate-limit] Redis-backed rate limiter active (multi-instance safe).` |
+| Missing Redis production config fails closed | Pass | Blank `REDIS_URL` build failed with `Invalid environment configuration for web: REDIS_URL` |
+| Positive production-like web build with Redis configured | Pass | `railway run -s accord-web-staging -e staging -- pnpm --filter @magnus/web build` completed successfully |
+| Accounting page says `Pilot review mode` | Pass | Playwright-authenticated visit to `/app/accounting` plus `Board financial summary` tab showed `Status: Pilot review mode` |
+| Unsupported `GREEN` / `certified` / `production-ready` / `no-blockers` claims absent | Pass | Root page and authenticated accounting-page text scans both returned zero matches |
+| Worker Financial Layer not public | Pass | `/api/autonomous-ops/connectors` returned only the `claudePartner` panel; no Worker Financial Layer panel was client-visible |
+| Grant Generator not public standalone | Pass | `/api/autonomous-ops/connectors` returned only the `claudePartner` panel; no Grant Generator panel was client-visible |
+| Native mobile not claimed as shipped | Pass | Root page and authenticated accounting-page text scans returned zero `native mobile` claim matches |
+| Stripe test mode only | Partial pass | All configured Stripe staging variables use test-mode prefixes (`sk_test_`, `pk_test_`, `whsec_`), but the current API secret is placeholder-valued and not usable for live test checkout creation |
+| Enterprise public checkout creation | Blocked | `POST /api/public/campaigns/pilot-enterprise-public-live/checkout` returned HTTP `500`; in-container Stripe call proved the current `sk_test_...` secret is invalid |
 
 ## Current Decision
 
-Private pilot smoke is not complete.
+Private pilot is still blocked, but the blocker is now narrow and concrete:
 
-Staging infrastructure is real and partially verified:
+- staging web is healthy;
+- staging org-dashboard-api is healthy;
+- staging mcp-connector is healthy;
+- custom-domain authentication is working;
+- seed data is real;
+- public/non-entitled gating is working;
+- Redis-backed rate limiting is proven;
+- unsupported public launch claims remain absent;
+- Worker Financial Layer, Grant Generator, and MCP are not public surfaces.
 
-- Railway staging exists.
-- Postgres and Redis are online.
-- Prisma migrations are up to date after PR #8.
-- Web is deployed and responding on Railway and the custom domain.
-- MCP is deployed and correctly denies missing/invalid auth.
-- Root domain and `www` were not changed.
+The remaining blocker is enterprise payment readiness:
 
-Pilot remains blocked by:
-
-- missing valid Stripe test-mode secrets;
-- org-dashboard-api not deployed;
-- missing seed data;
-- authenticated/API smoke not run.
+- `accord-org-dashboard-api-staging` must receive a real user-owned Stripe test secret (`sk_test_...`) instead of the current placeholder value.
+- Once that is done, enterprise checkout creation and webhook-adjacent payment smoke must be rerun.
 
 Production GA was not deployed.
 Public beta was not claimed.

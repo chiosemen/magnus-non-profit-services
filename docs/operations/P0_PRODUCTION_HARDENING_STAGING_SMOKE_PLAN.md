@@ -1,6 +1,6 @@
 # P0 Production Hardening Staging Smoke Plan
 
-Date: 2026-06-17
+Date: 2026-06-18
 Environment name: `magnus-accord-staging`
 Scope: private pilot smoke only
 Production GA: not in scope
@@ -14,79 +14,81 @@ Railway project:
 
 - Project name: `MAGNUS NON PROFIT SERVICES`
 - Project ID: `d2653c3e-29af-4e73-9297-bb7cef9f770e`
-- Staging environment: `staging`
-- Staging environment ID: `6df58eb6-fbbc-4be1-aaa8-f9ec60be940c`
+- Environment: `staging`
+- Environment ID: `6df58eb6-fbbc-4be1-aaa8-f9ec60be940c`
 
-Staging services:
+Active staging services:
 
-- Web: `accord-web`
-- Org Dashboard API: `accord-org-dashboard-api`
-- MCP Connector: `accord-mcp-connector`
-- Postgres: `Postgres`
-- Redis: `Redis`
+- Web: `accord-web-staging`
+- Org Dashboard API: `accord-org-dashboard-api-staging`
+- MCP Connector: `accord-mcp-connector-staging`
+- Postgres: `accord-postgres-staging`
+- Redis: `accord-redis-staging`
 
 Staging URLs:
 
-- Web: `https://accord-web-staging.up.railway.app`
-- Org Dashboard API: `https://accord-org-dashboard-api-staging.up.railway.app`
-- MCP Connector: `https://accord-mcp-connector-staging.up.railway.app`
+- Web: `https://accord-web-staging-staging.up.railway.app`
+- Org Dashboard API: `https://accord-org-dashboard-api-staging-staging.up.railway.app`
+- MCP Connector: `https://accord-mcp-connector-staging-staging.up.railway.app`
 - Custom web domain: `https://staging.magnusnonprofitservices.com`
 
 DNS scope:
 
 - Cloudflare zone: `ac889d...35ce`
 - Only `staging.magnusnonprofitservices.com` is configured.
-- Root domain and `www` are out of scope and were not changed.
+- Root domain and `www` remain out of scope and were not changed.
 
 ## Preconditions
 
-- PR #7 is merged.
-- PR #7 final branch HEAD before merge: `974936c490f75588feb8d6a4e9ba84109abbb345`.
-- PR #7 merge commit on `main`: `2f4f92a85300ecfabb0710ba596c11e62cda2b38`.
-- PR #7 CI and Docker Build Check passed on run `27709789967`.
-- PR #8 migration recovery fix is merged.
-- Current `main` after PR #8: `d8a995cb700c7f4b57cd40c756654c7890e0bd18`.
-- PR #8 CI and Docker Build Check passed on run `27722691631`.
+- PR #7 merged to `main`; production GA remains closed.
+- PR #8 merged and unblocked staging Prisma migration recovery.
+- Staging follow-up fixes were deployed on 2026-06-18:
+  - `302054d` `fix(db): preserve Prisma scalar prototypes during decryption`
+  - `3523352` `fix(web): honor configured JWT issuer and audience`
 - Staging must use Railway `staging`, not Railway `production`.
-- Production GA must not be deployed.
-- Public beta must not be claimed.
 - Smoke evidence must be real staging evidence only.
 
-## Deployment Plan
+## Completed Setup
 
-1. Provision Railway `staging` environment in the existing Magnus project. Done.
-2. Provision Railway managed Postgres and Redis in `staging`. Done.
-3. Reserve Railway staging domains for web, org-dashboard-api, and mcp-connector. Done.
-4. Configure non-Stripe staging variables:
-   - `NODE_ENV=production`
-   - `DATABASE_URL` using Railway Postgres reference
-   - `REDIS_URL` using Railway Redis reference
-   - generated staging-only `JWT_SECRET`
-   - generated staging-only `ENCRYPTION_KEY`
-   - `NEXT_PUBLIC_APP_URL`
-   - `API_URL`
-   - `MCP_CONNECTOR_URL`
-   - governance flags keeping MCP/worker/mobile public exposure disabled
-5. Configure Stripe test-mode variables before deploying org-dashboard-api:
-   - `STRIPE_SECRET_KEY` with valid `sk_test` value
-   - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` with valid `pk_test` value
-   - `STRIPE_WEBHOOK_SECRET` for the staging webhook endpoint
-   - `STRIPE_CONNECT_RETURN_URL`
-   - `STRIPE_CONNECT_REFRESH_URL`
-6. Apply Prisma migrations to staging Postgres. Done after PR #8 recovery fix.
-7. Seed staging after API deployment prerequisites are complete:
-   - Starter/non-entitled org
-   - Growth or Enterprise entitled org
-   - internal/operator MCP entitlement if configured
-   - published campaign
-   - unpublished/draft campaign
-   - archived campaign
-8. Deploy current merged `main` commit `d8a995cb700c7f4b57cd40c756654c7890e0bd18` to staging services.
-9. Run private pilot smoke.
-10. Record command evidence, timestamps, URLs, deployment IDs, HTTP statuses, and sanitized response snippets.
-11. Commit the plan/results pair only as evidence artifacts; do not mark private pilot ready until all required smoke checks pass.
+- Railway managed Postgres and Redis are online.
+- Web, org-dashboard-api, and mcp-connector are deployed and healthy.
+- `NEXT_PUBLIC_APP_URL` is aligned to `https://staging.magnusnonprofitservices.com` on web and API.
+- JWT issuer/audience are aligned across web, API, and MCP:
+  - `JWT_ISSUER=magnus-accord-staging`
+  - `JWT_AUDIENCE=magnus-accord-private-pilot`
+- Prisma migrations are current in staging Postgres.
+- The named pilot seed fixtures exist in staging.
+- The custom domain is verified and serving the web app over HTTPS.
 
-## Required Smoke Checks
+## Seeded Pilot Fixtures
+
+Organizations:
+
+- Starter org: `Pilot Starter Org` (`11-1111111`) tier `STARTER`
+- Enterprise org: `Pilot Enterprise Org` (`22-2222222`) tier `ENTERPRISE`
+- Growth pending org: `Pilot Growth Pending Org` (`33-3333333`) tier `GROWTH`
+
+Campaigns:
+
+- Published live: `pilot-enterprise-public-live`
+- Draft/unpublished: `pilot-enterprise-draft`
+- Archived: `pilot-enterprise-archived`
+- Live but Stripe Connect pending: `pilot-growth-connect-pending-live`
+
+Stripe Connect fixture state:
+
+- Enterprise org: onboarding `ENABLED`, charges enabled
+- Growth pending org: onboarding `IN_PROGRESS`, charges disabled
+
+## Remaining Objective
+
+1. Keep all private-pilot gating evidence current.
+2. Replace the placeholder Stripe secret on `accord-org-dashboard-api-staging` with a real `sk_test_...` secret from the user-owned Stripe test account.
+3. Redeploy the API after the real Stripe test secret is set.
+4. Rerun enterprise checkout and webhook-adjacent payment checks.
+5. Keep production GA and public beta closed.
+
+## Required Smoke Matrix
 
 - Web health/page responds successfully.
 - Org-dashboard-api health responds successfully.
@@ -94,7 +96,7 @@ DNS scope:
 - Missing auth and invalid auth are denied.
 - Subscription gates are enforced.
 - MCP is denied for public or non-entitled tiers.
-- MCP is allowed only for internal/operator entitlement, if that entitlement is configured.
+- MCP is allowed only for internal/operator entitlement, if that entitlement is configured later.
 - Donor CRM tier access is enforced.
 - Campaign admin access is enforced.
 - Public campaign read works for published campaigns.
@@ -112,14 +114,10 @@ DNS scope:
 
 ## Current Blockers
 
-- Valid Stripe test-mode secrets are required before org-dashboard-api can be deployed truthfully:
-  - `STRIPE_SECRET_KEY` must be a valid `sk_test` value.
-  - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` must be a valid `pk_test` value.
-  - `STRIPE_WEBHOOK_SECRET` must be a valid staging/test webhook secret.
-- Live-mode Stripe keys were provided during provisioning, but were not used because staging requires Stripe test mode only.
-- Org-dashboard-api is not deployed because production startup validation requires the missing Stripe test variables.
-- Seed data is not created yet because API/payment readiness remains blocked by missing Stripe test-mode configuration.
-- Full private pilot smoke remains blocked until API deployment and seed data exist.
+- `accord-org-dashboard-api-staging` currently carries a placeholder `STRIPE_SECRET_KEY` with an `sk_test_...` prefix, but the key is not valid against Stripe and causes enterprise checkout to fail with a server-side payment error.
+- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` is also still a placeholder test-mode value on staging.
+- `STRIPE_WEBHOOK_SECRET` is present, but webhook handling is not trusted as final pilot evidence until a real enterprise checkout can be created with valid Stripe test credentials.
+- No internal/operator MCP allow-org is seeded in staging, so the optional MCP allow-path remains `N/A unless configured later`.
 
 ## Evidence Rules
 
@@ -127,4 +125,4 @@ DNS scope:
 - Redact Railway tokens, database URLs, Redis URLs, JWT/encryption secrets, Stripe secrets, donor PII, payment details, and raw MCP tool params.
 - Do not deploy production GA.
 - Do not claim public beta.
-- Do not mark private pilot ready while any required smoke check is blocked.
+- Do not mark private pilot ready while enterprise Stripe checkout remains blocked.
