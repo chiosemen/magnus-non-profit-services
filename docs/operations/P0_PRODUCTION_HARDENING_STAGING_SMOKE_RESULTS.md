@@ -3,7 +3,7 @@
 Date: 2026-06-18
 Environment name: `magnus-accord-staging`
 Scope: private pilot smoke only
-Status: staging infrastructure real; Stripe test-mode webhook and API secret refreshed; enterprise checkout still blocked because the Stripe account is not enrolled in Connect and the enterprise seed still points at a placeholder connected account
+Status: staging infrastructure real; Stripe test-mode webhook and API secret refreshed; webhook delivery path proven with a real test-mode event; enterprise checkout still blocked because the Stripe account cannot yet create a real Connect account and the enterprise seed still points at a placeholder connected account
 Final verdict: PRIVATE PILOT BLOCKED
 
 ## Merge And Deploy Context
@@ -112,6 +112,10 @@ Direct proof of the current Stripe blocker:
 - Stripe Workbench in the refreshed test account still shows no connected accounts: `stripe accounts list --limit 20` returned an empty `data` array before any correction attempt.
 - Attempting to create a real test connected account with the freshly authorized Stripe test key failed with Stripe's Connect enrollment error: `You can only create new accounts if you've signed up for Connect`.
 - Because `createDonationCheckoutSession` sends the stored connected account through the `Stripe-Account` header, the placeholder enterprise seed cannot create a real Checkout Session. A direct Stripe API reproduction with `Stripe-Account: acct_stage_enterprise_ready` returned `account_invalid`.
+- Despite the Connect blocker, Stripe CLI successfully triggered a real test-mode `checkout.session.completed` event against the registered webhook endpoint. Railway HTTP logs recorded `POST /api/public/stripe/webhook 200`, and staging DB inspection confirmed:
+  - donor `pilot.webhook.enterprise@example.com` was created for `Pilot Enterprise Org`
+  - one donation ledger row was created with amount `25 USD`
+  - one processed `StripeWebhookEvent` row was recorded for the event
 
 ## DB Migration And Seed Evidence
 
@@ -153,9 +157,10 @@ Stripe Connect seed state:
 
 Additional seeded accounting/donor evidence:
 
-- Enterprise org donors: `1`
+- Enterprise org donors: `2`
 - Enterprise org campaigns: `3`
 - Enterprise org funds: `1`
+- Enterprise org donation receipts: `1`
 - Starter org donors: `0`
 - Starter org campaigns: `0`
 
@@ -238,7 +243,7 @@ Observed results:
 | Stripe test mode only | Pass | The staging API now runs with a current `sk_test_...` key, the staging web/API publishable value is `pk_test_...`, and the only active staging webhook destination is a non-live Stripe Workbench/test endpoint. |
 | Enterprise connected account seed | Blocked | Authenticated enterprise `GET /api/org/stripe-connect/status` and Railway SSH DB inspection both confirmed the placeholder `acct_stage_enterprise_ready`; Stripe Workbench account listing returned no real connected accounts. |
 | Enterprise public checkout creation | Blocked | `POST /api/public/campaigns/pilot-enterprise-public-live/checkout` returned HTTP `500`; direct Stripe API reproduction with `Stripe-Account: acct_stage_enterprise_ready` returned `account_invalid`, proving the placeholder account is unusable. |
-| Webhook signature path exercised through registered destination | Blocked | The registered endpoint now exists with the current secret, but no successful connected-account checkout exists yet and the Stripe account cannot create test connected accounts until Connect is enabled. |
+| Webhook signature path exercised through registered destination | Pass | `stripe trigger checkout.session.completed` delivered a real test-mode event to `POST /api/public/stripe/webhook`, Railway HTTP logs recorded HTTP `200`, and staging DB inspection confirmed a donor row, donation ledger row, and processed `StripeWebhookEvent` record. |
 
 ## Current Decision
 
@@ -258,15 +263,16 @@ The remaining blocker is enterprise payment readiness:
 
 - A real Stripe test-mode webhook destination now exists for `checkout.session.completed`.
 - `accord-org-dashboard-api-staging` was redeployed after both `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` were refreshed.
+- The staging webhook verification path is now proven with a real processed `checkout.session.completed` test event.
 - Enterprise checkout still returns HTTP `500`.
 - The enterprise org's stored Stripe Connect account ID is `acct_stage_enterprise_ready`, which is a staging placeholder and not a real Stripe test connected account.
 - Stripe Workbench still shows no connected accounts in the current test account.
-- Codex successfully re-authorized Stripe CLI, but Stripe rejected connected-account creation because this Stripe account is not enrolled in Connect yet.
-- Until Connect is enabled on the Stripe account, Codex cannot create the real `acct_...` connected account needed to replace the placeholder enterprise seed.
+- Codex successfully re-authorized Stripe CLI, but Stripe rejected connected-account creation because the Stripe platform account still cannot create Connect accounts.
+- Until Stripe finishes that platform-side Connect enablement, Codex cannot create the real `acct_...` connected account needed to replace the placeholder enterprise seed.
 
 To unblock the private pilot, a human with Stripe Dashboard access must:
 
-1. Enable Connect for the Stripe account at `https://dashboard.stripe.com/connect`.
+1. Wait for Stripe to finish the current Connect verification / platform enablement on `https://dashboard.stripe.com/connect`.
 2. Create or identify a real Stripe test connected account that can create test Checkout Sessions.
 3. Update the enterprise staging org's `StripeConnectAccount.stripeAccountId` from `acct_stage_enterprise_ready` to that real test `acct_...`.
 4. Keep the row `onboardingStatus=ENABLED`, `chargesEnabled=true`, and `payoutsEnabled=true` only if the Stripe test account is actually usable.
