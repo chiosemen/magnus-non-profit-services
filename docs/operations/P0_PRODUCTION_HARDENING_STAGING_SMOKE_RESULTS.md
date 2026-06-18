@@ -282,3 +282,25 @@ To unblock the private pilot, a human with Stripe Dashboard access must:
 Production GA was not deployed.
 Public beta was not claimed.
 No fake smoke evidence was created.
+
+## 2026-06-18 Final Operator Retry — Stripe Connect Gate
+
+Scope: final private-pilot gate only. No repository hardening, architecture rebuild, UI sprint, or broad audit was reopened.
+
+Result:
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| Stripe Connect platform account creation | Blocked | Test-mode `stripe accounts create` against the user-owned Stripe platform returned: `You can only create new accounts if you've signed up for Connect, which you can do at https://dashboard.stripe.com/connect.` |
+| Real connected account created | Blocked | No real test connected account was created; no usable `acct_...` replacement exists from this retry. |
+| Placeholder staging DB replacement | Not run | Stopped before DB mutation because Stripe Connect platform creation is still blocked. `acct_stage_enterprise_ready` must not be replaced with another fake value. |
+| Enterprise checkout retry | Not run | Stopped before checkout retry because the enterprise org still lacks a real usable connected account. |
+| Growth pending negative checkout | Not rerun | Previously proven and not reopened; no evidence of regression found during this focused gate. |
+| Draft/archived negative campaign checks | Not rerun | Previously proven and not reopened; no evidence of regression found during this focused gate. |
+| Webhook confirmation | Previously pass | Existing registered webhook proof remains the current evidence; no new checkout session could be completed without a usable connected account. |
+
+Final operator verdict: **PRIVATE PILOT BLOCKED**.
+
+Exact remaining blocker: Stripe Connect platform verification / Connect enablement is still pending for the Stripe test platform, so the operator cannot create the real test connected account required to replace `acct_stage_enterprise_ready` and prove enterprise checkout.
+
+No production GA was deployed. Public beta was not claimed. No fake connected account or fake checkout evidence was created.
