@@ -13,15 +13,20 @@ export type AppJwtPayload = {
 
 export function signAppToken(payload: AppJwtPayload): string {
   const secret = getJwtSecret();
+  const jwtOptions = getJwtClaimOptions();
   return jwt.sign(payload, secret, {
     algorithm: 'HS256',
     expiresIn: '15m',
+    ...jwtOptions,
   });
 }
 
 export function verifyAppToken(token: string): AppJwtPayload {
   const secret = getJwtSecret();
-  const decoded = jwt.verify(token, secret, { algorithms: ['HS256'] });
+  const decoded = jwt.verify(token, secret, {
+    algorithms: ['HS256'],
+    ...getJwtClaimOptions(),
+  });
   if (!decoded || typeof decoded !== 'object') throw new Error('AUTH_INVALID');
 
   const p = decoded as Partial<AppJwtPayload>;
@@ -52,3 +57,12 @@ function getJwtSecret(): string {
   return secret;
 }
 
+function getJwtClaimOptions(): { issuer?: string; audience?: string } {
+  const issuer = process.env['JWT_ISSUER']?.trim();
+  const audience = process.env['JWT_AUDIENCE']?.trim();
+
+  return {
+    ...(issuer ? { issuer } : {}),
+    ...(audience ? { audience } : {}),
+  };
+}
