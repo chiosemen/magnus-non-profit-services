@@ -94,13 +94,23 @@ function encryptArgs(args: any): any {
   return result;
 }
 
-function decryptResult(result: any): any {
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (!value || typeof value !== 'object') return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
+export function decryptResult(result: any): any {
   if (!result) return result;
   
   if (Array.isArray(result)) {
     return result.map(decryptResult);
   }
   
+  if (!isPlainObject(result)) {
+    return result;
+  }
+
   if (typeof result === 'object') {
     const decrypted = { ...result };
     for (const field of ENCRYPTED_FIELDS) {
@@ -109,7 +119,8 @@ function decryptResult(result: any): any {
       }
     }
     
-    // Also decrypt any nested relations
+    // Only recurse into plain objects and arrays so Prisma scalar wrappers
+    // such as Date and Decimal keep their prototype methods.
     for (const key of Object.keys(decrypted)) {
       if (typeof decrypted[key] === 'object' && decrypted[key] !== null) {
         decrypted[key] = decryptResult(decrypted[key]);
