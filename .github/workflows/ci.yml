@@ -49,7 +49,7 @@ jobs:
         run: pnpm -r exec tsc --noEmit
 
       - name: Run tests
-        run: pnpm -r --if-present test
+        run: pnpm test
 
       - name: Build
         env:
