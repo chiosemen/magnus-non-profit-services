@@ -11,9 +11,12 @@ config({ path: join(__dirname, '..', '..', '..', '..', '.env') });
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { PrismaClient, CampaignStatus } from '@prisma/client';
+import { assertSafeTestDatabaseUrl, registerDbUnavailable } from './dbTestGuard';
 
 // Use local test database
 const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://postgres@localhost/magnus';
+// SPEC-P0 R3: refuse to touch anything that could be a real database.
+assertSafeTestDatabaseUrl(DATABASE_URL);
 
 async function canConnectToDb(): Promise<boolean> {
   const testClient = new PrismaClient({
@@ -42,10 +45,9 @@ async function canConnectToDb(): Promise<boolean> {
   const dbAvailable = await canConnectToDb();
 
   if (!dbAvailable) {
-    test(
-      'SKIP: Stripe Phase 2 Database integration tests (no DB connection or canonical schema mismatch)',
-      { skip: 'DATABASE_URL unreachable or missing Campaign.title/StripeConnectAccount.onboardingStatus' },
-      () => {}
+    registerDbUnavailable(
+      'Stripe Phase 2 Database integration tests',
+      'DATABASE_URL unreachable or missing Campaign.title/StripeConnectAccount.onboardingStatus'
     );
     return;
   }
