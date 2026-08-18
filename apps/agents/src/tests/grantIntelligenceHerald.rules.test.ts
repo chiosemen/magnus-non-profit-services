@@ -32,6 +32,7 @@ function match(overrides: Partial<GrantMatch>): GrantMatch {
       lastUpdated: new Date('2026-06-01T00:00:00Z').toISOString(),
       applicationUrl: 'https://example.invalid/apply',
       applicationDeadline: '2026-07-01',
+      provenance: { source: 'candid' as const, idSource: 'provider' as const, missingFields: [] },
     },
     matchScore: 75,
     matchReasons: ['NTEE code is eligible', 'State is eligible'],

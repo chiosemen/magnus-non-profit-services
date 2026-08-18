@@ -1,8 +1,25 @@
+import { createHash } from 'node:crypto';
+
+/**
+ * Provenance for an opportunity record (P0-4, SPEC-P0 R4).
+ * - source: which system produced the record.
+ * - idSource: 'provider' when the id came from the source system,
+ *   'content-hash' when derived deterministically from identifying content.
+ * - missingFields: raw fields the source did not provide; the corresponding
+ *   values are null (strings/booleans) or a documented neutral 0 that the
+ *   deterministic scorer treats as "no data" (numerics).
+ */
+export type OpportunityProvenance = {
+  source: 'candid' | 'seed';
+  idSource: 'provider' | 'content-hash' | 'seed';
+  missingFields: string[];
+};
+
 export type GrantOpportunity = {
   id: string;
-  funderName: string;
+  funderName: string | null;
   funderEIN?: string;
-  programName: string;
+  programName: string | null;
   description: string;
   focusAreas: string[];
   eligibleNTEECodes: string[];
@@ -18,8 +35,9 @@ export type GrantOpportunity = {
   requiresLetterOfInquiry: boolean;
   averageGrantSize: number;
   grantCount: number;
-  acceptsUnsolicited: boolean;
+  acceptsUnsolicited: boolean | null;
   lastUpdated?: string;
+  provenance: OpportunityProvenance;
 };
 
 export type GrantMatch = {
@@ -124,6 +142,7 @@ function seedOpportunities(nteeCode: string, state: string): GrantOpportunity[] 
       id: `seed-${nteeCode}-${state}-1`,
       funderName: 'Seed Community Foundation',
       programName: 'General Operating Support',
+      provenance: { source: 'seed', idSource: 'seed', missingFields: [] },
       description: 'Seed opportunity used when Candid is unavailable.',
       focusAreas: ['community', 'education'],
       eligibleNTEECodes: [nteeCode],
@@ -145,32 +164,99 @@ function seedOpportunities(nteeCode: string, state: string): GrantOpportunity[] 
   ];
 }
 
-function mapCandidGrant(raw: any): GrantOpportunity {
+/**
+ * Deterministic id for a Candid record that lacks a provider id (P0-4, R4).
+ * Same identifying content -> same id on every run, so dedupe keys, LOI
+ * selections, and operational memory stay stable. Records with NO
+ * identifying content at all cannot be honestly tracked and are rejected.
+ */
+function contentHashId(identity: {
+  funderEIN?: string;
+  funderName: string | null;
+  programName: string | null;
+  applicationUrl?: string;
+}): string {
+  const material = [
+    identity.funderEIN ?? '',
+    identity.funderName ?? '',
+    identity.programName ?? '',
+    identity.applicationUrl ?? '',
+  ].join('');
+  return `candid-sha256-${createHash('sha256').update(material).digest('hex').slice(0, 16)}`;
+}
+
+/**
+ * Maps a raw Candid record to a GrantOpportunity, or returns null when the
+ * record carries no identifying content (no id, funder EIN, funder name,
+ * program name, or application URL) — such a record is rejected rather than
+ * given a randomly generated identity (P0-4, SPEC-P0 R4).
+ */
+export function mapCandidGrant(raw: any): GrantOpportunity | null {
   const safeArr = (v: any): string[] => (Array.isArray(v) ? v.filter(x => typeof x === 'string') : []);
   const safeNum = (v: any, d = 0): number => (typeof v === 'number' && Number.isFinite(v) ? v : d);
-  const safeStr = (v: any, d = ''): string => (typeof v === 'string' ? v : d);
+
+  const missingFields: string[] = [];
+  const strOrNull = (v: any, field: string): string | null => {
+    if (typeof v === 'string' && v.trim().length > 0) return v;
+    missingFields.push(field);
+    return null;
+  };
+  const trackNum = (v: any, field: string): number => {
+    if (typeof v === 'number' && Number.isFinite(v)) return v;
+    missingFields.push(field);
+    return 0; // neutral for the deterministic scorer, declared in provenance
+  };
+
+  const funderName = strOrNull(raw?.funder_name ?? raw?.funderName, 'funderName');
+  const programName = strOrNull(raw?.program_name ?? raw?.programName, 'programName');
+  const funderEIN = typeof raw?.funder_ein === 'string' ? raw.funder_ein : undefined;
+  const applicationUrl = typeof raw?.application_url === 'string' ? raw.application_url : undefined;
+
+  const providerId =
+    typeof raw?.id === 'string' && raw.id.trim().length > 0 ? raw.id : null;
+
+  if (!providerId && !funderEIN && !funderName && !programName && !applicationUrl) {
+    // Nothing identifies this record; a synthesized identity would be a lie.
+    return null;
+  }
+
+  const acceptsUnsolicitedRaw = raw?.accepts_unsolicited ?? raw?.acceptsUnsolicited;
+  let acceptsUnsolicited: boolean | null;
+  if (typeof acceptsUnsolicitedRaw === 'boolean') {
+    acceptsUnsolicited = acceptsUnsolicitedRaw;
+  } else {
+    // Previously defaulted to true — a fabricated favorable claim.
+    missingFields.push('acceptsUnsolicited');
+    acceptsUnsolicited = null;
+  }
+
   return {
-    id: safeStr(raw?.id, `candid-${Math.random().toString(16).slice(2)}`),
-    funderName: safeStr(raw?.funder_name ?? raw?.funderName, 'Unknown funder'),
-    funderEIN: typeof raw?.funder_ein === 'string' ? raw.funder_ein : undefined,
-    programName: safeStr(raw?.program_name ?? raw?.programName, 'Program'),
-    description: safeStr(raw?.description, ''),
+    id: providerId ?? contentHashId({ funderEIN, funderName, programName, applicationUrl }),
+    funderName,
+    funderEIN,
+    programName,
+    description: typeof raw?.description === 'string' ? raw.description : '',
     focusAreas: safeArr(raw?.focus_areas ?? raw?.focusAreas),
     eligibleNTEECodes: safeArr(raw?.eligible_ntee_codes ?? raw?.eligibleNTEECodes),
     eligibleStates: safeArr(raw?.eligible_states ?? raw?.eligibleStates),
-    minGrantAmount: safeNum(raw?.min_grant_amount ?? raw?.minGrantAmount, 0),
-    maxGrantAmount: safeNum(raw?.max_grant_amount ?? raw?.maxGrantAmount, 0),
-    totalGiving: safeNum(raw?.total_giving ?? raw?.totalGiving, 0),
+    minGrantAmount: trackNum(raw?.min_grant_amount ?? raw?.minGrantAmount, 'minGrantAmount'),
+    maxGrantAmount: trackNum(raw?.max_grant_amount ?? raw?.maxGrantAmount, 'maxGrantAmount'),
+    totalGiving: trackNum(raw?.total_giving ?? raw?.totalGiving, 'totalGiving'),
     applicationDeadline: typeof raw?.application_deadline === 'string' ? raw.application_deadline : undefined,
     letterOfInquiryDeadline: typeof raw?.letter_of_inquiry_deadline === 'string' ? raw.letter_of_inquiry_deadline : undefined,
     isRollingDeadline: Boolean(raw?.is_rolling_deadline ?? raw?.isRollingDeadline ?? false),
-    applicationUrl: typeof raw?.application_url === 'string' ? raw.application_url : undefined,
+    applicationUrl,
     contactEmail: typeof raw?.contact_email === 'string' ? raw.contact_email : undefined,
     requiresLetterOfInquiry: Boolean(raw?.requires_letter_of_inquiry ?? raw?.requiresLetterOfInquiry ?? false),
-    averageGrantSize: safeNum(raw?.average_grant_size ?? raw?.averageGrantSize, 0),
-    grantCount: safeNum(raw?.grant_count ?? raw?.grantCount, 0),
-    acceptsUnsolicited: Boolean(raw?.accepts_unsolicited ?? raw?.acceptsUnsolicited ?? true),
+    averageGrantSize: trackNum(raw?.average_grant_size ?? raw?.averageGrantSize, 'averageGrantSize'),
+    grantCount: trackNum(raw?.grant_count ?? raw?.grantCount, 'grantCount'),
+    acceptsUnsolicited,
     lastUpdated: typeof raw?.last_updated === 'string' ? raw.last_updated : undefined,
+    provenance: {
+      source: 'candid',
+      idSource: providerId ? 'provider' : 'content-hash',
+      missingFields,
+    },
   };
 }
 
@@ -217,7 +303,11 @@ export function createCandidOpportunityFetcher(): OpportunityFetcher {
         if (!resp.ok) throw new Error('CANDID_NON_200');
         const json: any = await resp.json();
         const raws = Array.isArray(json?.grants) ? json.grants : [];
-        opportunities = raws.map(mapCandidGrant);
+        // Records with no identifying content are rejected (null), never
+        // given a synthesized identity.
+        opportunities = raws
+          .map(mapCandidGrant)
+          .filter((o: GrantOpportunity | null): o is GrantOpportunity => o !== null);
       }
     } catch {
       if (isProd) {
