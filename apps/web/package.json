@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "pnpm build && node --test __tests__/*.test.js"
+    "test": "REDIS_URL=\"${REDIS_URL:-redis://localhost:6379}\" pnpm build && node --test __tests__/*.test.js"
   },
   "dependencies": {
     "@magnus/config": "workspace:*",
