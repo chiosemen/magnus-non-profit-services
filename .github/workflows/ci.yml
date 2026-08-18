@@ -79,7 +79,6 @@ jobs:
           # Deterministic throwaway key for encryption round-trip tests.
           # Not a production secret: CI-local, ephemeral database only (R1).
           ENCRYPTION_KEY: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-          REDIS_URL: redis://localhost:6379
         run: pnpm test
 
       - name: Build
