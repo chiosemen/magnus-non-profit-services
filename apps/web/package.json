@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "node --test __tests__/*.test.js"
+    "test": "pnpm build && node --test __tests__/*.test.js"
   },
   "dependencies": {
     "@magnus/config": "workspace:*",
