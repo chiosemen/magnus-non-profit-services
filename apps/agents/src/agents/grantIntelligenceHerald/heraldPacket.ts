@@ -10,6 +10,11 @@ function truncateLabel(text: string, max: number): string {
   return `${s.slice(0, Math.max(0, max - 1))}…`;
 }
 
+// Honest display fallbacks for fields the source did not provide (P0-4, R4):
+// the underlying value stays null; only the human-facing label says so.
+export const FUNDER_NAME_UNAVAILABLE = '(funder not identified by source)';
+export const PROGRAM_NAME_UNAVAILABLE = '(program not identified by source)';
+
 export type HeraldReviewPacket = {
   orgId: string;
   orgName: string;
@@ -18,8 +23,8 @@ export type HeraldReviewPacket = {
   windowEndIso: string;
   matches: Array<{
     opportunityId: string;
-    funderName: string;
-    programName: string;
+    funderName: string | null;
+    programName: string | null;
     matchScore: number;
     urgency: string;
     applicationDeadline?: string;
@@ -52,7 +57,10 @@ export function buildHeraldReviewPacket(params: {
     sourceIndex.push({
       module: 'candid_opportunity',
       ref: m.opportunity.id,
-      label: truncateLabel(`${m.opportunity.funderName} — ${m.opportunity.programName}`, 140),
+      label: truncateLabel(
+        `${m.opportunity.funderName ?? FUNDER_NAME_UNAVAILABLE} — ${m.opportunity.programName ?? PROGRAM_NAME_UNAVAILABLE}`,
+        140
+      ),
       url: m.opportunity.applicationUrl ? truncateLabel(m.opportunity.applicationUrl, 220) : undefined,
     });
   }
@@ -115,7 +123,9 @@ export function formatHeraldReviewPacketMarkdown(packet: HeraldReviewPacket): st
       const ddl = m.applicationDeadline ? ` · deadline ${m.applicationDeadline.slice(0, 10)}` : '';
       const url = m.applicationUrl ? ` · ${m.applicationUrl}` : '';
       const loi = m.requiresLetterOfInquiry ? ' · LOI required' : '';
-      lines.push(`- **${m.funderName}** — ${m.programName} (score ${m.matchScore}${ddl}${loi})${url}`);
+      lines.push(
+        `- **${m.funderName ?? FUNDER_NAME_UNAVAILABLE}** — ${m.programName ?? PROGRAM_NAME_UNAVAILABLE} (score ${m.matchScore}${ddl}${loi})${url}`
+      );
       lines.push(`  - urgency: ${m.urgency}`);
       lines.push(`  - recommended_action: ${m.recommendedAction}`);
       if (m.matchReasons.length > 0) lines.push(`  - match_reasons: ${m.matchReasons.join('; ')}`);

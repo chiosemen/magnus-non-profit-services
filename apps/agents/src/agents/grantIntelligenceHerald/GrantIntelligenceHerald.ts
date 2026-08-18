@@ -10,6 +10,7 @@ import {
   parseOrgIdentityForGrantProfile,
 } from '@magnus/org-autonomous-ops-context';
 import { createCandidOpportunityFetcher, type GrantMatch, type OpportunityFetcher } from './opportunityClient';
+import { FUNDER_NAME_UNAVAILABLE, PROGRAM_NAME_UNAVAILABLE } from './heraldPacket';
 import { runGrantIntelligenceHeraldRules } from './rules';
 import { assertInternalSideEffectAllowed } from '../../autonomy/enforcement';
 import { assertOperationalMemoryKind } from '../../autonomousOps/operationalMemoryKinds';
@@ -256,14 +257,14 @@ function buildLoiPrepHandoff(params: {
     `HERALD identified a matching opportunity that requires an LOI.`,
     '',
     `Organization: ${params.org.name} (EIN ${params.org.ein})`,
-    `Funder: ${opp.funderName}`,
-    `Program: ${opp.programName}`,
+    `Funder: ${opp.funderName ?? FUNDER_NAME_UNAVAILABLE}`,
+    `Program: ${opp.programName ?? PROGRAM_NAME_UNAVAILABLE}`,
     `Opportunity ID: ${opp.id}`,
     `Application URL: ${opp.applicationUrl ?? '(not provided)'}`,
     `Application deadline: ${opp.applicationDeadline ?? '(unknown)'}`,
     `Rolling deadline: ${opp.isRollingDeadline ? 'yes' : 'no_or_unknown'}`,
     `LOI required: ${opp.requiresLetterOfInquiry ? 'yes' : 'no'}`,
-    `Accepts unsolicited: ${opp.acceptsUnsolicited ? 'yes' : 'no_or_unknown'}`,
+    `Accepts unsolicited: ${opp.acceptsUnsolicited === null ? 'unknown_not_stated_by_source' : opp.acceptsUnsolicited ? 'yes' : 'no'}`,
     '',
     `Match score: ${params.match.matchScore}`,
     `Match reasons: ${params.match.matchReasons.join('; ')}`,
@@ -292,7 +293,7 @@ function buildLoiPrepHandoff(params: {
   return {
     fromAgentName: 'GrantIntelligenceHerald',
     toAgentName: HERALD_TO_QUEUE,
-    title: `HERALD LOI prep: ${opp.funderName} — ${opp.programName}`,
+    title: `HERALD LOI prep: ${opp.funderName ?? FUNDER_NAME_UNAVAILABLE} — ${opp.programName ?? PROGRAM_NAME_UNAVAILABLE}`,
     body,
     urgency: params.match.urgency === 'high' ? 'high' : 'normal',
     requiresHumanReview: true,

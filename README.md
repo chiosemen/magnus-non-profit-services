@@ -6,7 +6,7 @@ AI Infrastructure Platform for Mission-Driven Organizations
 
 As of 2026-06-11, Magnus Accord is in **Pilot/Staging Verification: In Progress**.
 
-**Production Certification: Not Yet Approved.** Known P0 blockers remain before GA or broad production use. Private pilot use must be gated by the current hardening checklist in [BLOCKERS_TO_PRODUCTION.md](BLOCKERS_TO_PRODUCTION.md) and [docs/operations/P0_PRODUCTION_HARDENING_BASELINE.md](docs/operations/P0_PRODUCTION_HARDENING_BASELINE.md).
+**Production Certification: Not Yet Approved.** Known P0 blockers remain before GA or broad production use. Private pilot use must be gated by the current release record in [docs/releases/9030f8b.md](docs/releases/9030f8b.md) (the former [BLOCKERS_TO_PRODUCTION.md](BLOCKERS_TO_PRODUCTION.md) now points there) and [docs/operations/P0_PRODUCTION_HARDENING_BASELINE.md](docs/operations/P0_PRODUCTION_HARDENING_BASELINE.md).
 
 Feature status is tracked as **Live / Pilot / Gated / Scaffolded / Deferred** in [docs/product/MAGNUS_ACCORD_FEATURE_DIRECTORY.md](docs/product/MAGNUS_ACCORD_FEATURE_DIRECTORY.md). Mobile is web-responsive only; no native mobile app is shipped. MCP is internal/operator-only. Worker-financial capabilities are deferred/scaffolded. Grant drafting is an internal AI Concierge capability first, not a standalone public app.
 

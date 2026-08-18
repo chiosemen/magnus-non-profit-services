@@ -11,8 +11,11 @@ config({ path: join(__dirname, '..', '..', '..', '..', '.env') });
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { PrismaClient, ConciergeProposalStatus, ConciergeProposalType } from '@prisma/client';
+import { assertSafeTestDatabaseUrl, registerDbUnavailable } from './dbTestGuard';
 
 const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://postgres@localhost/magnus';
+// SPEC-P0 R3: refuse to touch anything that could be a real database.
+assertSafeTestDatabaseUrl(DATABASE_URL);
 
 async function canConnectToDb(): Promise<boolean> {
   const testClient = new PrismaClient({
@@ -32,7 +35,7 @@ async function canConnectToDb(): Promise<boolean> {
   const dbAvailable = await canConnectToDb();
 
   if (!dbAvailable) {
-    test('SKIP: S4NP Phase 4 Database integration tests (no DB connection)', { skip: 'DATABASE_URL unreachable' }, () => {});
+    registerDbUnavailable('S4NP Phase 4 Database integration tests', 'DATABASE_URL unreachable');
     return;
   }
 

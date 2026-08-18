@@ -14,18 +14,17 @@ import {
   processWebhookEvent,
 } from '../stripePaymentService';
 import { canConnectToDb, DEFAULT_TEST_DATABASE_URL } from './testDb';
+import { assertSafeTestDatabaseUrl, registerDbUnavailable } from './dbTestGuard';
 
 const DATABASE_URL = process.env.DATABASE_URL || DEFAULT_TEST_DATABASE_URL;
+// SPEC-P0 R3: refuse to touch anything that could be a real database.
+assertSafeTestDatabaseUrl(DATABASE_URL);
 
 (async () => {
   const dbAvailable = await canConnectToDb([{ table: 'Campaign', column: 'title' }]);
 
   if (!dbAvailable) {
-    test(
-      'SKIP: S4NP payment tests (no DB connection or Campaign.title schema mismatch)',
-      { skip: 'DATABASE_URL unreachable or local schema lacks Campaign.title' },
-      () => {},
-    );
+    registerDbUnavailable('S4NP payment tests', 'DATABASE_URL unreachable or local schema lacks Campaign.title');
     return;
   }
 

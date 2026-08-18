@@ -20,14 +20,18 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { PrismaClient } from '@prisma/client';
 import { encryptionExtension, isEncrypted } from '../encryptionExtension';
+import { assertSafeTestDatabaseUrl, registerDbUnavailable } from './dbTestGuard';
 
-// Check if DATABASE_URL looks like a valid remote DB
+// These tests INSERT rows (including SSN-shaped fixtures), so they only ever
+// run against an ephemeral loopback database. The previous condition did the
+// opposite — it required a NON-localhost URL, steering mutations at whatever
+// remote database was configured in .env (SPEC-P0 R3 violation).
 const DATABASE_URL = process.env.DATABASE_URL;
-const HAS_DB_CONFIG = DATABASE_URL && !DATABASE_URL.includes('localhost:5432/magnus');
+if (DATABASE_URL) assertSafeTestDatabaseUrl(DATABASE_URL);
 
 // Test connection availability before running integration tests
 async function canConnectToDb(): Promise<boolean> {
-  if (!HAS_DB_CONFIG) return false;
+  if (!DATABASE_URL) return false;
 
   const testClient = new PrismaClient();
   try {
@@ -45,8 +49,7 @@ async function canConnectToDb(): Promise<boolean> {
   const dbAvailable = await canConnectToDb();
 
   if (!dbAvailable) {
-    // Register a single skipped test for visibility
-    test('SKIP: Encryption integration tests (no DB connection)', { skip: 'DATABASE_URL not configured or unreachable' }, () => {});
+    registerDbUnavailable('Encryption integration tests', 'DATABASE_URL not configured or unreachable');
     return;
   }
 

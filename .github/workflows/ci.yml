@@ -9,6 +9,22 @@ jobs:
   ci:
     name: CI
     runs-on: ubuntu-latest
+    services:
+      # P0-3 (SPEC-P0 R2/R3): ephemeral Postgres 16 so database integration
+      # tests are REQUIRED to run in CI instead of silently skipping.
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: magnus_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -48,8 +64,22 @@ jobs:
       - name: Run typecheck
         run: pnpm -r exec tsc --noEmit
 
+      - name: Apply migrations to ephemeral Postgres (P0-3)
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/magnus_test?schema=public
+        run: pnpm --filter @magnus/db prisma:deploy
+
       - name: Run tests
-        run: pnpm -r --if-present test
+        env:
+          # Ephemeral service database only — the R3 guard in the test suites
+          # refuses non-loopback hosts, so tests can never reach production.
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/magnus_test?schema=public
+          # Turn database-unavailable skips into hard failures (R2).
+          REQUIRE_DB_TESTS: "1"
+          # Deterministic throwaway key for encryption round-trip tests.
+          # Not a production secret: CI-local, ephemeral database only (R1).
+          ENCRYPTION_KEY: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+        run: pnpm test
 
       - name: Build
         env:

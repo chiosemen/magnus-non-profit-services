@@ -37,44 +37,17 @@ export class PayrollDataUnavailableError extends Error {
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+// P0-4 (SPEC-P0 R4): profile shapes and the pure mapping live in
+// workerProfileMapper.ts — unavailable fields are null with provenance,
+// never fabricated placeholders.
 
-export interface OrgProfile {
-  ein: string;
-  orgName: string;
-  city: string;
-  state: string;
-  nteeCode: string;
-  taxYear: number;
-  totalRevenue: number;
-  totalExpenses: number;
-  netAssets: number;
-  employeeCount: number;
-  volunteerCount: number;
-  programRatio: number;
-  filingStatus: 'current' | 'overdue' | 'pending';
-  healthScore: number;
-  lastSynced: Date;
-}
-
-export interface MultiOrgProfile {
-  userId: string;
-  organizations: OrgProfile[];
-  totalRevenue: number;
-  totalNetAssets: number;
-  totalEmployees: number;
-  combinedHealthScore: number;
-  orgCount: number;
-  alerts: Array<{ ein: string; orgName: string; severity: string; message: string }>;
-  comparisonMetrics: OrgComparison[];
-  lastUpdated: Date;
-}
-
-export interface OrgComparison {
-  metric: string;
-  values: Array<{ ein: string; orgName: string; value: number; formatted: string }>;
-  bestEIN: string;
-  insight: string;
-}
+export type {
+  OrgProfile,
+  OrgProfileProvenance,
+  MultiOrgProfile,
+  MultiOrgProfileProvenance,
+  OrgComparison,
+} from './workerProfileMapper';
 
 export interface WorkerPayrollSummary {
   orgId: string;
@@ -90,6 +63,12 @@ export interface WorkerPayrollSummary {
 }
 
 import { prisma } from '@magnus/db';
+import {
+  aggregateMultiOrgProfile,
+  mapOrgRelationsToProfiles,
+  type MultiOrgProfile,
+  type OrgProfile,
+} from './workerProfileMapper';
 
 export class WorkerService {
   async getMultiOrgProfile(userId: string, eins?: string[]): Promise<MultiOrgProfile> {
@@ -100,36 +79,7 @@ export class WorkerService {
       });
     }
 
-    const totalRevenue = orgs.reduce((s, o) => s + o.totalRevenue, 0);
-    const totalNetAssets = orgs.reduce((s, o) => s + o.netAssets, 0);
-    const totalEmployees = orgs.reduce((s, o) => s + o.employeeCount, 0);
-    const combinedHealthScore = Math.round(
-      orgs.reduce((s, o) => s + o.healthScore, 0) / orgs.length
-    );
-
-    const alerts = orgs
-      .filter(o => o.filingStatus === 'overdue')
-      .map(o => ({
-        ein: o.ein,
-        orgName: o.orgName,
-        severity: 'critical',
-        message: `Form 990 filing is overdue for ${o.orgName}`,
-      }));
-
-    const comparisonMetrics = this.buildComparisonMetrics(orgs);
-
-    return {
-      userId,
-      organizations: orgs,
-      totalRevenue,
-      totalNetAssets,
-      totalEmployees,
-      combinedHealthScore,
-      orgCount: orgs.length,
-      alerts,
-      comparisonMetrics,
-      lastUpdated: new Date(),
-    };
+    return aggregateMultiOrgProfile({ userId, orgs, formatCurrency });
   }
 
   /**
@@ -183,52 +133,16 @@ export class WorkerService {
       }
     }
 
-    const mappedOrgs: OrgProfile[] = relationships.map(rel => {
-      const dbOrg = rel.organization;
-      return {
-         ein: dbOrg.ein,
-         orgName: dbOrg.name,
-         city: 'Unknown', // Not tracked in Organization table
-         state: 'Unknown', // Not tracked in Organization table 
-         nteeCode: 'Unspecified',
-         taxYear: new Date().getFullYear(),
-         totalRevenue: dbOrg.annualRevenue ? Number(dbOrg.annualRevenue) : 0,
-         totalExpenses: 0, // Explicit zero uncalculated domain metrics
-         netAssets: 0,
-         employeeCount: 0,
-         volunteerCount: 0,
-         programRatio: 0,
-         filingStatus: 'unknown' as any, // Not verified natively
-         healthScore: 50,
-         lastSynced: dbOrg.updatedAt,
-      };
-    });
+    // P0-4 (R4): the mapper emits null + provenance for every field the
+    // Organization table does not track — no 'Unknown' strings, no zero
+    // stand-ins, no synthetic health scores.
+    const mappedOrgs = mapOrgRelationsToProfiles(relationships);
 
     if (filterEINs?.length) {
        return mappedOrgs.filter(o => filterEINs.includes(o.ein));
     }
-    
+
     return mappedOrgs;
-  }
-
-  private buildComparisonMetrics(orgs: OrgProfile[]): OrgComparison[] {
-    if (orgs.length < 2) return [];
-
-    const metrics: OrgComparison[] = [
-      {
-        metric: 'Total Revenue',
-        values: orgs.map(o => ({
-          ein: o.ein,
-          orgName: o.orgName,
-          value: o.totalRevenue,
-          formatted: formatCurrency(o.totalRevenue),
-        })),
-        bestEIN: orgs.reduce((best, o) => o.totalRevenue > (orgs.find(x => x.ein === best)?.totalRevenue ?? 0) ? o.ein : best, orgs[0]?.ein ?? ''),
-        insight: 'Raw revenue size across organizations',
-      },
-    ];
-
-    return metrics;
   }
 
 }
