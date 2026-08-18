@@ -84,9 +84,15 @@ test('staging verification workflow exists and covers all three release-gate che
   assert.match(wf, /Check 1: health endpoints responsive/);
   assert.match(wf, /Check 2: live security headers/);
   assert.match(wf, /Check 3: unauthenticated \/app redirects to \/login/);
-  // Check 3 must treat a non-redirect as failure — a 200 means the auth gate
-  // is not shipping, which is exactly the P0-6 defect.
-  assert.match(wf, /middleware not active on staging/);
+  // Check 4 is the only middleware-SPECIFIC probe: /app itself is also
+  // guarded by a server component (requireAuthOrRedirect), so a redirect
+  // there proves nothing about the middleware. Verified live against
+  // pre-fix staging (run 32173120899): /app returned 307 -> /login with NO
+  // middleware deployed. The probe must hit a path with no page and must
+  // treat 404 as failure.
+  assert.match(wf, /Check 4: middleware intercepts a route with no page/);
+  assert.match(wf, /__middleware_probe_no_page/);
+  assert.match(wf, /404\) echo "FAIL/, 'a 404 on the probe must fail the check, not pass it');
   for (const h of ['content-security-policy', 'strict-transport-security', 'x-frame-options']) {
     assert.ok(wf.includes(h), `header check must assert ${h}`);
   }

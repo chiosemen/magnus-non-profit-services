@@ -43,7 +43,7 @@ jobs:
           grep -qi "^x-frame-options: *DENY" headers.txt || { echo "FAIL: X-Frame-Options is not DENY"; exit 1; }
           echo "PASS: all required security headers present (full capture above)."
 
-      - name: "Check 3: unauthenticated /app redirects to /login (middleware active)"
+      - name: "Check 3: unauthenticated /app redirects to /login"
         run: |
           set -euo pipefail
           # Cookie-less request = incognito-equivalent. The auth middleware
@@ -53,7 +53,32 @@ jobs:
           echo "GET /app (no cookies) -> HTTP ${code}, Location: ${loc:-<none>}"
           case "$code" in
             302|307|308) ;;
-            *) echo "FAIL: expected a redirect, got ${code} — middleware not active on staging"; exit 1;;
+            *) echo "FAIL: expected a redirect, got ${code} — /app is not gated"; exit 1;;
           esac
           echo "$loc" | grep -q "/login" || { echo "FAIL: redirect target is not /login"; exit 1; }
-          echo "PASS: middleware auth gate is active on staging."
+          # NOTE: this check is NOT specific to the middleware. The server
+          # component at (protected)/app/page.tsx calls requireAuthOrRedirect,
+          # which emits the same 307 -> /login?next=%2Fapp with the middleware
+          # absent (verified against pre-fix staging, run 32173120899).
+          # Check 4 is the middleware-specific probe.
+          echo "PASS: /app is gated (by middleware and/or the page-level guard)."
+
+      - name: "Check 4: middleware intercepts a route with no page (middleware-specific)"
+        run: |
+          set -euo pipefail
+          # /app/:path* is the middleware matcher, and there is no catch-all
+          # route under /app. So for a path with no page:
+          #   middleware ACTIVE   -> intercepted at the edge, 307 -> /login
+          #   middleware MISSING  -> Next renders its 404 page (no redirect)
+          # This is the only check here that the page-level guard cannot fake.
+          probe="/app/__middleware_probe_no_page"
+          code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 "https://${HOST}${probe}")
+          loc=$(curl -sS -o /dev/null -w '%{redirect_url}' --max-time 20 "https://${HOST}${probe}")
+          echo "GET ${probe} (no cookies) -> HTTP ${code}, Location: ${loc:-<none>}"
+          case "$code" in
+            302|307|308) ;;
+            404) echo "FAIL: 404 — the deployed build has NO auth middleware on /app/:path* (P0-6 defect present)"; exit 1;;
+            *) echo "FAIL: expected an edge redirect, got ${code} — middleware not active"; exit 1;;
+          esac
+          echo "$loc" | grep -q "/login" || { echo "FAIL: redirect target is not /login"; exit 1; }
+          echo "PASS: middleware auth gate is active on staging (edge-intercepted a page-less route)."
