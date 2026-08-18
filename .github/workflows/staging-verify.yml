@@ -1,0 +1,59 @@
+name: Staging Verification
+
+# P0 release gate checks (docs/releases/9030f8b.md) — run AFTER deploying the
+# release ref to staging. Runs from GitHub-hosted runners, which have network
+# access to the staging hosts; read-only GETs, no secrets. The run URL is the
+# durable evidence linked from the release record.
+on:
+  workflow_dispatch:
+    inputs:
+      staging_host:
+        description: Staging web host to verify
+        required: false
+        default: staging.magnusnonprofitservices.com
+
+jobs:
+  verify:
+    name: Staging Verification
+    runs-on: ubuntu-latest
+    env:
+      HOST: ${{ inputs.staging_host || 'staging.magnusnonprofitservices.com' }}
+    steps:
+      - name: "Check 1: health endpoints responsive"
+        run: |
+          set -euo pipefail
+          for u in "https://${HOST}/api/health" \
+                   "https://accord-org-dashboard-api-staging-staging.up.railway.app/health" \
+                   "https://accord-mcp-connector-staging-staging.up.railway.app/health"; do
+            echo "== GET $u"
+            curl -fsS --max-time 20 "$u"
+            echo
+          done
+          echo "PASS: all health endpoints responded 2xx."
+
+      - name: "Check 2: live security headers"
+        run: |
+          set -euo pipefail
+          echo "== HEAD https://${HOST}/"
+          curl -sSI --max-time 20 "https://${HOST}/" | tee headers.txt
+          for h in content-security-policy strict-transport-security x-frame-options x-content-type-options referrer-policy permissions-policy; do
+            grep -qi "^${h}:" headers.txt || { echo "FAIL: missing header ${h}"; exit 1; }
+          done
+          grep -qi "frame-ancestors 'none'" headers.txt || { echo "FAIL: CSP lacks frame-ancestors 'none'"; exit 1; }
+          grep -qi "^x-frame-options: *DENY" headers.txt || { echo "FAIL: X-Frame-Options is not DENY"; exit 1; }
+          echo "PASS: all required security headers present (full capture above)."
+
+      - name: "Check 3: unauthenticated /app redirects to /login (middleware active)"
+        run: |
+          set -euo pipefail
+          # Cookie-less request = incognito-equivalent. The auth middleware
+          # must redirect to /login; a 200 means the /app gate is not shipping.
+          code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 "https://${HOST}/app")
+          loc=$(curl -sS -o /dev/null -w '%{redirect_url}' --max-time 20 "https://${HOST}/app")
+          echo "GET /app (no cookies) -> HTTP ${code}, Location: ${loc:-<none>}"
+          case "$code" in
+            302|307|308) ;;
+            *) echo "FAIL: expected a redirect, got ${code} — middleware not active on staging"; exit 1;;
+          esac
+          echo "$loc" | grep -q "/login" || { echo "FAIL: redirect target is not /login"; exit 1; }
+          echo "PASS: middleware auth gate is active on staging."

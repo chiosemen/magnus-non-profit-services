@@ -72,3 +72,41 @@ test('the original blockers document is archived verbatim', () => {
     'archive must preserve the original dated content'
   );
 });
+
+// ─── Staging verification gate (P0-5 continuation) ───────────────────────────
+
+const stagingWorkflowPath = path.join(root, '.github', 'workflows', 'staging-verify.yml');
+
+test('staging verification workflow exists and covers all three release-gate checks', () => {
+  assert.ok(fs.existsSync(stagingWorkflowPath), `missing ${stagingWorkflowPath}`);
+  const wf = fs.readFileSync(stagingWorkflowPath, 'utf8');
+  assert.match(wf, /workflow_dispatch/, 'must be manually dispatchable after a staging deploy');
+  assert.match(wf, /Check 1: health endpoints responsive/);
+  assert.match(wf, /Check 2: live security headers/);
+  assert.match(wf, /Check 3: unauthenticated \/app redirects to \/login/);
+  // Check 3 must treat a non-redirect as failure — a 200 means the auth gate
+  // is not shipping, which is exactly the P0-6 defect.
+  assert.match(wf, /middleware not active on staging/);
+  for (const h of ['content-security-policy', 'strict-transport-security', 'x-frame-options']) {
+    assert.ok(wf.includes(h), `header check must assert ${h}`);
+  }
+});
+
+test('release record points at the staging verification workflow', () => {
+  const doc = fs.readFileSync(releaseDocPath, 'utf8');
+  assert.ok(
+    doc.includes('.github/workflows/staging-verify.yml'),
+    'release record must name the workflow that produces staging evidence'
+  );
+});
+
+test('release record cannot claim READY_FOR_DEPLOYMENT while any gate is PENDING', () => {
+  const doc = fs.readFileSync(releaseDocPath, 'utf8');
+  if (doc.includes('READY_FOR_DEPLOYMENT')) {
+    assert.ok(
+      !/Gate: `PENDING`/.test(doc),
+      'READY_FOR_DEPLOYMENT is not permitted while a gate is still PENDING — ' +
+        'record the staging evidence first (SPEC-P0 R4: no unverified claims)'
+    );
+  }
+});
