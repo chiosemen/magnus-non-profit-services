@@ -23,7 +23,7 @@ import {
 import { updateProposalStatus, applyProposal } from '../conciergeProposalService';
 import { assertSafeTestDatabaseUrl, registerDbUnavailable } from './dbTestGuard';
 
-process.env.NODE_ENV = 'test';
+Object.assign(process.env, { NODE_ENV: 'test' });
 
 const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://postgres@localhost/magnus';
 // SPEC-P0 R3: refuse to touch anything that could be a real database.

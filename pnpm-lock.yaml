@@ -549,6 +549,13 @@ importers:
       '@magnus/db':
         specifier: workspace:*
         version: link:../db
+    devDependencies:
+      '@types/node':
+        specifier: ^22.5.0
+        version: 22.19.11
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
 
   packages/observability:
     devDependencies:
