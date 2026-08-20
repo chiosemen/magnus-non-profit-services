@@ -79,6 +79,16 @@ export async function POST(req: Request) {
     return Response.json({ error: 'PASSWORD_TOO_SHORT' }, { status: 400 });
   }
 
+  // ── Consume a rate-limit unit for THIS attempt, before the expensive path ──
+  // P0-7 / resource exhaustion (Codex review, PR #15): checkRateLimit() only
+  // READS the failure counter. Recording only on conflict left the SUCCESSFUL
+  // path unbounded — a caller rotating a fresh email+EIN every request never
+  // increments the counter and can create unlimited orgs/workers/sessions,
+  // forcing a 12-round bcrypt each time. Consume one unit here, before the
+  // bcrypt hash and the creates, so the expensive success path is bounded,
+  // not only the conflict path.
+  await recordFailure(ip).catch(() => {});
+
   // Hash raw password — no trim/toLowerCase on password
   const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
@@ -136,16 +146,14 @@ export async function POST(req: Request) {
     // Treat it exactly like the checked collision above — same response, so
     // the timing/branch difference is not observable.
     if (isUniqueConstraintViolation(err)) {
-      await recordFailure(ip).catch(() => {});
+      // This attempt already consumed a rate-limit unit before bcrypt.
       return registrationConflictResponse();
     }
     throw err;
   }
 
   if (!created) {
-    // Count refused registrations toward the rate limit so collision probing
-    // is throttled like failed logins.
-    await recordFailure(ip).catch(() => {});
+    // This attempt already consumed a rate-limit unit before bcrypt.
     return registrationConflictResponse();
   }
 

@@ -81,6 +81,25 @@ test('register is rate limited like login', () => {
   );
 });
 
+test('a rate-limit unit is consumed BEFORE the bcrypt hash (bounds the success path)', () => {
+  // Discriminating, not presence. checkRateLimit() only READS the counter, so
+  // recording a unit only on conflict leaves the expensive SUCCESS path
+  // unbounded — a caller rotating a fresh email+EIN each request never
+  // increments the counter and can create unlimited orgs/workers/sessions,
+  // forcing a 12-round bcrypt every time (Codex P1, PR #15). This FAILS
+  // against 58110b2, where recordFailure ran only in the post-bcrypt conflict
+  // branches; it passes once a unit is consumed before bcrypt.
+  const recordIdx = code.indexOf('recordFailure(ip)');
+  const bcryptIdx = code.indexOf('bcrypt.hash(');
+  assert.ok(recordIdx > -1, 'recordFailure(ip) must be present in code');
+  assert.ok(bcryptIdx > -1, 'bcrypt.hash( must be present in code');
+  assert.ok(
+    recordIdx < bcryptIdx,
+    'a rate-limit unit must be consumed before the bcrypt hash so the ' +
+      'resource-intensive success path is bounded, not only conflicts'
+  );
+});
+
 test('register does not hardcode an entitled subscription status', () => {
   assert.ok(
     !/subscriptionStatus:\s*'ACTIVE'/.test(code),

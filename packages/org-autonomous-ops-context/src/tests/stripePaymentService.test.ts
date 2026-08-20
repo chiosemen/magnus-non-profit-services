@@ -103,12 +103,16 @@ assertSafeTestDatabaseUrl(DATABASE_URL);
     // Containment proof in a real service path, not just at the policy layer.
     // A self-registered org now defaults to PENDING; isFeatureEnabled() checks
     // status BEFORE tier, so ENTERPRISE tier must not rescue it.
+    // Unique EIN owned by this test only — node --test can run test files
+    // concurrently, so sharing an identity key with another suite races on the
+    // same Organization row (Copilot review, PR #15).
+    const ein = '00-7000715';
     const org = await prisma.organization.upsert({
-      where: { ein: '00-7777777' },
+      where: { ein },
       update: { subscriptionStatus: 'PENDING' },
       create: {
         name: 'Pending Org',
-        ein: '00-7777777',
+        ein,
         subscriptionTier: 'ENTERPRISE',
         subscriptionStatus: 'PENDING',
       },
@@ -118,30 +122,36 @@ assertSafeTestDatabaseUrl(DATABASE_URL);
       data: { orgId: org.id, title: 'Pending campaign', slug, status: CampaignStatus.LIVE },
     });
 
-    await assert.rejects(
-      () =>
-        createDonationCheckoutSession(prisma, slug, {
-          // A COMPLETE, valid payload on purpose. createDonationCheckoutSession
-          // validates inputs before the entitlement guard, so an incomplete
-          // payload would throw 'Donor email is required.' and this test would
-          // pass for the wrong reason — proving nothing about PENDING.
-          amount: 25,
-          donorEmail: 'donor@example.invalid',
-          donorName: 'Test Donor',
-          coverFees: false,
-          successUrl: 'https://example.invalid/success',
-          cancelUrl: 'https://example.invalid/cancel',
-        }),
-      (err: any) => {
-        assert.ok(
-          err.message.includes('not enabled for this organization'),
-          `expected the entitlement guard to reject a PENDING org, got: ${err.message}`
-        );
-        // Must fail at entitlement, NOT fall through to the onboarding check.
-        assert.ok(!err.message.includes('onboarding is incomplete'));
-        return true;
-      }
-    );
+    try {
+      await assert.rejects(
+        () =>
+          createDonationCheckoutSession(prisma, slug, {
+            // A COMPLETE, valid payload on purpose. createDonationCheckoutSession
+            // validates inputs before the entitlement guard, so an incomplete
+            // payload would throw 'Donor email is required.' and this test would
+            // pass for the wrong reason — proving nothing about PENDING.
+            amount: 25,
+            donorEmail: 'donor@example.invalid',
+            donorName: 'Test Donor',
+            coverFees: false,
+            successUrl: 'https://example.invalid/success',
+            cancelUrl: 'https://example.invalid/cancel',
+          }),
+        (err: any) => {
+          assert.ok(
+            err.message.includes('not enabled for this organization'),
+            `expected the entitlement guard to reject a PENDING org, got: ${err.message}`
+          );
+          // Must fail at entitlement, NOT fall through to the onboarding check.
+          assert.ok(!err.message.includes('onboarding is incomplete'));
+          return true;
+        }
+      );
+    } finally {
+      // Clean up the rows this test created (unique EIN → safe to delete).
+      await prisma.campaign.deleteMany({ where: { slug } }).catch(() => {});
+      await prisma.organization.deleteMany({ where: { ein } }).catch(() => {});
+    }
   });
 
   test('Payment Flow: checkout creation validation checks', async () => {
