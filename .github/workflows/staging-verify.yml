@@ -19,6 +19,26 @@ jobs:
     env:
       HOST: ${{ inputs.staging_host || 'staging.magnusnonprofitservices.com' }}
     steps:
+      # P0-7 reachability probe. READ-ONLY: a bare GET, no body, no EIN,
+      # no email, nothing written. Classifies whether the public
+      # /api/auth/register endpoint is exposed on the deployed build.
+      # Informational only — never fails the job, so it always reports
+      # even when a later release gate is red.
+      - name: "Probe 0: /api/auth/register reachability (read-only)"
+        run: |
+          set -uo pipefail
+          code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 "https://${HOST}/api/auth/register" || echo "000")
+          echo "GET /api/auth/register -> HTTP ${code}"
+          case "$code" in
+            405) echo "RESULT: 405 — route EXISTS and is POST-only. Endpoint is LIVE. P0-7 is real and urgent.";;
+            404) echo "RESULT: 404 — route not present on this build. Not currently exposed.";;
+            403) echo "RESULT: 403 — edge protection in front of the route. Materially lower risk.";;
+            401) echo "RESULT: 401 — auth required in front of the route.";;
+            000) echo "RESULT: no response (network/DNS/timeout). Inconclusive.";;
+            *)   echo "RESULT: unexpected status ${code} — inspect manually.";;
+          esac
+          exit 0
+
       - name: "Check 1: health endpoints responsive"
         run: |
           set -euo pipefail
