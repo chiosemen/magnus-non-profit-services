@@ -200,6 +200,33 @@ model Organization {
   events                        Event[]
   eventRegistrations            EventRegistration[]
   sponsorshipTiers              SponsorshipTier[]
+  billingAuditEntries           BillingAuditEntry[]
+}
+
+/// Append-only billing entitlement audit (manual PayPal / Stripe Payment Link activation).
+/// dealId is the idempotency key. Rows are sealed; DB triggers reject UPDATE/DELETE.
+model BillingAuditEntry {
+  id               String   @id @default(uuid()) @db.Uuid
+  seq              BigInt   @default(autoincrement())
+  dealId           String   @unique
+  orgId            String   @db.Uuid
+  action           String   @db.VarChar(32)
+  tier             SubscriptionTier
+  amountMinor      Int
+  currency         String   @db.VarChar(8)
+  paymentMethod    String   @db.VarChar(64)
+  paymentReference String   @db.VarChar(512)
+  operator         String   @db.VarChar(256)
+  orgName          String
+  prevHash         String?  @db.VarChar(64)
+  entryHash        String   @db.VarChar(64)
+  sealed           Boolean  @default(true)
+  createdAt        DateTime @default(now())
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Restrict)
+
+  @@index([orgId, createdAt])
+  @@index([seq])
 }
 
 /// Append-only donor gift ledger row (ingested from Stripe, CSV, manual API, etc.).

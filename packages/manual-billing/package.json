@@ -1,0 +1,16 @@
+{
+  "name": "@magnus/manual-billing",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "activate-org": "./bin/activate-org.mjs",
+    "create-org": "./bin/create-org.mjs"
+  },
+  "scripts": {
+    "test": "node ../../scripts/assert-test-count.js --min 18 --glob \"tests/**/*.test.mjs\""
+  },
+  "dependencies": {
+    "@magnus/db": "workspace:*"
+  }
+}
