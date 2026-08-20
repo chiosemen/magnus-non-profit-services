@@ -40,6 +40,12 @@ assertSafeTestDatabaseUrl(DATABASE_URL);
         name,
         ein,
         subscriptionTier: 'ENTERPRISE',
+        // Explicit, not inherited. Organization.subscriptionStatus now defaults
+        // to PENDING (P0-7), so a fixture that omits this creates an
+        // unentitled org and isFeatureEnabled() rejects checkout before the
+        // Stripe-onboarding check these tests are actually exercising.
+        // Fixtures must state their own preconditions.
+        subscriptionStatus: 'ACTIVE',
       },
     });
   };
@@ -88,6 +94,51 @@ assertSafeTestDatabaseUrl(DATABASE_URL);
       () => getPublicCampaign(prisma, slugDraft),
       (err: any) => {
         assert.ok(err.message.includes('not currently accepting'));
+        return true;
+      }
+    );
+  });
+
+  test('P0-7: a PENDING org is denied checkout before any Stripe work', async () => {
+    // Containment proof in a real service path, not just at the policy layer.
+    // A self-registered org now defaults to PENDING; isFeatureEnabled() checks
+    // status BEFORE tier, so ENTERPRISE tier must not rescue it.
+    const org = await prisma.organization.upsert({
+      where: { ein: '00-7777777' },
+      update: { subscriptionStatus: 'PENDING' },
+      create: {
+        name: 'Pending Org',
+        ein: '00-7777777',
+        subscriptionTier: 'ENTERPRISE',
+        subscriptionStatus: 'PENDING',
+      },
+    });
+    const slug = `checkout-pending-${Date.now()}`;
+    await prisma.campaign.create({
+      data: { orgId: org.id, title: 'Pending campaign', slug, status: CampaignStatus.LIVE },
+    });
+
+    await assert.rejects(
+      () =>
+        createDonationCheckoutSession(prisma, slug, {
+          // A COMPLETE, valid payload on purpose. createDonationCheckoutSession
+          // validates inputs before the entitlement guard, so an incomplete
+          // payload would throw 'Donor email is required.' and this test would
+          // pass for the wrong reason — proving nothing about PENDING.
+          amount: 25,
+          donorEmail: 'donor@example.invalid',
+          donorName: 'Test Donor',
+          coverFees: false,
+          successUrl: 'https://example.invalid/success',
+          cancelUrl: 'https://example.invalid/cancel',
+        }),
+      (err: any) => {
+        assert.ok(
+          err.message.includes('not enabled for this organization'),
+          `expected the entitlement guard to reject a PENDING org, got: ${err.message}`
+        );
+        // Must fail at entitlement, NOT fall through to the onboarding check.
+        assert.ok(!err.message.includes('onboarding is incomplete'));
         return true;
       }
     );
