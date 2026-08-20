@@ -1,0 +1,14 @@
+-- P0-7 (step 2 of 2): new organizations default to PENDING, not ACTIVE.
+--
+-- A DEFAULT applies only to future INSERTs; every existing row keeps its
+-- current subscriptionStatus and no entitlement changes for current orgs.
+--
+-- Containment: packages/subscription/src/policy.ts isFeatureEnabled() runs
+--   if (params.status !== 'ACTIVE') return false;
+-- BEFORE consulting tier, so a PENDING org is denied every gated feature
+-- regardless of its tier. apps/agents scheduler selects
+-- where: { subscriptionStatus: 'ACTIVE' }, so PENDING orgs are not scheduled
+-- and burn no agent/AI spend.
+--
+-- Additive only: this statement creates, it does not remove or rename.
+ALTER TABLE "Organization" ALTER COLUMN "subscriptionStatus" SET DEFAULT 'PENDING';

@@ -20,6 +20,10 @@ enum SubscriptionStatus {
   ACTIVE
   PAST_DUE
   CANCELED
+  // P0-7: self-registered orgs start here. isFeatureEnabled() checks status
+  // before tier and fails closed for anything that is not ACTIVE, so a PENDING
+  // org carries no entitlement until an operator activates it (D1-D4).
+  PENDING
 }
 
 enum ComplianceDeadlineType {
@@ -150,7 +154,7 @@ model Organization {
   stripeAccountId  String?
   stripeCustomerId String?         @unique
   stripeSubscriptionId String?     @unique
-  subscriptionStatus SubscriptionStatus @default(ACTIVE)
+  subscriptionStatus SubscriptionStatus @default(PENDING)
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
