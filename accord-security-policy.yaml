@@ -1,0 +1,46 @@
+# Magnus Accord — agent admission / security policy
+# Last amended: 20 Aug 2026 — Cursor role changed from read-only auditor to primary implementer
+# (Claude Code session limit). maker ≠ checker still holds: Cursor writes; mechanical gates +
+# Claude (Cowork) review diffs. Implementers do not edit gates/**.
+
+version: 1
+
+cursor:
+  role: primary implementer (was: read-only auditor — changed 20 Aug 2026, Claude Code session limit)
+  allowed_actions: [plan, write_code, write_tests, open_pr]
+  denied_actions: [merge, deploy, read_client_data, write_secret]
+  may_write_paths:
+    - "src/**"
+    - "apps/**"
+    - "packages/**"
+    - "scripts/**"
+    - "docs/**"
+    - "tests/**"
+    - ".github/**"
+    - ".cursor/**"
+    - "SPEC-P0.md"
+    - "accord-security-policy.yaml"
+    - "README.md"
+    - "package.json"
+    - "pnpm-workspace.yaml"
+    - "tsconfig.json"
+    - ".dockerignore"
+    - ".gitignore"
+  may_not_write_paths:
+    - "**/*.key"
+    - "**/.env*"
+    - "gates/**"
+  merge_authority: false
+
+# Mechanical checkers (not agents) — cited for maker≠checker
+mechanical_gates:
+  - assert-test-count
+  - validate-migrations
+  - TruffleHog
+  - tsc
+  - CI
+
+orchestrator:
+  role: Claude (Cowork) — audit and review
+  merge_authority: false
+  notes: Reviews diffs; does not replace CI green.
