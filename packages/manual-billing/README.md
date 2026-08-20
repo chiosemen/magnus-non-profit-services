@@ -14,7 +14,7 @@ pnpm --filter @magnus/manual-billing exec node ./bin/create-org.mjs \
 pnpm --filter @magnus/manual-billing exec node ./bin/activate-org.mjs \
   --orgId <uuid> --tier STARTER --dealId MA-2026-001 \
   --amountMinor 250000 --currency USD \
-  --paymentMethod paypal --paymentReference PAYPAL-TXN \
+  --paymentMethod paypal_invoice --paymentReference PAYPAL-TXN \
   --operator you@example.com
 ```
 

@@ -16,7 +16,7 @@ import { createPrismaStore } from '../src/prismaStore.mjs';
 function usage() {
   console.log(`Usage:
   activate-org --orgId <uuid> --tier STARTER|GROWTH|ENTERPRISE --dealId <id> \\
-    --amountMinor <int> --currency USD --paymentMethod paypal|stripe_payment_link \\
+    --amountMinor <int> --currency USD --paymentMethod paypal_invoice|stripe_payment_link \\
     --paymentReference <ref> --operator <email> [--deactivate]
 
 Environment:

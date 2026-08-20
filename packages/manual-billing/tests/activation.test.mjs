@@ -26,7 +26,7 @@ function baseInput(over = {}) {
     dealId: 'deal-001',
     amountMinor: 250000,
     currency: 'usd',
-    paymentMethod: 'paypal',
+    paymentMethod: 'paypal_invoice',
     paymentReference: 'PAYPAL-TXN-1',
     operator: 'chinye@example.com',
     confirmedOrgName: 'Helping Hands NPO',
@@ -36,15 +36,24 @@ function baseInput(over = {}) {
 
 test('ALLOWED_PAYMENT_METHODS excludes zelle (D3)', () => {
   assert.ok(!ALLOWED_PAYMENT_METHODS.includes('zelle'));
-  assert.deepEqual([...ALLOWED_PAYMENT_METHODS].sort(), ['paypal', 'stripe_payment_link'].sort());
+  assert.ok(!ALLOWED_PAYMENT_METHODS.includes('paypal'));
+  assert.deepEqual(
+    [...ALLOWED_PAYMENT_METHODS].sort(),
+    ['paypal_invoice', 'stripe_payment_link'].sort()
+  );
 });
 
 test('assertPaymentMethodAllowed refuses zelle', () => {
   assert.throws(() => assertPaymentMethodAllowed('zelle'), (e) => e.code === 'PAYMENT_METHOD_ZELLE_FORBIDDEN');
 });
 
-test('assertPaymentMethodAllowed accepts paypal and stripe_payment_link', () => {
-  assert.equal(assertPaymentMethodAllowed('PayPal'), 'paypal');
+test('assertPaymentMethodAllowed refuses bare paypal (must be paypal_invoice)', () => {
+  assert.throws(() => assertPaymentMethodAllowed('paypal'), (e) => e.code === 'PAYMENT_METHOD_NOT_ALLOWED');
+  assert.throws(() => assertPaymentMethodAllowed('PayPal'), (e) => e.code === 'PAYMENT_METHOD_NOT_ALLOWED');
+});
+
+test('assertPaymentMethodAllowed accepts paypal_invoice and stripe_payment_link', () => {
+  assert.equal(assertPaymentMethodAllowed('paypal_invoice'), 'paypal_invoice');
   assert.equal(assertPaymentMethodAllowed('stripe_payment_link'), 'stripe_payment_link');
 });
 
@@ -194,7 +203,7 @@ test('hashEntry is deterministic for identical payloads', () => {
     tier: 'STARTER',
     amountMinor: 100,
     currency: 'USD',
-    paymentMethod: 'paypal',
+    paymentMethod: 'paypal_invoice',
     paymentReference: 'r',
     operator: 'op',
     orgName: 'N',

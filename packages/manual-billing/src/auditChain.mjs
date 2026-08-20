@@ -83,7 +83,7 @@ export function verifyChain(rows) {
 }
 
 /** Payment methods allowed at launch (D3). Zelle is explicitly excluded. */
-export const ALLOWED_PAYMENT_METHODS = Object.freeze(['paypal', 'stripe_payment_link']);
+export const ALLOWED_PAYMENT_METHODS = Object.freeze(['paypal_invoice', 'stripe_payment_link']);
 
 /**
  * @param {string} method
@@ -95,6 +95,7 @@ export function assertPaymentMethodAllowed(method) {
     err.code = 'PAYMENT_METHOD_ZELLE_FORBIDDEN';
     throw err;
   }
+  // Bare "paypal" is not enough — D3 requires an invoiced Goods-and-Services trail.
   if (!ALLOWED_PAYMENT_METHODS.includes(normalized)) {
     const err = new Error(`PAYMENT_METHOD_NOT_ALLOWED:${normalized}`);
     err.code = 'PAYMENT_METHOD_NOT_ALLOWED';
