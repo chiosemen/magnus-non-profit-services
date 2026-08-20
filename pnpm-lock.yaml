@@ -544,6 +544,12 @@ importers:
         specifier: ^5.5.4
         version: 5.9.3
 
+  packages/manual-billing:
+    dependencies:
+      '@magnus/db':
+        specifier: workspace:*
+        version: link:../db
+
   packages/observability:
     devDependencies:
       '@types/node':

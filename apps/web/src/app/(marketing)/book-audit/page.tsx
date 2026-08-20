@@ -10,8 +10,8 @@ export default function BookAuditPage() {
             Use this page as the conversion step. For now it routes cleanly and can be wired to scheduling later.
           </p>
           <div className="ctaRow" style={{ marginTop: 16 }}>
-            <Link className="pill pillPrimary" href="/register">Create Account</Link>
-            <Link className="pill" href="/login">Login</Link>
+            <Link className="pill pillPrimary" href="/login">Staff Login</Link>
+            <Link className="pill" href="mailto:hello@magnusnonprofitservices.com">Request access</Link>
           </div>
         </div>
       </div>
