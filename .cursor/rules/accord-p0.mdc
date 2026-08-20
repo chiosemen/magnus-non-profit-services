@@ -1,0 +1,71 @@
+---
+description: Magnus Accord P0 remediation — binding rules. Applies to all work in this repo.
+alwaysApply: true
+---
+
+# Accord P0 — Binding Rules
+
+You are the primary implementer for Magnus Accord. Read this before every task.
+
+## The one rule that matters most
+
+**R12 — Run every new check against the broken code and watch it fail, before you commit it.**
+
+A check never observed failing is not evidence of anything. State it explicitly in your summary:
+*"I ran this against the broken state and observed it fail."* If you can't, say why.
+
+This is not theoretical. **Five vacuous gates were found in this repo in a single day** — every one
+would have shipped as proof of safety:
+
+1. `pnpm test` — the release gate; ran zero tests, exited 0
+2. An `/app` redirect check — passed against a build with **no middleware at all**, because a
+   server component emitted the identical redirect
+3. `update:\s*\{[^}]*passwordHash` — `[^}]*` stopped at a nested `{ name }`, so it went green
+   against the live password-overwrite bug it existed to catch
+4. A test calling `createCampaignCheckoutSession` — a plausible name for a function that doesn't exist
+5. A denial test whose payload omitted required fields, so it failed on input validation before
+   ever reaching the guard under test
+
+Assume you are about to write the sixth. Check.
+
+## Known traps in this codebase
+
+- **`validate-migrations.js` doesn't strip SQL comments.** A comment containing the words
+  `DROP TABLE`, `DROP COLUMN`, or `RENAME COLUMN` fails the gate. Word migration comments around it.
+- **Postgres refuses a new enum value in the same transaction that added it.** Adding an enum value
+  and using it as a `DEFAULT` requires **two separate migrations**. Verified: a combined one fails
+  with `unsafe use of new value`.
+- **`subscriptionStatus` now defaults to `PENDING`.** Test fixtures that create an `Organization`
+  without stating a status will be denied at entitlement gates. **R13: fixtures state their own
+  preconditions** — never inherit a security-relevant value from a schema default.
+- **`isFeatureEnabled` checks status before tier and fails closed** (`packages/subscription/src/policy.ts`).
+  Any non-`ACTIVE` status is denied. Do not add a tier-only lookup — `getOrgTier` already exists
+  with zero callers and is exactly that bypass.
+- **Middleware must live at `apps/web/src/middleware.ts`**, beside `src/app/`. At the app root it
+  compiles to nothing, silently. Assert against `.next/server/middleware-manifest.json`, not source.
+- **`node --test <dir>` is unreliable here.** Use explicit globs plus `scripts/assert-test-count.js`
+  with a `--min` floor, so a glob matching zero files fails instead of passing.
+
+## Hard constraints
+
+- **Never handle credentials.** Not Stripe keys, not `DATABASE_URL`, not tokens. Don't read them,
+  echo them, or write them to a file. If a task needs one, stop and ask the operator to place it.
+- **No direct pushes to `main`.** Branch, PR, CI green, then merge.
+- **Merge is not deploy.** Never treat merge authorisation as deploy authorisation.
+- **Additive-only migrations.** No DROP, no RENAME.
+- **Money is integer minor units.** Never a float, never `Number()` on a `Decimal` column.
+- **Absent data is `null` + provenance**, never `0`, never a random id, never a synthesized identity.
+- **Every entitlement change writes an audit row in the same transaction.** If the audit write
+  fails, the grant fails. There is no `--force`.
+- **`orgId` scoping is a security boundary**, not a UI filter.
+- **A public identifier is not authorisation.** EINs are published by the IRS.
+
+## Working style for this repo
+
+- Read the actual file before claiming what it does. Several findings in this project came from
+  reading source that contradicted the documentation.
+- Report what you observed, not what you expect. If you didn't run it, say you didn't run it.
+- If a tool you were told to use isn't available, **stop and report** — do not substitute a more
+  powerful one. (A read-only investigation once correctly halted rather than improvising into a
+  shell. That was the right call.)
+- Prefer one small PR that lands over a large one that stalls.
