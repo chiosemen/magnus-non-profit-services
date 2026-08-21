@@ -3,7 +3,7 @@
 **SKU:** `SVC-CLARITY`  
 **Provider:** Magnus Non Profit Services (“Magnus”)  
 **Service:** Magnus Accord — Funding & Ecosystem Clarity Package  
-**Document version:** 2026-08-20  
+**Document version:** 2026-08-21  
 **Status:** Ready to issue (fill bracketed fields per engagement)
 
 ---
@@ -58,8 +58,7 @@ Magnus will deliver the following:
 - Synthesis call / walkthrough (up to 60 minutes)
 - Final deliverable package (PDF and/or slide deck as agreed at kickoff)
 
-### 2.6 Optional light implementation support *(only if purchased)*
-- Additional prioritization session and metrics setup guidance (+2–3 weeks light support; priced separately or via add-on line on invoice)
+Light implementation support after delivery is a **change order**, not part of this SOW.
 
 ---
 
@@ -82,6 +81,7 @@ Deliverables are **advisory and diagnostic**. They are not Form 990 preparation,
 Unless separately SOW’d and invoiced, this engagement does **not** include:
 
 - Magnus Accord platform subscription activation or ongoing software fees  
+- Light implementation support after delivery (change order only)  
 - Autonomous grant submission, government filing, outbound email on Client’s behalf, or money movement  
 - Full Candid Gold/Platinum seal sprint (`SVC-DAF`)  
 - Board packet automation / Oracle setup (`SVC-BOARD`)  
@@ -156,17 +156,16 @@ Additional revision rounds: USD $350 per round (invoiced separately), or scoped 
 ## 9. Confidentiality & data handling
 
 - Client materials are used solely to perform this SOW  
-- Magnus will not sell Client donor lists  
+- Magnus will not sell, share, or disclose Client data to any third party except as required by law  
 - Client should not send unnecessary PII (e.g., full donor SSNs); redact where possible  
-- Final deliverables may be retained by Magnus for quality and continuity if Client later purchases platform services; otherwise delete on written request after engagement close (reasonable archival exception for invoice/tax records)
+- **Default deletion:** Magnus deletes Client materials within **30 days** after engagement close, except invoice/tax archival records Magnus is required to keep  
+- Magnus retains Client materials beyond that window **only on Client’s written opt-in** (for example, to seed a later platform engagement)
 
 ---
 
 ## 10. Relationship to Magnus Accord (platform)
 
-This SOW may optionally seed structured notes for a future Magnus Accord tenant (funding narrative, concentration notes, DAF checklist). **Platform access is sold separately** and is not included in the Clarity fee unless an invoice line explicitly adds a platform SKU.
-
-*Note (current launch posture): Assisted Ops / GROWTH software entitlements remain subject to Magnus’s staging verification hold. Clarity services may proceed independently of that hold.*
+This SOW may optionally seed structured notes for a future Magnus Accord tenant (funding narrative, concentration notes, DAF checklist) **if Client gives written opt-in under §9**. **Platform access is not offered under this SOW.** Platform access is sold separately and is not included in the Clarity fee.
 
 ---
 
