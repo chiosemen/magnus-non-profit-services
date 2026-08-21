@@ -11,7 +11,8 @@ const path = require('node:path');
 
 const root = path.join(__dirname, '..');
 const releaseDocPath = path.join(root, 'docs', 'releases', '9030f8b.md');
-const stubPath = path.join(root, 'BLOCKERS_TO_PRODUCTION.md');
+const stubPath = path.join(root, 'docs', 'BLOCKERS_TO_PRODUCTION.md');
+const rootPointerPath = path.join(root, 'BLOCKERS_TO_PRODUCTION.md');
 const archivePath = path.join(
   root,
   'docs',
@@ -56,11 +57,32 @@ test('BLOCKERS_TO_PRODUCTION.md is a pointer stub to the release record', () => 
   const stub = fs.readFileSync(stubPath, 'utf8');
   assert.ok(
     stub.includes('docs/releases/9030f8b.md'),
-    'root blockers file must point at the release record'
+    'canonical blockers stub must point at the 9030f8b release record'
+  );
+  assert.ok(
+    stub.includes('docs/releases/7430ad0.md'),
+    'canonical blockers stub must point at the current 7430ad0 release record'
   );
   assert.ok(
     stub.length < 2000,
-    'root blockers file must be a stub, not a second source of truth'
+    'canonical blockers stub must be a stub, not a second source of truth'
+  );
+});
+
+test('root BLOCKERS_TO_PRODUCTION.md is only a pointer to docs/', () => {
+  assert.ok(fs.existsSync(rootPointerPath), 'root pointer must exist for old links');
+  const pointer = fs.readFileSync(rootPointerPath, 'utf8');
+  assert.ok(
+    pointer.includes('docs/BLOCKERS_TO_PRODUCTION.md'),
+    'root file must point at docs/BLOCKERS_TO_PRODUCTION.md'
+  );
+  assert.ok(
+    pointer.length < 400,
+    'root file must be a pointer, not a second stub'
+  );
+  assert.ok(
+    !pointer.includes('7430ad0.md') && !pointer.includes('9030f8b.md'),
+    'root pointer must not name a current SHA — that lives in docs/'
   );
 });
 
