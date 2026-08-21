@@ -58,17 +58,26 @@ Migrations applied: `20260820140000_add_pending_subscription_status`,
 **Data at risk — measured, not assumed:**
 
 ```
-<PASTE the psql output verbatim>
+<PASTE the psql output verbatim — Step 2 baseline, Postgres console>
 Organization: <n>
 Worker:       <n>
 Donor:        <n>
+
+<PASTE subscriptionStatus distribution>
+subscriptionStatus | count
+...
 ```
 
-Chrome / Railway Console probe (operator-run only; never `echo` / `env` / `printenv` / `cat` secrets):
+Operator runbook (authoritative sequence): [`docs/operations/STAGING_VERIFY_RUNBOOK_7430ad0.md`](../operations/STAGING_VERIFY_RUNBOOK_7430ad0.md)
+
+Chrome / Railway **Postgres** console only (never `echo` / `env` / `printenv` / `cat` secrets):
 
 ```bash
 psql "$DATABASE_URL" -c 'SELECT (SELECT count(*) FROM "Organization") AS orgs, (SELECT count(*) FROM "Worker") AS workers, (SELECT count(*) FROM "Donor") AS donors;'
+psql "$DATABASE_URL" -c 'SELECT "subscriptionStatus", count(*) FROM "Organization" GROUP BY 1 ORDER BY 1;'
 ```
+
+**Note:** `SET DEFAULT 'PENDING'` does **not** change existing rows. Non-zero ACTIVE orgs remain entitled until an audited deactivate.
 
 **Conclusion:** \<state plainly. If all zero: "No records existed in the exposed database. No data
 was at risk." If non-zero: describe what existed, and treat this section as an incident note
@@ -81,7 +90,17 @@ covering what was exposed and for how long.\>
 
 ## 4. Staging verification
 
-Run against the **post-deploy** build. A pre-deploy run cannot verify a fix.
+Run against the **post-deploy** build (`7430ad0` or successor). A pre-deploy run cannot verify a fix.
+
+Migrations: from **`accord-web-staging` console** — `pnpm --filter @magnus/db prisma:deploy`  
+(Not `psql -f` from Postgres — that skips `_prisma_migrations` and drifts.)
+
+Then prove from Postgres console:
+
+```
+<PASTE _prisma_migrations LIMIT 4>
+<PASTE Organization.subscriptionStatus column_default>
+```
 
 ```
 Check 1 — health
@@ -90,16 +109,18 @@ Check 1 — health
 Check 2 — security headers
 <PASTE>
 
-Check 3 — /app unauthenticated
+Check 3 — /app unauthenticated (OPTIONAL; label honestly — proves NOTHING about middleware)
+curl -i -s https://staging.magnusnonprofitservices.com/app | head -n 5
 <PASTE>
 NOTE: Check 3 proves nothing about middleware. (protected)/app/page.tsx calls
 requireAuthOrRedirect and emits the identical 307 with no middleware deployed.
 Verified against pre-fix staging, run 32173120899.
 
-Check 4 — middleware-specific probe (THE ONE THAT COUNTS)
-GET /app/__middleware_probe_no_page  (no cookies)
+Check 4 — middleware-specific probe (THE ONE THAT COUNTS — page-less route)
+curl -i -s https://staging.magnusnonprofitservices.com/app/__middleware_probe_no_page | head -n 5
 <PASTE status + Location>
-307/308 → /login = middleware live.  404 = P0-6 defect still present.
+307/308 → /login = middleware live. Only this lifts D2.
+404 = P0-6 defect still present. STOP. Do not create p0-staging-verified.md.
 ```
 
 **CI run:** \<URL\> **Result:** \<pass/fail\>
@@ -124,7 +145,11 @@ GET /app/__middleware_probe_no_page  (no cookies)
 
 - Not production-ready. GA remains blocked.
 - **D2 GROWTH hold remains in force.** It lifts only when `docs/releases/p0-staging-verified.md`
-  exists, and that file is created **only after a green Check 4**. It is a gate input read by
-  `activate-org` — not documentation. Creating it early silently unlocks GROWTH sales.
+  exists, and that file is created **only after a green Check 4** (`/app/__middleware_probe_no_page`
+  → `307/308` to `/login`). It is a gate input read by `activate-org` — not documentation.
+  Creating it early (or stuffing evidence into it instead of `docs/releases/<sha>.md`) silently
+  unlocks GROWTH sales.
+- Evidence belongs in `docs/releases/<sha>.md`. The gate file is a **separate deliberate commit**.
 - No payment path is verified.
 - No claim is made about any check not pasted above.
+- The `PENDING` column default is not a mass de-entitlement of existing ACTIVE rows.

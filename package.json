@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "build": "pnpm -r --if-present build",
-    "test": "node --test scripts/assert-test-count.test.js scripts/release-doc.test.js scripts/workspace-test-serialization.test.js scripts/spec-p0.test.js scripts/org-fixture-status-ratchet.test.js scripts/prisma-cjs-hint.test.js && pnpm -r --workspace-concurrency=1 --if-present test",
+    "test": "node --test scripts/assert-test-count.test.js scripts/release-doc.test.js scripts/workspace-test-serialization.test.js scripts/spec-p0.test.js scripts/org-fixture-status-ratchet.test.js scripts/prisma-cjs-hint.test.js scripts/merge-authority.test.js && pnpm -r --workspace-concurrency=1 --if-present test",
     "prisma:generate": "pnpm --filter @magnus/db prisma:generate",
     "prisma:migrate": "pnpm --filter @magnus/db prisma:migrate"
   },

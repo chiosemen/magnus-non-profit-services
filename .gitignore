@@ -25,3 +25,7 @@ yarn-error.log*
 # Local tooling / scratch (not part of the shipped tree)
 .worktrees/
 storage/
+
+# prospecting output — never commit prospect data
+prospects*.csv
+*.prospects.csv
