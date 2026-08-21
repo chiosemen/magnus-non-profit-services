@@ -50,7 +50,7 @@ Assume you are about to write the sixth. Check.
 
 - **Never handle credentials.** Not Stripe keys, not `DATABASE_URL`, not tokens. Don't read them,
   echo them, or write them to a file. If a task needs one, stop and ask the operator to place it.
-- **No direct pushes to `main`.** Branch, PR, CI green, then merge.
+- **No direct pushes to `main`.** Branch, PR, then merge only if `node scripts/merge-authority.js` exits 0 (CI green, base `main`, diff touches only `docs/**`). Anything else — including this policy file — is operator merge.
 - **Merge is not deploy.** Never treat merge authorisation as deploy authorisation.
 - **Additive-only migrations.** No DROP, no RENAME.
 - **Money is integer minor units.** Never a float, never `Number()` on a `Decimal` column.
