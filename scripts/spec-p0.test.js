@@ -21,9 +21,9 @@ test('SPEC-P0.md exists at the repository root', () => {
   assert.ok(fs.existsSync(SPEC), 'SPEC-P0.md must exist — it is the binding rulebook §4 references');
 });
 
-test('every binding rule R1..R13 is present', () => {
+test('every binding rule R1..R14 is present', () => {
   const spec = fs.readFileSync(SPEC, 'utf8');
-  for (let n = 1; n <= 13; n += 1) {
+  for (let n = 1; n <= 14; n += 1) {
     assert.ok(
       new RegExp(`(^|\\n)### R${n} `).test(spec),
       `binding rule R${n} must be present in SPEC-P0.md`
@@ -48,4 +48,46 @@ test('the merge gate (§4) is present and forbids merging on a red gate', () => 
   assert.match(spec, /## 4\. Merge gate/, 'the merge gate section must be present');
   assert.match(spec, /No merge on a red gate/i, 'the merge gate must forbid merging on a red gate');
   assert.match(spec, /No direct pushes to `main`/i, 'the merge gate must forbid direct pushes to main');
+});
+
+function blockerRow(spec, id) {
+  const row = spec.split('\n').find((line) => line.includes(`**${id}**`));
+  assert.ok(row, `${id} row must exist in the blocker register`);
+  return row;
+}
+
+test('SPEC-P0 forbids prisma db push against a deployed environment', () => {
+  const spec = fs.readFileSync(SPEC, 'utf8');
+  // Discriminates the staging P3009 failure (objects present, _prisma_migrations
+  // had a failed row after db push). A generic "be careful with prisma" line
+  // must not satisfy this.
+  assert.match(spec, /db push/);
+  assert.match(spec, /deployed environment/i);
+});
+
+test('P0-6 is not recorded as a still-404 staging miss', () => {
+  const row = blockerRow(fs.readFileSync(SPEC, 'utf8'), 'P0-6');
+  assert.doesNotMatch(row, /Staging unverified/);
+  assert.doesNotMatch(row, /still 404/);
+});
+
+test('P0-7 is not recorded as still living in superseded PR #15', () => {
+  const row = blockerRow(fs.readFileSync(SPEC, 'utf8'), 'P0-7');
+  assert.doesNotMatch(row, /Fix in PR #15/);
+});
+
+test('SPEC-P0 does not claim Stripe is the only activation path', () => {
+  const spec = fs.readFileSync(SPEC, 'utf8');
+  assert.doesNotMatch(spec, /The only activation path is Stripe/);
+});
+
+test('SPEC-P0 does not claim organization.create lives only on the deleted register route', () => {
+  const spec = fs.readFileSync(SPEC, 'utf8');
+  assert.doesNotMatch(spec, /exists in exactly one place/);
+});
+
+test('the misnamed seed migration is documented as do-not-rename', () => {
+  const spec = fs.readFileSync(SPEC, 'utf8');
+  assert.match(spec, /20260527221311_seed_organizations_if_needed/);
+  assert.match(spec, /do not rename/i);
 });

@@ -100,6 +100,16 @@ Test data never inherits a security-relevant value from a schema default. A fixt
 `@default(...)` for tier, status, or scope is asserting something it does not say.
 **Prevents:** the `setupTestOrg` failure — a fixture silently depending on `@default(ACTIVE)`.
 
+### R14 — No `db push` against a deployed environment *(A08)*
+`prisma db push` writes schema objects without recording `_prisma_migrations`. Staging
+on SHA `7430ad0` reached `P3009` because type `"FundType"` already existed while the
+migration was recorded failed — the objects were real, the history was not. **Never
+run `db push` against a deployed environment.** Apply schema with
+`pnpm --filter @magnus/db prisma:deploy` from the app service that has the repo
+checkout. If objects exist and history does not, verify object existence first, then
+`migrate resolve --applied` only when that measurement matches. **Prevents:** the
+staging drift in release `7430ad0`.
+
 ---
 
 ## 2. Blocker register
@@ -111,8 +121,8 @@ Test data never inherits a security-relevant value from a schema default. A fixt
 | **P0-3** | 13 DB tests skipped | **Closed** | CI 32372199367 — 21 migrations to ephemeral Postgres, 346 tests, **0 skips** |
 | **P0-4** | Synthetic values in MCP payloads | **Closed** | `null` + provenance; deterministic Herald ids; regression tests |
 | **P0-5** | Release governance inconsistent | **Closed** | Dated release record supersedes the stale blocker file |
-| **P0-6** | Auth middleware absent from build | **Code closed** | Manifest `[]` → `['/']`. **Staging unverified** — Check 4 still 404 on the deployed build. |
-| **P0-7** | Public registration: account takeover, tenant attach, free entitlement | **Fix in PR #15** | 405 probe (run 32379291026) proved live. CI green on `58110b2`. |
+| **P0-6** | Auth middleware absent from build | **Closed — verified live** | SHA `7430ad0` Check 4: `GET /app/__middleware_probe_no_page` → 307 `/login`. Pre-deploy on the identical URL was 404. |
+| **P0-7** | Public registration: account takeover, tenant attach, free entitlement | **Closed** | Route + UI deleted in #19. Live 405 probe (run 32379291026) proved the old path reachable before deletion. |
 
 ### P0-7 detail
 
@@ -124,8 +134,9 @@ Test data never inherits a security-relevant value from a schema default. A fixt
 - `subscriptionTier: 'STARTER'` + `@default(ACTIVE)` minted entitled orgs that `scheduler.ts`
   then ran agent work for.
 
-**Fixed:** create-only registration, collisions refused, rate limited, `SELF_REGISTRATION_ROLE = 'member'`,
-`subscriptionStatus` defaults to `PENDING`.
+**Fixed:** `/api/auth/register` route and `/register` UI deleted (#19). New orgs are
+operator-created `PENDING` via `@magnus/manual-billing`. `subscriptionStatus` defaults
+to `PENDING`.
 
 **Outstanding debt:** `role: 'admin'` remains hardcoded in `login:96` and `refresh:71`, and
 `TokenValidator.ts:178` authorises on it. There is no role column — `WorkerOrgRelationship` carries
@@ -139,15 +150,17 @@ themselves. **Must be resolved before any invite or multi-user flow ships.**
 Not bugs. Places where the code and the business model disagree, which will pull work in the wrong
 direction if left unnamed.
 
-1. **The only activation path is Stripe.** `subscriptionSyncService.ts` writes
-   `subscriptionStatus: 'ACTIVE'` solely from Stripe subscription webhooks. The sales model (D1/D3)
-   is PayPal invoices against fixed-scope SOWs. Operator activation must be built; wiring Stripe
-   subscriptions instead would contradict the launch decision.
-2. **`organization.create` exists in exactly one place** — the register route. Closing self-service
-   registration therefore requires an operator creation path first.
+1. **Stripe webhooks are not the launch activation path.** `subscriptionSyncService.ts`
+   still writes `ACTIVE` from Stripe subscription webhooks. Launch activation is
+   `@magnus/manual-billing` (`activate-org`) after PayPal invoice / Stripe Payment Link.
+   Do not wire self-serve Stripe subscriptions as the default entitlement path — that
+   would contradict D1/D3. Stripe checkout remains P0-2 (unverified).
+2. **Self-serve registration is deleted.** Operator creation is `@magnus/manual-billing`
+   (`create-org` → `PENDING`). Do not reintroduce a public `/api/auth/register` route.
 3. **`20260527221311_seed_organizations_if_needed` seeds nothing.** It contains three
-   `ALTER TABLE … DROP DEFAULT` statements and no inserts. The name has already caused one wrong
-   inference; rename or document it.
+   `ALTER TABLE … DROP DEFAULT` statements and no inserts. **Do not rename** — the
+   folder name is already recorded in `_prisma_migrations` on staging; renaming it
+   breaks deploy checksums. Treat the name as a historical misnomer.
 4. **`getOrgTier` is a tier-only lookup with zero callers** — the exact bypass of the
    status-checked `isFeatureEnabled`. One careless import from becoming a hole. Lint against it or
    delete it.
