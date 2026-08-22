@@ -4,21 +4,52 @@ import type { PrismaClient } from '@magnus/db/types';
 import {
   getPublicCampaign,
   createDonationCheckoutSession,
+  PAYMENT_PILOT_DISABLED_MESSAGE,
   verifyStripeSignature,
   processWebhookEvent,
 } from '@magnus/org-autonomous-ops-context';
 import { createOrgDashboardRateLimitMiddleware } from './rateLimit';
+import type { RequestHandler } from 'express';
 
-export function registerPublicDonationRoutes(app: Express): void {
-  const db = prisma as unknown as PrismaClient;
-  const rateLimitWrites = createOrgDashboardRateLimitMiddleware();
+type PublicDonationRouteDeps = {
+  db?: PrismaClient;
+  getPublicCampaign?: (
+    db: PrismaClient,
+    slug: string,
+  ) => Promise<{ campaign: Record<string, unknown>; organizationName: string }>;
+  createDonationCheckoutSession?: (
+    db: PrismaClient,
+    slug: string,
+    data: {
+      amount: number;
+      donorEmail: string;
+      donorName: string;
+      coverFees: boolean;
+      successUrl: string;
+      cancelUrl: string;
+    },
+  ) => Promise<{ url: string; stripeCheckoutSessionId: string }>;
+  paymentsEnabled?: () => boolean;
+  rateLimitWrites?: RequestHandler;
+};
+
+function arePaymentsEnabled(): boolean {
+  return process.env.PAYMENTS_ENABLED?.trim().toLowerCase() !== 'false';
+}
+
+export function registerPublicDonationRoutes(app: Express, deps: PublicDonationRouteDeps = {}): void {
+  const db = deps.db ?? (prisma as unknown as PrismaClient);
+  const getPublicCampaignFn = deps.getPublicCampaign ?? getPublicCampaign;
+  const createDonationCheckoutSessionFn = deps.createDonationCheckoutSession ?? createDonationCheckoutSession;
+  const paymentsEnabled = deps.paymentsEnabled ?? arePaymentsEnabled;
+  const rateLimitWrites = deps.rateLimitWrites ?? createOrgDashboardRateLimitMiddleware();
 
   // ─── Campaign Public Details ───────────────────────────────────────────────
 
   app.get('/api/public/campaigns/:slug', async (req, res, next) => {
     try {
       const { slug } = req.params;
-      const { campaign, organizationName } = await getPublicCampaign(db, slug);
+      const { campaign, organizationName } = await getPublicCampaignFn(db, slug);
       return res.json({
         campaign: {
           id: campaign.id,
@@ -30,6 +61,7 @@ export function registerPublicDonationRoutes(app: Express): void {
           status: campaign.status,
         },
         organizationName,
+        paymentsEnabled: paymentsEnabled(),
       });
     } catch (err: any) {
       if (err.name === 'NotFoundError') {
@@ -46,10 +78,17 @@ export function registerPublicDonationRoutes(app: Express): void {
 
   app.post('/api/public/campaigns/:slug/checkout', rateLimitWrites, async (req, res, next) => {
     try {
+      if (!paymentsEnabled()) {
+        return res.status(503).json({
+          error: 'PAYMENT_PROCESSING_NOT_ENABLED',
+          message: PAYMENT_PILOT_DISABLED_MESSAGE,
+        });
+      }
+
       const { slug } = req.params;
       const { amount, donorEmail, donorName, coverFees, successUrl, cancelUrl } = req.body || {};
 
-      const result = await createDonationCheckoutSession(db, slug, {
+      const result = await createDonationCheckoutSessionFn(db, slug, {
         amount,
         donorEmail,
         donorName,
@@ -65,6 +104,12 @@ export function registerPublicDonationRoutes(app: Express): void {
       }
       if (err.name === 'ValidationError') {
         return res.status(400).json({ error: err.message });
+      }
+      if (err.name === 'PaymentProcessingNotEnabledError') {
+        return res.status(503).json({ error: 'PAYMENT_PROCESSING_NOT_ENABLED', message: err.message });
+      }
+      if (err.name === 'StripeConnectNotReadyError') {
+        return res.status(409).json({ error: 'STRIPE_CONNECT_NOT_READY', message: err.message });
       }
       return next(err);
     }

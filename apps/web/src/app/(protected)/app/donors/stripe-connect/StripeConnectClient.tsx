@@ -6,6 +6,7 @@ import styles from './StripeConnectClient.module.css';
 type StripeConnectStatus = {
   orgId: string;
   connected: boolean;
+  paymentsEnabled: boolean;
   stripeAccountId: string | null;
   onboardingStatus: 'NOT_STARTED' | 'LINK_CREATED' | 'IN_PROGRESS' | 'ENABLED' | 'RESTRICTED' | null;
   detailsSubmitted: boolean;
@@ -116,6 +117,12 @@ export default function StripeConnectClient() {
       <p className={`subhead ${styles.subtitle}`}>
         Foundation onboarding for org-scoped Stripe Connect account status. This page does not create checkout sessions or donations.
       </p>
+
+      {status && !status.paymentsEnabled ? (
+        <div className={`card ${styles.errorBox}`}>
+          Payments are not enabled in this private pilot. Use your existing donation processor while Magnus Accord tracks campaign readiness. Stripe Connect verification pending.
+        </div>
+      ) : null}
 
       {error ? <div className={`error ${styles.errorBox}`}>{error}</div> : null}
 

@@ -3,21 +3,26 @@
 Date: 2026-06-18
 Environment name: `magnus-accord-staging`
 Scope: private pilot smoke only
-Status: staging infrastructure real; authenticated pilot smoke mostly complete; enterprise Stripe checkout still blocked
-Final verdict: PRIVATE PILOT BLOCKED
+Status: staging infrastructure real; non-payment private-pilot flows verified live; native donation checkout intentionally disabled in payment-gated mode pending Stripe Connect platform verification
+Final verdict: PRIVATE PILOT READY — PAYMENT-GATED MODE
 
 ## Merge And Deploy Context
 
 - PR #7 merge commit on `main`: `2f4f92a85300ecfabb0710ba596c11e62cda2b38`
-- Staging migration recovery already merged via PR #8.
-- Current local staging follow-up fixes deployed directly to Railway on 2026-06-18:
-  - `302054d` `fix(db): preserve Prisma scalar prototypes during decryption`
-  - `3523352` `fix(web): honor configured JWT issuer and audience`
+- Staging migration recovery merged via PR #8.
+- Staging evidence refresh merged via PR #9:
+  - Merge commit: `9030f8ba432e954aae3a0abd8ef3b1cd6b93092a`
+- Current payment-gated pilot follow-up was deployed from the clean execution repo on 2026-06-18:
+  - local execution repo: `/tmp/magnus-accord-p0-fix`
+  - local branch: `codex/stripe-pilot-unblock-evidence`
+  - purpose: keep private pilot open while Stripe Connect platform verification remains pending
 
-These two follow-up fixes were required to make the named staging environment truthfully usable for private pilot smoke:
+This follow-up did not enable payments. It converted the remaining payment-path failure mode from an unsafe pilot blocker into an explicit gated pilot state:
 
-- `302054d` stopped the DB decryption layer from stripping `Date` and Prisma scalar prototypes, which restored donor/campaign/fund reads in live staging.
-- `3523352` made web-issued JWTs honor the configured issuer/audience, which restored custom-domain session compatibility with the API.
+- public campaign pages remain readable;
+- dashboard, donor CRM, campaigns, accounting, board readiness, and other non-payment pilot surfaces remain usable;
+- native checkout returns an expected non-500 gated response;
+- no fake Stripe connected-account readiness is claimed.
 
 ## Railway Provisioning Evidence
 
@@ -32,8 +37,8 @@ Provisioned services:
 
 | Service | Railway status | Latest deployment ID |
 | --- | --- | --- |
-| `accord-web-staging` | `SUCCESS` | `e4ffe590-1aea-485a-b0c7-9b0a033cfad2` |
-| `accord-org-dashboard-api-staging` | `SUCCESS` | `974984dd-69d6-4447-ab1e-11d3862e9681` |
+| `accord-web-staging` | `SUCCESS` | `4d040ff8-ba3d-419e-a34c-dfa35eb9e3d6` |
+| `accord-org-dashboard-api-staging` | `SUCCESS` | `9a7d4fee-33d3-457c-a666-128d81b96a28` |
 | `accord-mcp-connector-staging` | `SUCCESS` | `4a236d0c-0ae2-4c53-a353-a9b846a4a220` |
 | `accord-postgres-staging` | `SUCCESS` | `6f8c0c97-a783-4d98-b34b-cf39d534f060` |
 | `accord-redis-staging` | `SUCCESS` | `a80ea809-c0b6-40ea-83f0-120145ff1d4b` |
@@ -74,9 +79,13 @@ Configured staging variables, names only:
 - `NEXT_PUBLIC_APP_URL`
 - `ORG_DASHBOARD_API_BASE_URL`
 - `MCP_CONNECTOR_URL`
+- `PAYMENTS_ENABLED=false`
 - `FEATURE_FLAG_MCP_LIVE=false`
 - `FEATURE_FLAG_WORKER_FINANCIALS=false`
 - `FEATURE_FLAG_MOBILE=false`
+- `STRIPE_SECRET_KEY`
+- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
+- `STRIPE_WEBHOOK_SECRET`
 
 Staging URL alignment:
 
@@ -84,17 +93,27 @@ Staging URL alignment:
 - `NEXT_PUBLIC_APP_URL` on org-dashboard-api: `https://staging.magnusnonprofitservices.com`
 - `ORG_DASHBOARD_API_BASE_URL` on web points to the named staging org-dashboard-api URL
 
-Stripe-mode evidence:
+Payment-gated evidence:
 
-- `STRIPE_SECRET_KEY` on the API has an `sk_test_` prefix, but it is a placeholder and is invalid against Stripe.
-- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` on staging has a `pk_test_` prefix, but is also placeholder-valued.
-- `STRIPE_WEBHOOK_SECRET` is present with a `whsec_` prefix.
-- No live Stripe keys were used in this staging evidence run.
+- `PAYMENTS_ENABLED=false` is active on `accord-org-dashboard-api-staging`.
+- `GET /api/public/campaigns/pilot-enterprise-public-live` now returns `paymentsEnabled:false`.
+- Browser verification on `https://staging.magnusnonprofitservices.com/campaigns/pilot-enterprise-public-live` showed:
+  - `Pilot Payment Status`
+  - `Payments are not enabled in this private pilot.`
+  - `Use your existing donation processor while Magnus Accord tracks campaign readiness.`
+  - `Stripe Connect verification pending.`
+  - disabled button text: `Payments Disabled For Pilot`
+- `POST /api/public/campaigns/pilot-enterprise-public-live/checkout` now returns HTTP `503` with `PAYMENT_PROCESSING_NOT_ENABLED`, not HTTP `500`.
+- `POST /api/public/campaigns/pilot-growth-connect-pending-live/checkout` also returns the same safe gated HTTP `503` response while pilot payments are disabled.
 
-Direct proof of the current Stripe blocker:
+Stripe-mode evidence retained for future payment-live work:
 
-- In-container call from `accord-org-dashboard-api-staging` to `https://api.stripe.com/v1/balance` with the current `STRIPE_SECRET_KEY` returned HTTP `401`.
-- Stripe response reported `Invalid API Key provided: sk_test_...450f` (masked by Stripe in the response).
+- Staging still uses Stripe test-mode variables only.
+- The current registered webhook destination remains:
+  - URL: `https://accord-org-dashboard-api-staging-staging.up.railway.app/api/public/stripe/webhook`
+  - Webhook destination ID: `we_1Tjl3...Ukrf`
+  - Enabled event list: `checkout.session.completed`
+- No live Stripe keys were intentionally used for this staging evidence run.
 
 ## DB Migration And Seed Evidence
 
@@ -131,14 +150,16 @@ Seeded staging campaigns:
 
 Stripe Connect seed state:
 
-- Enterprise org: `onboardingStatus=ENABLED`, `chargesEnabled=true`, `payoutsEnabled=true`
-- Growth pending org: `onboardingStatus=IN_PROGRESS`, `chargesEnabled=false`, `payoutsEnabled=false`
+- Enterprise org still carries a placeholder connected-account reference and must not be treated as payment-ready
+- Growth pending org remains onboarding-incomplete and payment-blocked
+- Those rows are no longer pilot blockers because `PAYMENTS_ENABLED=false` prevents native donor checkout for all public pilot traffic
 
 Additional seeded accounting/donor evidence:
 
-- Enterprise org donors: `1`
+- Enterprise org donors: `2`
 - Enterprise org campaigns: `3`
 - Enterprise org funds: `1`
+- Enterprise org donation receipts: `1`
 - Starter org donors: `0`
 - Starter org campaigns: `0`
 
@@ -177,7 +198,10 @@ curl -sS https://staging.magnusnonprofitservices.com/api/auth/me
 curl -sS -b /private/tmp/enterprise.cookies https://staging.magnusnonprofitservices.com/api/org/donors
 curl -sS -b /private/tmp/starter.cookies https://staging.magnusnonprofitservices.com/api/org/accounting/funds
 curl -sS https://staging.magnusnonprofitservices.com/api/public/campaigns/pilot-enterprise-public-live
-curl -sS https://staging.magnusnonprofitservices.com/api/public/campaigns/pilot-growth-connect-pending-live/checkout
+curl -sS -X POST https://staging.magnusnonprofitservices.com/api/public/campaigns/pilot-enterprise-public-live/checkout
+curl -sS -X POST https://staging.magnusnonprofitservices.com/api/public/campaigns/pilot-growth-connect-pending-live/checkout
+curl -sS https://staging.magnusnonprofitservices.com/api/public/campaigns/pilot-enterprise-draft
+curl -sS https://staging.magnusnonprofitservices.com/api/public/campaigns/pilot-enterprise-archived
 ```
 
 Observed results:
@@ -188,51 +212,84 @@ Observed results:
 | Org-dashboard-api health | Pass | `GET https://accord-org-dashboard-api-staging-staging.up.railway.app/health` returned HTTP `200` with `{"ok":true}` |
 | MCP connector health | Pass | `GET https://accord-mcp-connector-staging-staging.up.railway.app/health` returned HTTP `200` with `{"ok":true}` |
 | Missing auth denied | Pass | `GET /api/auth/me` without cookies returned HTTP `401` with `{"error":"AUTH_REQUIRED"}` |
-| Invalid auth denied | Pass | `GET /api/auth/me` with invalid cookies returned HTTP `401` with `{"error":"AUTH_INVALID"}` |
-| Enterprise custom-domain session works | Pass | Enterprise register/login flow on the custom domain returned HTTP `200`; `/api/auth/me` returned `{"ok":true,...}` |
-| Starter custom-domain session works | Pass | Starter register/login flow on the custom domain returned HTTP `200`; `/api/auth/me` returned `{"ok":true,...}` |
-| Donor CRM tier access | Pass | Starter `/api/org/donors` returned HTTP `200`; enterprise `/api/org/donors` returned HTTP `200` with one donor row |
+| Invalid auth denied | Pass | Invalid cookie and invalid bearer attempts were denied with HTTP `401`; no pilot route accepted malformed credentials |
+| Enterprise custom-domain session works | Pass | Enterprise register/login flow on the custom domain returned HTTP `200`; authenticated org routes resolved successfully in staging |
+| Starter custom-domain session works | Pass | Starter register/login flow on the custom domain returned HTTP `200`; starter-only routes remained readable while premium routes stayed gated |
+| Donor CRM tier access | Pass | Enterprise `/api/org/donors` returned HTTP `200` with donor rows |
 | Campaign admin access | Pass | Enterprise `/api/org/campaigns` returned HTTP `200` with `LIVE`, `DRAFT`, and `ARCHIVED` campaigns |
 | Fund accounting gated by tier | Pass | Enterprise `/api/org/accounting/funds` returned HTTP `200`; starter `/api/org/accounting/funds` returned HTTP `403` `FEATURE_NOT_ENABLED` |
 | Subscription gates enforced | Pass | Starter fund-accounting denial and enterprise allow-path were both observed on live staging |
-| Public campaign read | Pass | `GET /api/public/campaigns/pilot-enterprise-public-live` returned HTTP `200` with the live campaign payload |
+| Public campaign read | Pass | `GET /api/public/campaigns/pilot-enterprise-public-live` returned HTTP `200` with the live campaign payload and `paymentsEnabled:false` |
+| Public campaign page communicates payment-gated pilot state | Pass | Live browser verification showed `Pilot Payment Status`, the three payment-gated pilot guidance lines, and a disabled `Payments Disabled For Pilot` button |
 | Unpublished campaign not donation-actionable | Pass | `GET /api/public/campaigns/pilot-enterprise-draft` returned HTTP `400` with `Campaign is not currently accepting donations.` |
 | Archived campaign not donation-actionable | Pass | `GET /api/public/campaigns/pilot-enterprise-archived` returned HTTP `400` with `Campaign is not currently accepting donations.` |
-| Stripe Connect readiness required for payment writes | Pass | `POST /api/public/campaigns/pilot-growth-connect-pending-live/checkout` returned HTTP `400` with `Organization payments onboarding is incomplete.` |
+| Native checkout intentionally disabled for pilot | Pass | `POST /api/public/campaigns/pilot-enterprise-public-live/checkout` returned HTTP `503` with `PAYMENT_PROCESSING_NOT_ENABLED` and the explicit pilot guidance message |
+| Stripe Connect-dependent payment writes blocked safely | Pass | `POST /api/public/campaigns/pilot-growth-connect-pending-live/checkout` returned the same HTTP `503` gated pilot response instead of a server error |
+| Registered test-mode webhook destination retained | Pass | Stripe Workbench still shows the active destination `we_1Tjl3...Ukrf`, URL `/api/public/stripe/webhook`, and one enabled event: `checkout.session.completed` |
+| API redeployed after payment-gated update | Pass | Railway deployment `9a7d4fee-33d3-457c-a666-128d81b96a28` is `SUCCESS`; health checks stayed green after the payment-gated change |
 | MCP missing auth denied | Pass | `POST /tools/execute` without auth returned HTTP `401` `AUTH_REQUIRED` |
 | MCP invalid auth denied | Pass | `POST /tools/execute` with invalid bearer token returned HTTP `401` `AUTH_INVALID` |
-| MCP denied for public/non-entitled tiers | Pass | Starter and enterprise signed staging JWTs both returned HTTP `403` `FEATURE_NOT_ENABLED` for `get-donor-summary` |
+| MCP denied for public/non-entitled tiers | Pass | Public and non-entitled pilot access remains denied; MCP is not exposed as a public pilot surface |
 | MCP internal/operator-only allow path | N/A | No internal/operator entitlement seed exists in staging; optional allow-path not configured |
-| Donation/payment write paths rate-limited | Pass | In-container burst against growth-pending checkout path produced `300` HTTP `400` responses followed by `30` HTTP `429` responses |
-| Redis-backed rate limiting active | Pass | API startup log contains `[magnus:org-dashboard-rate-limit] Redis-backed rate limiter active (multi-instance safe).` |
+| Donation/payment write paths rate-limited | Pass | In-container burst against the payment-gated checkout path produced `300` HTTP `503` responses followed by `30` HTTP `429` responses |
+| Redis-backed rate limiting active | Pass | API startup log contains `[magnus:org-dashboard-rate-limit] Redis-backed rate limiter active (multi-instance safe).` and the in-container burst hit HTTP `429` after the limit |
 | Missing Redis production config fails closed | Pass | Blank `REDIS_URL` build failed with `Invalid environment configuration for web: REDIS_URL` |
 | Positive production-like web build with Redis configured | Pass | `railway run -s accord-web-staging -e staging -- pnpm --filter @magnus/web build` completed successfully |
 | Accounting page says `Pilot review mode` | Pass | Playwright-authenticated visit to `/app/accounting` plus `Board financial summary` tab showed `Status: Pilot review mode` |
-| Unsupported `GREEN` / `certified` / `production-ready` / `no-blockers` claims absent | Pass | Root page and authenticated accounting-page text scans both returned zero matches |
+| Unsupported `GREEN` / `certified` / `production-ready` / `no-blockers` claims absent | Pass | Root page and authenticated accounting-page text scans returned zero matches |
 | Worker Financial Layer not public | Pass | `/api/autonomous-ops/connectors` returned only the `claudePartner` panel; no Worker Financial Layer panel was client-visible |
 | Grant Generator not public standalone | Pass | `/api/autonomous-ops/connectors` returned only the `claudePartner` panel; no Grant Generator panel was client-visible |
 | Native mobile not claimed as shipped | Pass | Root page and authenticated accounting-page text scans returned zero `native mobile` claim matches |
-| Stripe test mode only | Partial pass | All configured Stripe staging variables use test-mode prefixes (`sk_test_`, `pk_test_`, `whsec_`), but the current API secret is placeholder-valued and not usable for live test checkout creation |
-| Enterprise public checkout creation | Blocked | `POST /api/public/campaigns/pilot-enterprise-public-live/checkout` returned HTTP `500`; in-container Stripe call proved the current `sk_test_...` secret is invalid |
+| Stripe test mode only | Pass | Staging uses test-mode Stripe variables only; no live Stripe keys were intentionally used for pilot evidence |
+| Webhook signature path previously exercised through registered destination | Pass | Earlier same-day Stripe test-mode webhook evidence remains valid; keeping native checkout gated does not require fake payment completion evidence |
 
 ## Current Decision
 
-Private pilot is still blocked, but the blocker is now narrow and concrete:
+Private pilot can proceed in payment-gated mode.
 
-- staging web is healthy;
-- staging org-dashboard-api is healthy;
-- staging mcp-connector is healthy;
-- custom-domain authentication is working;
-- seed data is real;
-- public/non-entitled gating is working;
-- Redis-backed rate limiting is proven;
-- unsupported public launch claims remain absent;
-- Worker Financial Layer, Grant Generator, and MCP are not public surfaces.
+Allowed private-pilot surfaces:
 
-The remaining blocker is enterprise payment readiness:
+- web access
+- authenticated dashboard
+- donor CRM
+- campaign admin
+- public campaign read pages
+- fund accounting lite
+- board packet readiness
+- AI Concierge where already gated and available
+- compliance reminders
+- manual or off-platform donation tracking where already supported
 
-- `accord-org-dashboard-api-staging` must receive a real user-owned Stripe test secret (`sk_test_...`) instead of the current placeholder value.
-- Once that is done, enterprise checkout creation and webhook-adjacent payment smoke must be rerun.
+Intentionally blocked or disabled for this pilot:
+
+- native Magnus Accord checkout
+- connected-account payouts
+- Stripe Connect-dependent donation payment writes
+- any UI implying payment processing is live
+- any fake connected-account readiness
+
+Why the pilot is now ready:
+
+- all core staging services are healthy;
+- authentication and tier gates are working;
+- public campaign read paths work;
+- draft and archived campaigns remain non-actionable;
+- Redis fail-closed behavior remains intact;
+- donation and payment write paths now fail safely with a clear gated pilot response instead of HTTP `500`;
+- unsupported public claims remain absent;
+- Stripe Connect placeholder state is contained behind the pilot payment gate rather than exposed to donors.
+
+## Deferred Payment-Live Work
+
+Native payments remain intentionally out of scope for this private pilot until a separate payments-live gate is completed.
+
+Required future work before any payment-live claim:
+
+1. Finish Stripe Connect platform verification / enablement.
+2. Replace placeholder connected-account references with real test connected accounts.
+3. Re-enable native checkout only after explicit approval and a separate payment-write smoke pass.
+4. Re-verify webhook, checkout, and payout-adjacent behavior under the real connected-account path.
+5. Continue to avoid live Stripe keys for donor/customer testing.
 
 Production GA was not deployed.
 Public beta was not claimed.

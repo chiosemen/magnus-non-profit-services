@@ -149,8 +149,23 @@ test('status is disconnected when no StripeConnectAccount row exists', async () 
 
   const status = await getStripeConnectStatus(db as any, 'org_1');
   assert.equal(status.connected, false);
+  assert.equal(status.paymentsEnabled, true);
   assert.equal(status.onboardingStatus, null);
   assert.equal(status.stripeAccountId, null);
+});
+
+test('status reflects payment-gated pilot mode when PAYMENTS_ENABLED=false', async () => {
+  const previous = process.env.PAYMENTS_ENABLED;
+  process.env.PAYMENTS_ENABLED = 'false';
+
+  try {
+    const db = createDb([{ id: 'org_1', stripeAccountId: null }]);
+    const status = await getStripeConnectStatus(db as any, 'org_1');
+    assert.equal(status.paymentsEnabled, false);
+  } finally {
+    if (previous === undefined) delete process.env.PAYMENTS_ENABLED;
+    else process.env.PAYMENTS_ENABLED = previous;
+  }
 });
 
 test('create onboarding link creates connect account when missing', async () => {

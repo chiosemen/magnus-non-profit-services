@@ -20,6 +20,7 @@ export default function PublicCampaignPage() {
 
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [orgName, setOrgName] = useState<string>('');
+  const [paymentsEnabled, setPaymentsEnabled] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,6 +44,7 @@ export default function PublicCampaignPage() {
         }
         setCampaign(data.campaign);
         setOrgName(data.organizationName || '');
+        setPaymentsEnabled(data.paymentsEnabled !== false);
       })
       .catch((err) => {
         setError(err.message);
@@ -102,7 +104,7 @@ export default function PublicCampaignPage() {
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to initiate checkout.');
+        throw new Error(data.message || data.error || 'Failed to initiate checkout.');
       }
 
       if (data.url) {
@@ -163,121 +165,162 @@ export default function PublicCampaignPage() {
           )}
 
           <div style={{ marginTop: 40, padding: 20, borderRadius: 16, border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.01)' }}>
-            <h4 style={{ fontSize: 14, textTransform: 'uppercase', marginBottom: 8, color: 'var(--muted)' }}>Payment Transparency</h4>
+            <h4 style={{ fontSize: 14, textTransform: 'uppercase', marginBottom: 8, color: 'var(--muted)' }}>
+              {paymentsEnabled ? 'Payment Transparency' : 'Pilot Payment Status'}
+            </h4>
             <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>
-              Your transaction is processed directly by the charity's merchant gateway via <b>Stripe Connect</b>. 
-              Magnus Accord never takes a cut or holds your funds.
+              {paymentsEnabled ? (
+                <>
+                  Your transaction is processed directly by the charity&apos;s merchant gateway via <b>Stripe Connect</b>.
+                  Magnus Accord never takes a cut or holds your funds.
+                </>
+              ) : (
+                <>
+                  Payments are not enabled in this private pilot. Use your existing donation processor while Magnus Accord tracks campaign readiness.
+                  Stripe Connect verification pending.
+                </>
+              )}
             </p>
           </div>
         </div>
 
         {/* Donation checkout form */}
         <div className="panel panelPad" style={{ border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.02)' }}>
-          <h3 style={{ fontSize: 24, marginBottom: 20 }}>Make a Donation</h3>
-          
-          <form onSubmit={handleCheckout} className="form">
-            <div className="field">
-              <label className="label">Select Donation Amount</label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, marginBottom: 12 }}>
-                {presets.map((preset) => (
-                  <button
-                    key={preset}
-                    type="button"
-                    onClick={() => {
-                      setSelectedPreset(preset);
-                      setCustomAmount('');
-                    }}
-                    style={{
-                      padding: '12px 4px',
-                      borderRadius: 8,
-                      border: selectedPreset === preset ? '1px solid var(--accent)' : '1px solid rgba(255,255,255,0.1)',
-                      background: selectedPreset === preset ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.02)',
-                      color: selectedPreset === preset ? '#fff' : 'var(--muted)',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      transition: 'all 0.2s',
-                    }}
-                  >
-                    ${preset}
-                  </button>
-                ))}
+          <h3 style={{ fontSize: 24, marginBottom: 20 }}>{paymentsEnabled ? 'Make a Donation' : 'Donation Readiness'}</h3>
+
+          {paymentsEnabled ? (
+            <form onSubmit={handleCheckout} className="form">
+              <div className="field">
+                <label className="label">Select Donation Amount</label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, marginBottom: 12 }}>
+                  {presets.map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => {
+                        setSelectedPreset(preset);
+                        setCustomAmount('');
+                      }}
+                      style={{
+                        padding: '12px 4px',
+                        borderRadius: 8,
+                        border: selectedPreset === preset ? '1px solid var(--accent)' : '1px solid rgba(255,255,255,0.1)',
+                        background: selectedPreset === preset ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.02)',
+                        color: selectedPreset === preset ? '#fff' : 'var(--muted)',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                      }}
+                    >
+                      ${preset}
+                    </button>
+                  ))}
+                </div>
+                <input
+                  type="number"
+                  step="1"
+                  placeholder="Or enter custom amount..."
+                  className="input"
+                  value={customAmount}
+                  onChange={(e) => {
+                    setSelectedPreset(null);
+                    setCustomAmount(e.target.value);
+                  }}
+                />
               </div>
-              <input
-                type="number"
-                step="1"
-                placeholder="Or enter custom amount..."
-                className="input"
-                value={customAmount}
-                onChange={(e) => {
-                  setSelectedPreset(null);
-                  setCustomAmount(e.target.value);
+
+              <div className="field">
+                <label className="label">Donor Name</label>
+                <input
+                  type="text"
+                  className="input"
+                  required
+                  placeholder="Your full name"
+                  value={donorName}
+                  onChange={(e) => setDonorName(e.target.value)}
+                />
+              </div>
+
+              <div className="field">
+                <label className="label">Donor Email</label>
+                <input
+                  type="email"
+                  className="input"
+                  required
+                  placeholder="your.email@example.com"
+                  value={donorEmail}
+                  onChange={(e) => setDonorEmail(e.target.value)}
+                />
+              </div>
+
+              {netAmount > 0 && (
+                <div style={{
+                  padding: 16,
+                  borderRadius: 12,
+                  background: 'rgba(255,255,255,0.03)',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                  marginBottom: 20,
+                }}>
+                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={coverFees}
+                      onChange={(e) => setCoverFees(e.target.checked)}
+                      style={{ marginTop: 3 }}
+                    />
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 600 }}>Cover transaction costs?</div>
+                      <p style={{ fontSize: 12, color: 'var(--muted)', margin: '4px 0 0 0' }}>
+                        Add <b>${fee.toFixed(2)}</b> to cover merchant fees so that 100% of your intended <b>${netAmount.toFixed(2)}</b> donation goes to {orgName || 'the charity'}.
+                      </p>
+                    </div>
+                  </label>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                <span style={{ color: 'var(--muted)', fontSize: 14 }}>Total Donation:</span>
+                <span style={{ fontSize: 24, fontWeight: 700 }}>${displayAmount.toFixed(2)} {campaign.currency}</span>
+              </div>
+
+              <button
+                type="submit"
+                className="pill pillPrimary"
+                style={{ width: '100%', padding: '14px', fontSize: 16 }}
+                disabled={checkingOut || netAmount <= 0}
+              >
+                {checkingOut ? 'Preparing Checkout...' : `Donate $${displayAmount.toFixed(2)}`}
+              </button>
+            </form>
+          ) : (
+            <div style={{ display: 'grid', gap: 16 }}>
+              <div
+                style={{
+                  padding: 18,
+                  borderRadius: 12,
+                  border: '1px solid rgba(255, 173, 92, 0.22)',
+                  background: 'rgba(255, 173, 92, 0.08)',
                 }}
-              />
-            </div>
-
-            <div className="field">
-              <label className="label">Donor Name</label>
-              <input
-                type="text"
-                className="input"
-                required
-                placeholder="Your full name"
-                value={donorName}
-                onChange={(e) => setDonorName(e.target.value)}
-              />
-            </div>
-
-            <div className="field">
-              <label className="label">Donor Email</label>
-              <input
-                type="email"
-                className="input"
-                required
-                placeholder="your.email@example.com"
-                value={donorEmail}
-                onChange={(e) => setDonorEmail(e.target.value)}
-              />
-            </div>
-
-            {netAmount > 0 && (
-              <div style={{
-                padding: 16,
-                borderRadius: 12,
-                background: 'rgba(255,255,255,0.03)',
-                border: '1px solid rgba(255,255,255,0.06)',
-                marginBottom: 20,
-              }}>
-                <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={coverFees}
-                    onChange={(e) => setCoverFees(e.target.checked)}
-                    style={{ marginTop: 3 }}
-                  />
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 600 }}>Cover transaction costs?</div>
-                    <p style={{ fontSize: 12, color: 'var(--muted)', margin: '4px 0 0 0' }}>
-                      Add <b>${fee.toFixed(2)}</b> to cover merchant fees so that 100% of your intended <b>${netAmount.toFixed(2)}</b> donation goes to {orgName || 'the charity'}.
-                    </p>
-                  </div>
-                </label>
+              >
+                <p style={{ margin: 0, fontWeight: 700 }}>Payments are not enabled in this private pilot.</p>
+                <p style={{ margin: '8px 0 0 0', color: 'var(--muted)' }}>
+                  Use your existing donation processor while Magnus Accord tracks campaign readiness.
+                </p>
+                <p style={{ margin: '8px 0 0 0', color: 'var(--muted)' }}>
+                  Stripe Connect verification pending.
+                </p>
               </div>
-            )}
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <span style={{ color: 'var(--muted)', fontSize: 14 }}>Total Donation:</span>
-              <span style={{ fontSize: 24, fontWeight: 700 }}>${displayAmount.toFixed(2)} {campaign.currency}</span>
+              <button
+                type="button"
+                className="pill"
+                style={{ width: '100%', padding: '14px', fontSize: 16, opacity: 0.7, cursor: 'not-allowed' }}
+                disabled
+              >
+                Payments Disabled For Pilot
+              </button>
             </div>
-
-            <button
-              type="submit"
-              className="pill pillPrimary"
-              style={{ width: '100%', padding: '14px', fontSize: 16 }}
-              disabled={checkingOut || netAmount <= 0}
-            >
-              {checkingOut ? 'Preparing Checkout...' : `Donate $${displayAmount.toFixed(2)}`}
-            </button>
-          </form>
+          )}
 
         </div>
       </div>
