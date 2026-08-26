@@ -12,7 +12,7 @@ export default function ToolsPage() {
           <div className="cards">
             <div className="card">
               <div className="cardTitle">Compliance Calendar</div>
-              <p className="cardBody">Deadlines tracked centrally and exposed to dashboards via `/api/*` endpoints.</p>
+              <p className="cardBody">Filing and reporting deadlines tracked centrally, with clear status your whole team can see.</p>
             </div>
             <div className="card">
               <div className="cardTitle">AI Concierge</div>
