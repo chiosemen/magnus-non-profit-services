@@ -29,7 +29,9 @@ function main() {
         'postgresql://user:pass@localhost:5432/magnus_ci_typegen?schema=public';
     } else {
       console.error('FATAL: DATABASE_URL not set in packages/db/.env');
-      console.error('Please ensure the Neon connection string is present.');
+      console.error(
+        'Set a Postgres URL (Railway in deployed environments; packages/db/.env for local).'
+      );
       process.exit(1);
     }
   }

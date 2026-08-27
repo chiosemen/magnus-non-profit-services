@@ -45,6 +45,9 @@ Assume you are about to write the sixth. Check.
   compiles to nothing, silently. Assert against `.next/server/middleware-manifest.json`, not source.
 - **`node --test <dir>` is unreliable here.** Use explicit globs plus `scripts/assert-test-count.js`
   with a `--min` floor, so a glob matching zero files fails instead of passing.
+- **Never `prisma db push` against a deployed environment.** It writes objects without
+  `_prisma_migrations` history. Staging hit `P3009` on `7430ad0` for this reason. Use
+  `pnpm --filter @magnus/db prisma:deploy` from the app service that has the checkout.
 
 ## Hard constraints
 
