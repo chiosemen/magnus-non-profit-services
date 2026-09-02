@@ -100,6 +100,17 @@ Test data never inherits a security-relevant value from a schema default. A fixt
 `@default(...)` for tier, status, or scope is asserting something it does not say.
 **Prevents:** the `setupTestOrg` failure — a fixture silently depending on `@default(ACTIVE)`.
 
+### R14 — A public marketing deployment carries no application surface and no application credentials *(A01, A05)*
+A deployment that serves a public marketing hostname serves an **allowlist** of marketing paths and
+returns an opaque 404 for everything else, and its environment must not contain a database, auth,
+payment, or model credential — enforced by fail-closed env validation at boot, not by convention.
+Absence of the credential is the primary control; the route gate is defence in depth. The mode is an
+environment property read at request time, so one artifact serves both deployments.
+**Prevents:** publishing `/login`, `/app/*` and `/api/*` on the buyer-facing domain while the
+application is `READY_FOR_STAGING_PILOT`, and repeating the plaintext `DATABASE_URL` finding
+(`docs/releases/7430ad0.md` §7) in a second service.
+**Spec:** `docs/security/PUBLIC-SURFACE-SEPARATION.md`.
+
 ---
 
 ## 2. Blocker register

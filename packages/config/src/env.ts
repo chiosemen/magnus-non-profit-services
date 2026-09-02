@@ -33,6 +33,11 @@ export const publicEnvSchema = z.object({
 });
 
 export const serverEnvSchema = z.object({
+  // SPEC-P0 R14 / PS-4. Kept a plain string here and validated by
+  // `assertMarketingOnlyEnvironment` instead of `boolFromString`, because that
+  // preprocessor lowercases and trims — it would accept "TRUE" and " true ",
+  // and a mode flag that guesses is the failure this rule exists to prevent.
+  MARKETING_ONLY: z.string().optional(),
   DATABASE_URL: nonEmpty.optional(),
   DATABASE_URL_UNPOOLED: nonEmpty.optional(),
   REDIS_URL: nonEmpty.optional(),
@@ -151,6 +156,7 @@ export type EnvServiceName =
 
 const serviceSchemas: Record<EnvServiceName, z.ZodTypeAny> = {
   'web': allEnvSchema.pick({
+    MARKETING_ONLY: true,
     DATABASE_URL: true,
     JWT_SECRET: true,
     NODE_ENV: true,
@@ -272,6 +278,88 @@ function assertProductionRedisConfigured(service: EnvServiceName, env: { NODE_EN
   }
 }
 
+/**
+ * SPEC-P0 R14 / PS-3 — what a marketing deployment is allowed to hold.
+ *
+ * The routing gate in the middleware is defence in depth. Credential absence is
+ * the primary control: a service that cannot reach the database does not depend
+ * on a route matcher being correct. Release record 7430ad0 §7 records a
+ * plaintext DATABASE_URL already pasted into one service's variables; a second
+ * service is a second chance to repeat it.
+ *
+ * Stated as an allowlist for the same reason PS-1 is: a credential added to the
+ * schema later must be forbidden here by default, not by someone remembering to
+ * add it to a list.
+ */
+const MARKETING_PERMITTED_KEYS = new Set([
+  'MARKETING_ONLY',
+  'NODE_ENV',
+  'PORT',
+  'LOG_LEVEL',
+  'NEXT_PUBLIC_APP_URL',
+]);
+
+/**
+ * Derived, never hand-maintained: every variable this codebase declares, minus
+ * the handful a static marketing page needs. Platform-injected variables (PATH,
+ * HOME, RAILWAY_*) are untouched — only declared application configuration is
+ * in scope.
+ */
+const MARKETING_FORBIDDEN_KEYS: readonly string[] = Object.keys(allEnvSchema.shape).filter(
+  (key) => !MARKETING_PERMITTED_KEYS.has(key),
+);
+
+const MARKETING_SPEC_REF = 'docs/security/PUBLIC-SURFACE-SEPARATION.md';
+
+/**
+ * Railway and Vercel both surface an unset variable as an empty string, so an
+ * empty or whitespace-only value is absence, not a value.
+ */
+function presentValue(input: NodeJS.ProcessEnv, key: string): string | undefined {
+  const raw = input[key];
+  if (typeof raw !== 'string') return undefined;
+  const trimmed = raw.trim();
+  return trimmed === '' ? undefined : raw;
+}
+
+/** True only when MARKETING_ONLY is exactly `"true"`. Never guesses. */
+export function isMarketingOnlyEnv(input: NodeJS.ProcessEnv = process.env): boolean {
+  return presentValue(input, 'MARKETING_ONLY') === 'true';
+}
+
+/**
+ * PS-3 / PS-4 — fail closed at boot.
+ *
+ * Called unconditionally from `apps/web/next.config.js`, outside the
+ * SKIP_ENV_VALIDATION escape hatch: a credential check that can be switched
+ * off by an environment variable is not a control.
+ *
+ * @throws if MARKETING_ONLY is malformed, or if it is enabled while any
+ * application credential is present.
+ */
+export function assertMarketingOnlyEnvironment(input: NodeJS.ProcessEnv = process.env): void {
+  const raw = presentValue(input, 'MARKETING_ONLY');
+  if (raw === undefined) return; // application deployment
+
+  if (raw !== 'true' && raw !== 'false') {
+    throw new Error(
+      `Invalid environment configuration for web: MARKETING_ONLY must be exactly "true" or "false", ` +
+        `received ${JSON.stringify(raw)}. Refusing to start rather than defaulting to serving the ` +
+        `application on a public marketing hostname — see ${MARKETING_SPEC_REF} (PS-4).`,
+    );
+  }
+  if (raw === 'false') return;
+
+  const present = MARKETING_FORBIDDEN_KEYS.filter((key) => presentValue(input, key) !== undefined);
+  if (present.length > 0) {
+    throw new Error(
+      `Invalid environment configuration for web (MARKETING_ONLY): ${present.join(', ')} must not be set. ` +
+        `A marketing deployment holds no application credentials — remove them from this service, ` +
+        `do not rely on the route gate. See ${MARKETING_SPEC_REF} (PS-3).`,
+    );
+  }
+}
+
 export function loadPublicEnv(input: NodeJS.ProcessEnv = process.env): PublicEnv {
   const parsed = publicEnvSchema.safeParse(input);
   if (!parsed.success) {
@@ -292,12 +380,22 @@ export function requireEnvForService<S extends EnvServiceName>(
   service: S,
   input: NodeJS.ProcessEnv = process.env,
 ): z.infer<(typeof serviceSchemas)[S]> {
+  if (service === 'web') {
+    assertMarketingOnlyEnvironment(input);
+  }
+
   const schema = serviceSchemas[service];
   const parsed = schema.safeParse(input);
   if (!parsed.success) {
     throw new Error(formatEnvError(service, parsed.error));
   }
-  assertProductionRedisConfigured(service, parsed.data as { NODE_ENV?: string; REDIS_URL?: string });
+
+  // PS-3: the production Redis requirement exists for the auth and API
+  // surface. In marketing mode that surface returns 404, so requiring Redis
+  // would only push the operator to attach a service with nothing to do.
+  if (!(service === 'web' && isMarketingOnlyEnv(input))) {
+    assertProductionRedisConfigured(service, parsed.data as { NODE_ENV?: string; REDIS_URL?: string });
+  }
   return parsed.data as z.infer<(typeof serviceSchemas)[S]>;
 }
 
