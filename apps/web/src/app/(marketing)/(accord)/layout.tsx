@@ -72,7 +72,6 @@ export default function AccordLayout({ children }: { children: ReactNode }) {
               <ul>
                 <li><Link href="/book-audit">Apply for Beta</Link></li>
                 <li><Link href="/snapshot">Free Snapshot</Link></li>
-                <li><Link href="/tools">Tools</Link></li>
                 <li><Link href="/login">Log in</Link></li>
               </ul>
             </nav>
