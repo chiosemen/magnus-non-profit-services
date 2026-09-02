@@ -88,6 +88,11 @@ curl -s "$BASE/robots.txt"
 
 # must NOT appear
 curl -sI "$BASE/" | grep -i x-powered-by
+
+# must print nothing — the public HTML names no application path (PS-10)
+for p in / /book-audit /snapshot; do
+  curl -s "$BASE$p" | grep -oE 'href="/(login|app|tools|api)[^"]*"'
+done
 ```
 
 If any application path returns anything other than `404 0B`, **stop** and do

@@ -7,6 +7,12 @@ import './accord.css';
  * Chrome for the Magnus Accord marketing surface (home, /book-audit, /snapshot).
  * The classic chrome for /tools and the donor-facing campaign pages lives
  * untouched in the (classic) route group.
+ *
+ * Every link here must be on the marketing allowlist (public-surface.js):
+ * this chrome is served on the public apex, where anything else 404s and
+ * merely naming /login or /app in the HTML is the disclosure threat T1
+ * describes. No login link during the private beta — design partners are
+ * given the application hostname directly. A guard test walks every href.
  */
 export default function AccordLayout({ children }: { children: ReactNode }) {
   return (
@@ -31,9 +37,6 @@ export default function AccordLayout({ children }: { children: ReactNode }) {
           </nav>
 
           <div className="ac-nav-actions">
-            <Link href="/login" className="ac-btn ac-btn--quiet">
-              Log in
-            </Link>
             <Link href="/book-audit" className="ac-btn ac-btn--primary">
               Apply for Beta
             </Link>
@@ -72,7 +75,6 @@ export default function AccordLayout({ children }: { children: ReactNode }) {
               <ul>
                 <li><Link href="/book-audit">Apply for Beta</Link></li>
                 <li><Link href="/snapshot">Free Snapshot</Link></li>
-                <li><Link href="/login">Log in</Link></li>
               </ul>
             </nav>
           </div>

@@ -115,6 +115,16 @@ the application deployment disallows all of it. Not a security control — an
 authenticated application in a search index is an operational and SEO problem,
 and this is the moment it is created.
 
+**PS-10 — The apex HTML names no application path. [A01 · T1, T3]**
+Every internal link on the Accord surface resolves on the marketing
+deployment: a guard test walks every `href` in the chrome and pages and asks
+the real allowlist predicate. No `/login`, `/app` or `/tools` link ships in the
+public chrome — the middleware would 404 them, but merely printing the path in
+public HTML is the disclosure T1 describes. During the private beta there is
+no self-serve signup, so the apex has no logged-in audience; design partners
+are given the application hostname directly. A login link returns as an
+absolute link the day the application has a hostname of its own.
+
 ---
 
 ## 4. Non-goals
@@ -146,6 +156,7 @@ It publishes a static marketing surface and nothing else.
 | PS-7 | red-first output recorded in the PR body |
 | PS-8 | source assertion that the mode is read from `process.env` at request time |
 | PS-9 | `marketing-only-gate.test.js` — robots.txt depends on the mode and is not statically generated |
+| PS-10 | `accord-landing.test.js` — walks every `href` on the Accord surface against `isPublicMarketingPath`; asserts no `/login` in the chrome |
 
 ---
 
