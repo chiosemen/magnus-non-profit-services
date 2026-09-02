@@ -1063,6 +1063,18 @@
 }
 
 /* ---------------------------------------------------------------- */
+/* Free snapshot — the smaller offer, deliberately quieter than the  */
+/* beta box above it: no edge, no wash, ghost button.                */
+/* ---------------------------------------------------------------- */
+
+.ac-snapshot {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  gap: var(--ac-s7);
+  align-items: center;
+}
+
+/* ---------------------------------------------------------------- */
 /* FAQ                                                               */
 /* ---------------------------------------------------------------- */
 
@@ -1352,6 +1364,11 @@
     grid-template-columns: 1fr;
     gap: var(--ac-s6);
     padding: var(--ac-s6);
+  }
+
+  .ac-snapshot {
+    grid-template-columns: 1fr;
+    gap: var(--ac-s6);
   }
 }
 

@@ -9,6 +9,7 @@ const LINKS = [
   { href: '/#how-it-works', label: 'How It Works' },
   { href: '/#assurance', label: 'Assurance' },
   { href: '/#beta', label: 'Design Partner Beta' },
+  { href: '/snapshot', label: 'Free Snapshot' },
 ];
 
 export function MobileNavToggle() {
@@ -42,9 +43,6 @@ export function MobileNavToggle() {
             {l.label}
           </a>
         ))}
-        <Link href="/login" onClick={() => setOpen(false)}>
-          Log in
-        </Link>
         <Link href="/book-audit" className="ac-btn ac-btn--primary" onClick={() => setOpen(false)}>
           Apply for the Design Partner Beta
         </Link>

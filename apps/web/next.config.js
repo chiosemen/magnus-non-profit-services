@@ -20,6 +20,12 @@
 
 const isDev = process.env.NODE_ENV !== 'production';
 
+// SPEC-P0 R14 / PS-3, PS-4 — deliberately OUTSIDE the SKIP_ENV_VALIDATION
+// escape hatch. A marketing deployment must not hold application credentials,
+// and a check that can be switched off by an environment variable is not a
+// control. See docs/security/PUBLIC-SURFACE-SEPARATION.md.
+require('@magnus/config').assertMarketingOnlyEnvironment();
+
 // Fail early if canonical validation fails
 if (process.env.SKIP_ENV_VALIDATION !== 'true') {
   require('@magnus/config').validateEnvForService('web');
@@ -46,6 +52,10 @@ const ContentSecurityPolicy = [
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+
+  // T3 (docs/security/PUBLIC-SURFACE-SEPARATION.md) — the public marketing
+  // hostname should not name the framework running behind it.
+  poweredByHeader: false,
   transpilePackages: ['@magnus/org-autonomous-ops-context'],
 
   async headers() {

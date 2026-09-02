@@ -90,6 +90,13 @@ const BETA_POINTS = [
   'Receive direct implementation support from the team building Accord',
 ];
 
+const SNAPSHOT_POINTS = [
+  'Your revenue mix for the most recent filed year, by source category',
+  'Your three-year total revenue trend',
+  'A concentration measure, and one plain sentence naming what it means',
+  'One sentence on what typically comes under pressure first if the dominant source moves',
+];
+
 const FAQ_ITEMS = [
   {
     q: 'Is Accord a replacement for our CRM or accounting system?',
@@ -351,8 +358,41 @@ export default function AccordLandingPage() {
         </div>
       </section>
 
+      {/* Free snapshot — the smaller ask, carried over from the previous site */}
+      <section className="ac-section ac-section--tint" id="snapshot" aria-labelledby="ac-snapshot-h">
+        <div className="ac-container">
+          <div className="ac-snapshot">
+            <div>
+              <p className="ac-eyebrow">Start smaller</p>
+              <h2 id="ac-snapshot-h" className="ac-h2">
+                Not ready for a beta? Start with one page.
+              </h2>
+              <p className="ac-lead">
+                Send your organization’s name and we send back a free one-page picture of your
+                revenue mix and three-year trend, read from your public Form 990. No call, nothing
+                confidential, nothing retained.
+              </p>
+              <div className="ac-hero-ctas">
+                <Link href="/snapshot" className="ac-btn ac-btn--ghost">
+                  Request your free snapshot
+                  <Icon name="arrow-right" size={16} />
+                </Link>
+              </div>
+            </div>
+            <ul className="ac-beta-points">
+              {SNAPSHOT_POINTS.map((p) => (
+                <li key={p}>
+                  <Icon name="file-search" size={17} />
+                  {p}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </section>
+
       {/* FAQ */}
-      <section className="ac-section ac-section--tint" aria-labelledby="ac-faq-h">
+      <section className="ac-section" aria-labelledby="ac-faq-h">
         <div className="ac-container">
           <div className="ac-section-head ac-section-head--center">
             <p className="ac-eyebrow">Questions</p>

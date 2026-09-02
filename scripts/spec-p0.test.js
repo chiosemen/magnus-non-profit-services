@@ -23,7 +23,7 @@ test('SPEC-P0.md exists at the repository root', () => {
 
 test('every binding rule R1..R13 is present', () => {
   const spec = fs.readFileSync(SPEC, 'utf8');
-  for (let n = 1; n <= 13; n += 1) {
+  for (let n = 1; n <= 14; n += 1) {
     assert.ok(
       new RegExp(`(^|\\n)### R${n} `).test(spec),
       `binding rule R${n} must be present in SPEC-P0.md`
@@ -40,6 +40,23 @@ test('R12 (run every check against the defective state) is marked a HARD RULE', 
     r12,
     /observed to fail/i,
     'R12 must require the check be observed to fail against the broken state'
+  );
+});
+
+test('R14 binds public marketing deployments to an allowlist and no credentials', () => {
+  const spec = fs.readFileSync(SPEC, 'utf8');
+  const r14 = spec.slice(spec.indexOf('### R14'), spec.indexOf('## 2. Blocker register'));
+  assert.ok(r14.length > 0, 'R14 section must exist');
+  assert.match(r14, /allowlist/i, 'R14 must require an allowlist, not a denylist');
+  assert.match(
+    r14,
+    /no application credential|no application surface and no application credential/i,
+    'R14 must forbid application credentials in a marketing environment'
+  );
+  assert.match(r14, /fail-closed/i, 'R14 must require fail-closed enforcement');
+  assert.ok(
+    fs.existsSync(path.join(__dirname, '..', 'docs', 'security', 'PUBLIC-SURFACE-SEPARATION.md')),
+    'the spec R14 points at must exist — a rule with a dangling reference is not binding'
   );
 });
 

@@ -9,6 +9,8 @@ export {
   loadPublicEnv,
   requireEnvForService,
   validateEnvForService,
+  assertMarketingOnlyEnvironment,
+  isMarketingOnlyEnv,
 } from './env';
 export type {
   AppEnv,

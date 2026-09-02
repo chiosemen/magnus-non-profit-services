@@ -36,14 +36,50 @@ test('accord landing page exists at the marketing root with the promise headline
   assert.match(src, /catch exceptions early/);
 });
 
-test('primary CTA goes to /book-audit, secondary anchors the workflow, login stays quiet', () => {
+test('primary CTA goes to /book-audit, secondary anchors the workflow, no login on the public chrome', () => {
   const page = read(ACCORD, 'page.tsx');
   const layout = read(ACCORD, 'layout.tsx');
   assert.match(page, /href="\/book-audit"/);
   assert.match(page, /href="\/?#how-it-works"/);
   assert.match(page, /See how Accord works/);
-  assert.match(layout, /href="\/login"/);
   assert.match(layout, /href="\/book-audit"/);
+  // During the private beta there is no self-serve signup: nobody arriving
+  // from the public hostname has anything to log in to, and design partners
+  // are given the application hostname directly. A login link on the apex
+  // only names the auth path in public HTML (threat T1) and 404s there.
+  for (const file of ['layout.tsx', path.join('components', 'MobileNav.tsx')]) {
+    assert.doesNotMatch(read(ACCORD, file), /href="\/login"/, `${file} must not link to /login`);
+  }
+});
+
+test('every internal link on the Accord surface is served by the marketing deployment', () => {
+  // The class of bug this closes: a link in the chrome that works on the
+  // application deployment and 404s on the apex. Walks every href on the
+  // Accord surface and asks the real allowlist predicate the middleware uses.
+  const { isPublicMarketingPath } = require(path.join(__dirname, '..', 'src', 'lib', 'public-surface.js'));
+  const files = [
+    'page.tsx',
+    'layout.tsx',
+    path.join('components', 'MobileNav.tsx'),
+    path.join('book-audit', 'page.tsx'),
+    path.join('snapshot', 'page.tsx'),
+  ];
+  const dead = [];
+  let seen = 0;
+  for (const file of files) {
+    const src = read(ACCORD, file);
+    for (const m of src.matchAll(/href=(?:"([^"]+)"|\{`([^`]+)`\}|\{([A-Z_]+)\})/g)) {
+      const raw = m[1] ?? m[2] ?? m[3] ?? '';
+      // Constants (e.g. APPLY_MAILTO) and template strings are mailto: drafts,
+      // asserted separately; in-page anchors and external links are not paths.
+      if (!raw.startsWith('/')) continue;
+      seen += 1;
+      const pathname = raw.split('#')[0].split('?')[0] || '/';
+      if (!isPublicMarketingPath(pathname)) dead.push(`${file}: ${raw}`);
+    }
+  }
+  assert.ok(seen >= 10, `expected to walk at least 10 internal links, walked ${seen} — the regex is not matching`);
+  assert.deepEqual(dead, [], `links that 404 on the apex:\n  ${dead.join('\n  ')}`);
 });
 
 test('human-authority trust line is present and autonomy is never claimed', () => {
@@ -68,7 +104,12 @@ test('workflow states what AI prepares and what the human approves, six times ea
 });
 
 test('no implementation language on the buyer-facing accord surface', () => {
-  for (const file of ['page.tsx', 'layout.tsx', path.join('book-audit', 'page.tsx')]) {
+  for (const file of [
+    'page.tsx',
+    'layout.tsx',
+    path.join('book-audit', 'page.tsx'),
+    path.join('snapshot', 'page.tsx'),
+  ]) {
     const src = read(ACCORD, file);
     for (const banned of [/Neon/i, /Prisma/, /endpoint/i, /middleware/i, /database model/i, /API-backed/i, /lorem/i, /TODO/]) {
       assert.doesNotMatch(src, banned, `${file} leaks implementation language: ${banned}`);
@@ -88,6 +129,51 @@ test('book-audit is a real conversion step: existing contact channel, no fake fo
   assert.match(src, /mailto:hello@magnusnonprofitservices\.com/);
   assert.doesNotMatch(src, /<form/i, 'no form may ship without a real submission target');
   assert.match(src, /Apply for the Design Partner Beta/);
+});
+
+test('the free funding snapshot survives the move from the old apex site', () => {
+  // The previous apex one-pager's only offer. Carried over as its own page
+  // with the same channel as the beta application: a pre-addressed draft to
+  // the existing contact address, no form, nothing stored.
+  const page = read(ACCORD, 'snapshot', 'page.tsx');
+  assert.match(page, /mailto:hello@magnusnonprofitservices\.com/);
+  assert.doesNotMatch(page, /<form/i, 'no form may ship without a real submission target');
+  assert.match(page, /Request your free snapshot/);
+  // The four deliverables the old page promised, kept intact.
+  assert.match(page, /revenue mix/i);
+  assert.match(page, /three-year/i);
+  assert.match(page, /concentration/i);
+  assert.match(page, /under pressure first/i);
+  // The no-strings promise, kept intact.
+  assert.match(page, /nothing is retained/i);
+  // Reachable: a section on the landing, the nav, and the footer.
+  assert.match(read(ACCORD, 'page.tsx'), /href="\/snapshot"/);
+  assert.match(read(ACCORD, 'layout.tsx'), /href="\/snapshot"/);
+  assert.match(read(ACCORD, 'components', 'MobileNav.tsx'), /'\/snapshot'/);
+});
+
+test('the landing keeps one primary call to action: the snapshot never competes with the beta', () => {
+  const page = read(ACCORD, 'page.tsx');
+  const primaries = page.match(/ac-btn--primary/g) || [];
+  const primaryTargets = page.match(/href="\/book-audit" className="ac-btn ac-btn--primary"/g) || [];
+  assert.equal(
+    primaries.length,
+    primaryTargets.length,
+    'every primary button on the landing must go to /book-audit'
+  );
+  assert.doesNotMatch(
+    page,
+    /href="\/snapshot" className="ac-btn ac-btn--primary"/,
+    'the snapshot link on the landing must not be styled as a primary button'
+  );
+});
+
+test('the paid Clarity package is not advertised while its SOW is unreviewed', () => {
+  // docs/releases/7430ad0.md §7: CLARITY_SOW.md claims not line-checked,
+  // not to be sent to a client. It must not be sold from the marketing surface.
+  for (const file of ['page.tsx', 'layout.tsx', path.join('snapshot', 'page.tsx')]) {
+    assert.doesNotMatch(read(ACCORD, file), /Clarity Package/i, `${file} advertises the unreviewed package`);
+  }
 });
 
 test('design system honors reduced motion and visible focus', () => {
