@@ -63,9 +63,11 @@ function readBuiltArtifact(file, label) {
 
 // ── PS-1 — allowlist, not denylist ──────────────────────────────────────────
 
-test('PS-1: the marketing allowlist admits exactly the two buyer-facing pages', () => {
+test('PS-1: the marketing allowlist admits exactly the buyer-facing pages', () => {
   const { isPublicMarketingPath } = requireSurface();
-  for (const allowed of ['/', '/book-audit']) {
+  // The landing, the beta application, and the free funding snapshot carried
+  // over from the previous apex site. Nothing else.
+  for (const allowed of ['/', '/book-audit', '/snapshot']) {
     assert.equal(isPublicMarketingPath(allowed), true, `${allowed} must be served`);
   }
 });
@@ -113,7 +115,10 @@ test('PS-1: the allowlist is exact — no prefix, case, or separator confusion',
   for (const blocked of [
     '/book-audit-internal', // prefix confusion
     '/book-auditor',
+    '/snapshots',
+    '/snapshot-report',
     '/BOOK-AUDIT', // case
+    '/Snapshot',
     '/App/donors',
     '/_nextjs-admin', // prefix confusion on the asset prefix
     '/_next', // the bare segment is not an asset path

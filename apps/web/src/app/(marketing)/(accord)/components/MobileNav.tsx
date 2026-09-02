@@ -9,6 +9,7 @@ const LINKS = [
   { href: '/#how-it-works', label: 'How It Works' },
   { href: '/#assurance', label: 'Assurance' },
   { href: '/#beta', label: 'Design Partner Beta' },
+  { href: '/snapshot', label: 'Free Snapshot' },
 ];
 
 export function MobileNavToggle() {

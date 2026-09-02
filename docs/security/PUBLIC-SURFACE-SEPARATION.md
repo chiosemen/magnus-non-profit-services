@@ -13,7 +13,7 @@ instruction.
 
 ## 1. Decision
 
-The Accord landing (`/`, `/book-audit`) is merged to `main` but reaches no
+The Accord landing (`/`, `/book-audit`, and now `/snapshot`) is merged to `main` but reaches no
 public hostname. The apex `magnusnonprofitservices.com` serves an unrelated
 one-page site; the Next application — landing *and* `/login`, `/app/*`,
 `/api/*` — exists only on `staging.magnusnonprofitservices.com`.
@@ -61,7 +61,8 @@ Each is testable and each has a named test. OWASP Top 10 mapping in brackets.
 
 **PS-1 — Allowlist, not denylist. [A01]**
 In `MARKETING_ONLY` mode the deployment serves exactly: `/`, `/book-audit`,
-and Next build assets (`/_next/*`, `/favicon.ico`, `/robots.txt`,
+`/snapshot` (the free funding snapshot carried over from the previous apex
+site), and Next build assets (`/_next/*`, `/favicon.ico`, `/robots.txt`,
 `/sitemap.xml`). Every other path is blocked. A route added to the
 application later is blocked by default, without anyone remembering to add it
 to a list.

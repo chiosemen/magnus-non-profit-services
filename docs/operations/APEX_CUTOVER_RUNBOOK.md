@@ -20,10 +20,13 @@ Observed 2 September 2026:
 So the landing merged at `88f852a` is reachable only on staging, and the apex
 shows an older offer.
 
-**This cutover replaces that one-pager.** The free funding-concentration
-snapshot offer and its call to action disappear from the apex the moment DNS
-moves. If that offer is still generating enquiries, decide what happens to it
-*before* step 4 — the Accord landing does not carry it.
+**This cutover replaces that one-pager.** Its free funding-concentration
+snapshot offer is carried over intact at `/snapshot`, with a "Start smaller"
+section on the landing and a nav link, through the same pre-addressed email
+channel as the beta application. Its paid Clarity Package is **not** carried
+over: `docs/releases/7430ad0.md` §7 marks that SOW's claims as unreviewed and
+not to be sent to a client, and a test now keeps it off the marketing surface
+until that changes.
 
 ---
 
@@ -67,6 +70,7 @@ BASE=https://<service>.up.railway.app
 # must be 200
 curl -s -o /dev/null -w '%{http_code} /\n'            "$BASE/"
 curl -s -o /dev/null -w '%{http_code} /book-audit\n'  "$BASE/book-audit"
+curl -s -o /dev/null -w '%{http_code} /snapshot\n'    "$BASE/snapshot"
 
 # must ALL be 404 with an empty body
 for p in /login /app /app/donors /api/health /api/auth/me /tools \

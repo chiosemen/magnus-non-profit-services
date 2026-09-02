@@ -4,7 +4,7 @@ import { MobileNavToggle } from './components/MobileNav';
 import './accord.css';
 
 /**
- * Chrome for the Magnus Accord marketing surface (home + /book-audit).
+ * Chrome for the Magnus Accord marketing surface (home, /book-audit, /snapshot).
  * The classic chrome for /tools and the donor-facing campaign pages lives
  * untouched in the (classic) route group.
  */
@@ -27,6 +27,7 @@ export default function AccordLayout({ children }: { children: ReactNode }) {
             <a href="/#how-it-works">How It Works</a>
             <a href="/#assurance">Assurance</a>
             <a href="/#beta">Design Partner Beta</a>
+            <a href="/snapshot">Free Snapshot</a>
           </nav>
 
           <div className="ac-nav-actions">
@@ -70,6 +71,7 @@ export default function AccordLayout({ children }: { children: ReactNode }) {
               <h2 className="ac-footer-heading">Access</h2>
               <ul>
                 <li><Link href="/book-audit">Apply for Beta</Link></li>
+                <li><Link href="/snapshot">Free Snapshot</Link></li>
                 <li><Link href="/tools">Tools</Link></li>
                 <li><Link href="/login">Log in</Link></li>
               </ul>

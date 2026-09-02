@@ -17,7 +17,7 @@
  * than a denylist, so that an application route added later is refused by
  * default rather than by someone remembering to block it.
  */
-const MARKETING_PAGES = new Set(['/', '/book-audit']);
+const MARKETING_PAGES = new Set(['/', '/book-audit', '/snapshot']);
 
 /** Root-level files a static marketing page legitimately requests. */
 const MARKETING_FILES = new Set(['/favicon.ico', '/robots.txt', '/sitemap.xml']);

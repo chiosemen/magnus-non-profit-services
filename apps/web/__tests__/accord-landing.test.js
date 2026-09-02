@@ -68,7 +68,12 @@ test('workflow states what AI prepares and what the human approves, six times ea
 });
 
 test('no implementation language on the buyer-facing accord surface', () => {
-  for (const file of ['page.tsx', 'layout.tsx', path.join('book-audit', 'page.tsx')]) {
+  for (const file of [
+    'page.tsx',
+    'layout.tsx',
+    path.join('book-audit', 'page.tsx'),
+    path.join('snapshot', 'page.tsx'),
+  ]) {
     const src = read(ACCORD, file);
     for (const banned of [/Neon/i, /Prisma/, /endpoint/i, /middleware/i, /database model/i, /API-backed/i, /lorem/i, /TODO/]) {
       assert.doesNotMatch(src, banned, `${file} leaks implementation language: ${banned}`);
@@ -88,6 +93,51 @@ test('book-audit is a real conversion step: existing contact channel, no fake fo
   assert.match(src, /mailto:hello@magnusnonprofitservices\.com/);
   assert.doesNotMatch(src, /<form/i, 'no form may ship without a real submission target');
   assert.match(src, /Apply for the Design Partner Beta/);
+});
+
+test('the free funding snapshot survives the move from the old apex site', () => {
+  // The previous apex one-pager's only offer. Carried over as its own page
+  // with the same channel as the beta application: a pre-addressed draft to
+  // the existing contact address, no form, nothing stored.
+  const page = read(ACCORD, 'snapshot', 'page.tsx');
+  assert.match(page, /mailto:hello@magnusnonprofitservices\.com/);
+  assert.doesNotMatch(page, /<form/i, 'no form may ship without a real submission target');
+  assert.match(page, /Request your free snapshot/);
+  // The four deliverables the old page promised, kept intact.
+  assert.match(page, /revenue mix/i);
+  assert.match(page, /three-year/i);
+  assert.match(page, /concentration/i);
+  assert.match(page, /under pressure first/i);
+  // The no-strings promise, kept intact.
+  assert.match(page, /nothing is retained/i);
+  // Reachable: a section on the landing, the nav, and the footer.
+  assert.match(read(ACCORD, 'page.tsx'), /href="\/snapshot"/);
+  assert.match(read(ACCORD, 'layout.tsx'), /href="\/snapshot"/);
+  assert.match(read(ACCORD, 'components', 'MobileNav.tsx'), /'\/snapshot'/);
+});
+
+test('the landing keeps one primary call to action: the snapshot never competes with the beta', () => {
+  const page = read(ACCORD, 'page.tsx');
+  const primaries = page.match(/ac-btn--primary/g) || [];
+  const primaryTargets = page.match(/href="\/book-audit" className="ac-btn ac-btn--primary"/g) || [];
+  assert.equal(
+    primaries.length,
+    primaryTargets.length,
+    'every primary button on the landing must go to /book-audit'
+  );
+  assert.doesNotMatch(
+    page,
+    /href="\/snapshot" className="ac-btn ac-btn--primary"/,
+    'the snapshot link on the landing must not be styled as a primary button'
+  );
+});
+
+test('the paid Clarity package is not advertised while its SOW is unreviewed', () => {
+  // docs/releases/7430ad0.md §7: CLARITY_SOW.md claims not line-checked,
+  // not to be sent to a client. It must not be sold from the marketing surface.
+  for (const file of ['page.tsx', 'layout.tsx', path.join('snapshot', 'page.tsx')]) {
+    assert.doesNotMatch(read(ACCORD, file), /Clarity Package/i, `${file} advertises the unreviewed package`);
+  }
 });
 
 test('design system honors reduced motion and visible focus', () => {
