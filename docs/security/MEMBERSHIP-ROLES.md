@@ -72,6 +72,8 @@ cookies and returns 401.
 **MR-3 — Only active memberships authenticate. [A07]**
 Active means `endDate IS NULL OR endDate > now()`. Enforced at login, at
 refresh, and in `validateMembership` (hence the SSR guard's INV-4).
+An incomplete in-memory membership shape that omits `endDate` fails closed;
+real membership reads select the field explicitly.
 
 **MR-4 — Closed set at the trust boundary. [R6]**
 Token `role` is `'admin' | 'member'`, lowercase, mapped from the enum in one
@@ -90,9 +92,10 @@ six `ACTIVE` orgs.
 
 **MR-6 — Proved at the database. [R11]**
 A DB integration test asserts, against the migrated ephemeral Postgres: the
-enum exists with both values; the column default is `MEMBER`; a membership
-created without an explicit role is `MEMBER`; an ended membership is not
-"active" by the predicate the application uses.
+enum exists with both values; the column default is `MEMBER`; the actual
+migration SQL turns a row that predates the role column into `ADMIN`; a row
+created after the migration without an explicit role is `MEMBER`; and an ended
+membership is not "active" by the predicate the application uses.
 
 **MR-7 — One predicate for future gates.**
 `hasRole(payload, 'admin')` in `apps/web/src/lib/auth` — `admin` satisfies any
@@ -140,7 +143,7 @@ organization's operator. The change takes effect on their next refresh, within
 
 | Requirement | Test |
 |---|---|
-| MR-1, MR-5, MR-6 | `packages/db/src/tests/membershipRole.test.ts` — enum, default, insert-without-role, active predicate (ephemeral Postgres) |
+| MR-1, MR-5, MR-6 | `packages/db/src/tests/membershipRole.test.ts` — enum, default, actual-migration backfill, insert-without-role, active predicate (ephemeral Postgres) |
 | MR-2 | `apps/web/__tests__/membership-role-claim.test.js` — no role literal in login/refresh; both read the membership; refresh revokes on missing membership |
 | MR-3 | same file — `isMembershipActive` cases; `validateMembership` filters on `endDate` |
 | MR-4 | same file — `toTokenRole` mapping, closed set, `verifyAppToken` rejects unknown roles |

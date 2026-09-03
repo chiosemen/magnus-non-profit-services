@@ -13,6 +13,7 @@
  * exist and the column did not exist — before the migration was written.
  */
 import { config } from 'dotenv';
+import { readFileSync } from 'fs';
 import { join } from 'path';
 
 config({ path: join(__dirname, '..', '..', '..', '..', '.env') });
@@ -70,6 +71,50 @@ async function canConnectToDb(): Promise<boolean> {
     const def = rows[0]?.column_default ?? '';
     assert.match(def, /MEMBER/, `default must be MEMBER, got: ${def}`);
     assert.ok(!/'ADMIN'/.test(def), 'default must not be ADMIN — that is the hardcoded claim again, in the schema');
+  });
+
+  test('MR-5: the migration backfills an existing membership to ADMIN and leaves new rows defaulting to MEMBER', async () => {
+    const schema = `mr_backfill_${process.pid}_${Date.now()}`;
+    const migrationPath = join(
+      __dirname,
+      '..',
+      '..',
+      'prisma',
+      'migrations',
+      '20260902230000_worker_org_relationship_role',
+      'migration.sql',
+    );
+    const statements = readFileSync(migrationPath, 'utf8')
+      .replace(/^\s*--.*$/gm, '')
+      .split(';')
+      .map((statement) => statement.trim())
+      .filter(Boolean);
+
+    await prisma.$executeRawUnsafe(`CREATE SCHEMA "${schema}"`);
+    try {
+      await prisma.$transaction(async (tx) => {
+        await tx.$executeRawUnsafe(`SET LOCAL search_path TO "${schema}"`);
+        await tx.$executeRawUnsafe('CREATE TABLE "WorkerOrgRelationship" ("id" INTEGER PRIMARY KEY)');
+        await tx.$executeRawUnsafe('INSERT INTO "WorkerOrgRelationship" ("id") VALUES (1)');
+
+        for (const statement of statements) {
+          await tx.$executeRawUnsafe(statement);
+        }
+
+        const existing = await tx.$queryRawUnsafe<Array<{ role: string }>>(
+          'SELECT "role"::text AS role FROM "WorkerOrgRelationship" WHERE "id" = 1',
+        );
+        assert.equal(existing[0]?.role, 'ADMIN', 'a membership present before the migration must preserve admin authority');
+
+        await tx.$executeRawUnsafe('INSERT INTO "WorkerOrgRelationship" ("id") VALUES (2)');
+        const added = await tx.$queryRawUnsafe<Array<{ role: string }>>(
+          'SELECT "role"::text AS role FROM "WorkerOrgRelationship" WHERE "id" = 2',
+        );
+        assert.equal(added[0]?.role, 'MEMBER', 'a membership added after the migration must receive least privilege');
+      });
+    } finally {
+      await prisma.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
+    }
   });
 
   test('MR-5: a membership created without an explicit role is MEMBER, and an ended one is not active', async () => {

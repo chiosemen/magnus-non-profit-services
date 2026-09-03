@@ -60,6 +60,9 @@ export async function verifySession(sessionId: string): Promise<{ id: string; wo
  *   5. Return new token + session metadata
  *
  * The old refresh token is invalidated immediately by replacing the hash.
+ * Membership is deliberately re-read by the refresh route after rotation:
+ * rejecting it before the compare-and-swap would leave the presented 30-day
+ * credential live and let a later membership reactivation resurrect it.
  */
 export async function rotateSession(
     sessionId: string,
@@ -100,10 +103,6 @@ export async function rotateSession(
         }).catch(() => { });
         return null;
     }
-
-    // ── Validate org membership is still active ──────────────────────
-    const stillMember = await validateMembership(session.workerId, session.orgId);
-    if (!stillMember) return null; // membership revoked since login — fail closed
 
     // ── Rotate: atomic compare-and-swap ──────────────────────────────
     // Uses updateMany with the old hash as a CAS guard. If another

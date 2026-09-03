@@ -18,7 +18,7 @@ export declare function toTokenRole(orgRole: unknown): TokenRole;
 
 /** MR-3 — no endDate, or a future one. */
 export declare function isMembershipActive(
-  membership: { endDate?: Date | null } | null | undefined,
+  membership: { endDate: Date | null } | null | undefined,
   now?: Date,
 ): boolean;
 

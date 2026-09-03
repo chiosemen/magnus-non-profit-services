@@ -79,11 +79,10 @@ test('MR-4: verifyAppToken rejects a role outside the closed set', () => {
 
 // ── MR-3 — only active memberships authenticate ─────────────────────────────
 
-test('MR-3: isMembershipActive — no endDate, or a future one, is active', () => {
+test('MR-3: isMembershipActive — a null endDate, or a future one, is active', () => {
   const { isMembershipActive } = requireRoles();
   const now = new Date('2026-09-02T12:00:00Z');
   assert.equal(isMembershipActive({ endDate: null }, now), true);
-  assert.equal(isMembershipActive({ endDate: undefined }, now), true);
   assert.equal(isMembershipActive({ endDate: new Date('2026-12-31T00:00:00Z') }, now), true);
 });
 
@@ -92,6 +91,8 @@ test('MR-3: isMembershipActive — an ended membership is not active, inclusive 
   const now = new Date('2026-09-02T12:00:00Z');
   assert.equal(isMembershipActive({ endDate: new Date('2026-09-01T00:00:00Z') }, now), false);
   assert.equal(isMembershipActive({ endDate: now }, now), false, 'endDate == now is ended');
+  assert.equal(isMembershipActive({ endDate: undefined }, now), false, 'a missing selected endDate must fail closed');
+  assert.equal(isMembershipActive({}, now), false, 'an incomplete membership shape must fail closed');
   assert.equal(isMembershipActive(null, now), false, 'no membership is not active');
   assert.equal(isMembershipActive(undefined, now), false);
 });
@@ -135,10 +136,27 @@ test('MR-2: login takes role and endDate from the membership row and refuses an 
 
 test('MR-2: refresh re-reads the membership and revokes the session when it is gone', () => {
   const src = stripComments(read('src', 'app', 'api', 'auth', 'refresh', 'route.ts'));
+  const sessionSrc = stripComments(read('src', 'lib', 'session.ts'));
+  const rotateStart = sessionSrc.indexOf('export async function rotateSession');
+  const rotateEnd = sessionSrc.indexOf('export async function validateMembership', rotateStart);
+  const rotateBody = sessionSrc.slice(rotateStart, rotateEnd);
+  assert.doesNotMatch(
+    rotateBody,
+    /validateMembership\(/,
+    'rotateSession must invalidate the presented refresh token before membership rejection; otherwise reactivation resurrects it'
+  );
   assert.match(src, /workerOrgRelationship\.findFirst|findActiveMembership\(/, 'refresh must re-read the membership');
   assert.match(src, /isMembershipActive\(|findActiveMembership\(/, 'refresh must check the membership is active');
   assert.match(src, /revokeSession\(/, 'a refresh with no active membership must revoke the session');
   assert.match(src, /clearCookies\(\)/, 'and clear both cookies');
+  const rotateCall = src.indexOf('await rotateSession(');
+  const membershipRead = src.indexOf('await findActiveMembership(', rotateCall);
+  const revokeCall = src.indexOf('await revokeSession(', membershipRead);
+  const tokenIssue = src.indexOf('signAppToken(', membershipRead);
+  assert.ok(
+    rotateCall >= 0 && membershipRead > rotateCall && revokeCall > membershipRead && tokenIssue > revokeCall,
+    'refresh must rotate first, then re-read membership, revoke inactive sessions, and only then issue a token'
+  );
 });
 
 // ── MR-7 — one predicate for future gates ───────────────────────────────────

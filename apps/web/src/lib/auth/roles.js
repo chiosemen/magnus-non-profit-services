@@ -47,14 +47,17 @@ function toTokenRole(orgRole) {
  * Mirrors the Prisma predicate in lib/session.ts validateMembership:
  *   OR: [{ endDate: null }, { endDate: { gt: now } }]
  *
- * @param {{ endDate?: Date | null } | null | undefined} membership
+ * A missing `endDate` property is an incomplete authorization record and
+ * fails closed. Prisma always selects the property for real membership rows.
+ *
+ * @param {{ endDate: Date | null } | null | undefined} membership
  * @param {Date} [now]
  * @returns {boolean}
  */
 function isMembershipActive(membership, now) {
   if (!membership || typeof membership !== 'object') return false;
   const end = membership.endDate;
-  if (end === null || end === undefined) return true;
+  if (end === null) return true;
   if (!(end instanceof Date) || Number.isNaN(end.getTime())) return false;
   const at = now instanceof Date ? now : new Date();
   return end.getTime() > at.getTime();
