@@ -144,14 +144,37 @@ export async function rotateSession(
  * Use this before granting access to org-scoped resources.
  */
 export async function validateMembership(workerId: string, orgId: string): Promise<boolean> {
-    if (!workerId || !orgId) return false;
+    return (await findActiveMembership(workerId, orgId)) !== null;
+}
 
+/**
+ * The membership row that authorizes a worker in an org — or null.
+ *
+ * MR-3 (docs/security/MEMBERSHIP-ROLES.md): only an ACTIVE membership counts.
+ * Active is `endDate IS NULL OR endDate > now`, evaluated at the database so
+ * login, refresh and the SSR guard (INV-4) share one predicate. Before this,
+ * an offboarded worker with a past endDate could still authenticate.
+ *
+ * MR-2: `role` is returned so the token claim is derived from this row at
+ * login AND refresh, never written as a literal.
+ */
+export async function findActiveMembership(
+    workerId: string,
+    orgId: string,
+): Promise<{ id: string; role: 'ADMIN' | 'MEMBER'; endDate: Date | null } | null> {
+    if (!workerId || !orgId) return null;
+
+    const now = new Date();
     const rel = await prisma.workerOrgRelationship.findFirst({
-        where: { workerId, orgId },
-        select: { id: true },
+        where: {
+            workerId,
+            orgId,
+            OR: [{ endDate: null }, { endDate: { gt: now } }],
+        },
+        select: { id: true, role: true, endDate: true },
     });
 
-    return rel !== null;
+    return rel;
 }
 
 /**

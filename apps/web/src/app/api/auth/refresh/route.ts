@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { AUTH_COOKIE_NAME, REFRESH_COOKIE_NAME, signAppToken, verifyAppToken } from '@/lib/auth';
-import { rotateSession } from '@/lib/session';
+import { isMembershipActive, toTokenRole } from '@/lib/auth/roles';
+import { findActiveMembership, revokeSession, rotateSession } from '@/lib/session';
 import { validateCsrfOrigin, csrfRejectionResponse } from '@/lib/csrf';
 
 export const runtime = 'nodejs';
@@ -16,8 +17,11 @@ export const runtime = 'nodejs';
  *      - validates hash match, not revoked, not expired
  *      - on hash mismatch → revokes session (token reuse attack)
  *      - replaces hash in DB, updates lastSeenAt
- *   5. Issue new access JWT + new refresh cookie
- *   6. Old refresh token is immediately invalid
+ *   5. Re-read the membership (MR-2/MR-3): the role is derived from the row
+ *      at every refresh, so a demotion lands within one access-token lifetime;
+ *      no active membership → revoke the session, clear cookies, 401
+ *   6. Issue new access JWT + new refresh cookie
+ *   7. Old refresh token is immediately invalid
  */
 export async function POST(req: Request) {
     // ── CSRF origin enforcement ────────────────────────────────────────
@@ -64,11 +68,22 @@ export async function POST(req: Request) {
         return Response.json({ error: 'REFRESH_INVALID' }, { status: 401 });
     }
 
-    // ── 4. Issue new tokens ──────────────────────────────────────────
+    // ── 4. Re-read the membership — the role is never carried forward ──
+    // A refresh is the moment a demotion or an offboarding takes effect. The
+    // rotated session is already committed; if the membership is gone or has
+    // ended, the session is revoked here so the new refresh token is dead too.
+    const membership = await findActiveMembership(result.workerId, result.orgId);
+    if (!membership || !isMembershipActive(membership)) {
+        await revokeSession(sessionId);
+        clearCookies();
+        return Response.json({ error: 'MEMBERSHIP_INACTIVE' }, { status: 401 });
+    }
+
+    // ── 5. Issue new tokens ──────────────────────────────────────────
     const newAccessToken = signAppToken({
         orgId: result.orgId,
         workerId: result.workerId,
-        role: 'admin',
+        role: toTokenRole(membership.role),
         sub: result.workerId,
         sessionId,
     });
