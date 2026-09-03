@@ -1,7 +1,8 @@
 import { prisma } from '@magnus/db/client';
 import { cookies, headers } from 'next/headers';
 import { AUTH_COOKIE_NAME, REFRESH_COOKIE_NAME, signAppToken } from '@/lib/auth';
-import { createSession } from '@/lib/session';
+import { isMembershipActive, toTokenRole } from '@/lib/auth/roles';
+import { createSession, findActiveMembership } from '@/lib/session';
 import {
   checkRateLimit,
   recordFailure,
@@ -72,15 +73,17 @@ export async function POST(req: Request) {
     return Response.json({ error: 'CREDENTIALS_INVALID' }, { status: 401 });
   }
 
-  const rel = await prisma.workerOrgRelationship.findFirst({
-    where: { orgId: org.id, workerId: worker.id },
-    select: { id: true },
-  });
-  if (!rel) {
+  // MR-2 / MR-3 (docs/security/MEMBERSHIP-ROLES.md): the membership row is the
+  // authority. It must be ACTIVE (no endDate, or a future one) and it supplies
+  // the role — nothing here writes a role literal. An ended membership is
+  // indistinguishable from no membership to the caller.
+  const rel = await findActiveMembership(worker.id, org.id);
+  if (!rel || !isMembershipActive(rel)) {
     const unavailable = await recordAuthFailure(ip);
     if (unavailable) return unavailable;
     return Response.json({ error: 'NOT_ASSOCIATED' }, { status: 401 });
   }
+  const role = toTokenRole(rel.role);
 
   // Login succeeded — clear rate-limit record for this IP
   try {
@@ -93,7 +96,7 @@ export async function POST(req: Request) {
   // Create server-side session row bound to the verified org
   const { sessionId, refreshToken } = await createSession(worker.id, org.id);
 
-  const token = signAppToken({ orgId: org.id, workerId: worker.id, role: 'admin', sub: worker.id, sessionId });
+  const token = signAppToken({ orgId: org.id, workerId: worker.id, role, sub: worker.id, sessionId });
   cookies().set({
     name: AUTH_COOKIE_NAME,
     value: token,

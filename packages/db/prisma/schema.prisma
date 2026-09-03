@@ -44,6 +44,13 @@ enum WorkerRelationshipType {
   BOARD_MEMBER
 }
 
+/// Authority of a worker within one organization (docs/security/MEMBERSHIP-ROLES.md).
+/// Lives on the membership, never on the Worker: the same tenant boundary SPEC-P0 R10 protects.
+enum OrgRole {
+  ADMIN
+  MEMBER
+}
+
 enum WorkerTier {
   FREE
   PREMIUM
@@ -364,6 +371,8 @@ model WorkerOrgRelationship {
   workerId          String                @db.Uuid
   orgId             String                @db.Uuid
   relationshipType  WorkerRelationshipType
+  /// MR-1/MR-5: least privilege by default. Read at login AND refresh; never a literal in a token.
+  role              OrgRole               @default(MEMBER)
   startDate         DateTime
   endDate           DateTime?
   annualCompensation Decimal?            @db.Decimal(12, 2)
